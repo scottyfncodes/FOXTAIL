@@ -219,7 +219,7 @@ export class MarketPanel {
       const stock = item.repeatable
         ? (state.decorStock[item.id as keyof typeof state.decorStock] ?? 0) + (state.furnitureStock[item.id as keyof typeof state.furnitureStock] ?? 0)
         : 0;
-      const extra = item.id === 'compostSack' ? ` (you have ${state.compost})` : stock ? ` (${stock} unplaced)` : '';
+      const extra = stock ? ` (${stock} unplaced)` : '';
       const name = el('div', 'entry-name', item.name + extra);
       if (isShopItemNew(state, item.id)) name.appendChild(el('span', 'new-tag', 'NEW'));
       this.shown.add(item.id);

@@ -6,6 +6,7 @@ import { zoneAt } from '../game/data/worldMap';
 import { isNight, minuteOfDay } from '../game/engine/Clock';
 import { ModeBar } from './ModeBar';
 import { ToastScheduler } from '../game/systems/toasts';
+import { coin } from './common';
 
 function formatClock(totalMinutes: number): string {
   const m = minuteOfDay(totalMinutes);
@@ -27,6 +28,7 @@ export class HUD {
   private zoneChip = el('div', 'hud-chip');
   private timeChip = el('div', 'hud-chip');
   private coinChip = el('div', 'hud-chip coins');
+  private coinText = document.createTextNode('');
   private journalBtn = el('button', 'icon-btn', '\u{1F4D3}');
   private basketBtn = el('button', 'icon-btn', '\u{1F9FA}');
   /**
@@ -35,7 +37,6 @@ export class HUD {
    * While a tool is in hand it's the way to stop.
    */
   private toolBtn = el('button', 'icon-btn tool-btn', '\u{1F33F}');
-  private compostChip = el('div', 'hud-chip compost');
   private landMenu = el('div', 'land-menu');
   private modeBar: ModeBar;
   private touch = el('div', 'touch-controls');
@@ -57,7 +58,8 @@ export class HUD {
     left.style.display = 'flex';
     left.style.gap = '8px';
     left.style.flexWrap = 'wrap';
-    left.append(this.zoneChip, this.timeChip, this.coinChip, this.compostChip);
+    this.coinChip.append(coin(), this.coinText);
+    left.append(this.zoneChip, this.timeChip, this.coinChip);
     const right = el('div', 'hud-buttons');
     right.append(this.toolBtn, this.journalBtn, this.basketBtn);
     top.append(left, right);
@@ -145,11 +147,8 @@ export class HUD {
     const room = this.game.currentRoom();
     const place = room === 'living' ? 'Home' : zone === 'greenhouse' ? ZONES.greenhouse.name : regionLabel(state, zone);
     setText(this.zoneChip, cover >= 0.01 ? `${place} · ${Math.round(cover * 100)}% yours` : place);
-    setText(this.coinChip, `\u{1FA99} ${state.coins}`);
-    setText(this.compostChip, `\u{1F342} ${state.compost}`);
+    setText(this.coinText, String(state.coins));
     const tools = this.game.tools.active;
-    const showCompost = state.compost > 0 || tools || this.landMenuOpen;
-    if (this.compostChip.style.display !== (showCompost ? '' : 'none')) this.compostChip.style.display = showCompost ? '' : 'none';
     setText(this.toolBtn, tools ? '✕' : state.player.inGreenhouse ? '\u{1FA91}' : '\u{1F33F}');
     this.toolBtn.setAttribute('aria-label', tools ? 'Stop' : state.player.inGreenhouse ? 'Arrange the house' : 'Garden');
     if (state.player.inGreenhouse && this.landMenuOpen) this.setLandMenu(false);

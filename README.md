@@ -62,14 +62,17 @@ grow in patches all over it.
   cat. Drag back from the ball and let go; a faint line shows where it'll roll. The first hole in one on each hole
   is worth a few coins, and the house remembers your best round.
 - **Shape the land.** Drag a plant to exactly where it should grow; move it
-  while it's young. Compost plants in the wrong place (for compost, and
-  maybe a cutting — maybe not quite the same). Dig garden beds (the 🌿 garden button)
+  while it's young. Compost plants in the wrong place (maybe for a cutting —
+  maybe not quite the same). Dig garden beds (the 🌿 garden button) for coins —
+  each one costs a little more than the last, and bigger beds cost more —
+  or set down a raised bed bought from the stall,
   whose plants spread only within them — a bed's card says how lively it
   is and what kind of plant would bring more life; lively beds throw sports
   more often, let odd seeds in with their visitors, have butterflies by day
   and glow-worms by night, and the liveliest turn up curiosities of their
-  own — and carve paths through the
-  growth that you can walk quickly along while their verges creep back in.
+  own — and pay a crew to carve paths through the
+  growth: they'll clear anything in the way, trees and rocks included, for a
+  price, and you can walk quickly along the result while its verges creep back in.
   Where your plants have grown thick, the ground is drawn as a carpet of
   their own foliage; large plants, specimens and sports still stand out of it.
 - **Name what you made.** Once a region has changed enough under your
@@ -130,7 +133,7 @@ furniture). Esc also closes whatever panel is open. Progress autosaves to `local
   crowded out by routine feedback.
 - `src/game/engine/Tools.ts` — the touch-first placement state machine
   (plant, arrange, bed, path), driven in world coordinates.
-- `src/game/systems/landscape.ts` (beds, paths, compost, precise planting,
+- `src/game/systems/landscape.ts` (beds, raised beds, paths, composting, precise planting,
   transplanting), `furniture.ts` (free indoor placement), `fox.ts` +
   `foxFinds.ts` (trails and what's at the end), `spatial.ts` (spatial hash
   for plant queries).

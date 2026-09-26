@@ -21,6 +21,7 @@ import { ToolController, type ToolOutcome } from './Tools';
 import {
   compostPlant,
   removeBed,
+  findBed,
   removePath,
   onPath,
   bedAt,
@@ -42,7 +43,7 @@ import type { Rarity } from '../types';
 import { DISCOVERY_SPOTS } from '../data/discoveryPoints';
 import { TOOL_PICKUPS } from '../data/toolPickups';
 import { PLANTS, specimenName, specimenRarity, rarityRank, RARITY_LABEL, fullName } from '../data/plants';
-import { findShopItem, COMPOST_PER_SACK, type DecorId, type FurnitureId } from '../data/shop';
+import { findShopItem, type DecorId, type FurnitureId } from '../data/shop';
 import { ZONES } from '../data/zones';
 import type { OutdoorZoneId, ZoneId } from '../types';
 import { tickFox } from '../systems/fox';
@@ -1240,7 +1241,7 @@ export class Game {
   beginPath() {
     if (this.state.player.inGreenhouse) return;
     this.tools.startPath();
-    this.hint('path', 'Trace a route. Anything of yours in the way goes to compost.', 'important', () => this.inTool('path'));
+    this.hint('path', 'Trace a route. It clears anything in the way, for a price.', 'important', () => this.inTool('path'));
   }
 
   addFromStock(kind: FurnitureId) {
@@ -1284,11 +1285,15 @@ export class Game {
     } else if (res.kind === 'bed') {
       this.refreshCleared();
       const r = res.result;
-      this.pushToast(`Dug a garden bed.${r.adopted ? ` ${r.adopted} of your plants are in it now.` : ''}`, 'growth');
+      this.pushToast(`${r.bed.raised ? 'Set down a raised bed.' : `Dug a garden bed for ${r.bed.paid} coins.`}${r.adopted ? ` ${r.adopted} of your plants are in it now.` : ''}`, 'growth');
     } else if (res.kind === 'path') {
       this.refreshCleared();
       const r = res.result;
-      this.pushToast(`Carved a path.${r.composted ? ` ${r.composted} plant${r.composted === 1 ? '' : 's'} went on the compost (+${r.compost}).` : ''}`, 'growth');
+      const cleared: string[] = [];
+      if (r.trees) cleared.push(`${r.trees} tree${r.trees === 1 ? '' : 's'}`);
+      if (r.rocks) cleared.push(`${r.rocks} rock${r.rocks === 1 ? '' : 's'}`);
+      if (r.dugUp) cleared.push(`${r.dugUp} of your plants`);
+      this.pushToast(`Carved a path for ${r.cost} coins.${cleared.length ? ` Cleared ${cleared.join(', ')}.` : ''}`, 'growth');
     }
     this.onStateTouched?.();
   }
@@ -1303,7 +1308,7 @@ export class Game {
     this.lushDirty = true;
     this.lushAcc = LUSH_REFRESH_MS;
     this.actionAnimUntil = this.state.clock.totalMinutes + 0.5;
-    let msg = `Composted the ${res.name}: +${res.compost} compost.`;
+    let msg = `Composted the ${res.name}.`;
     if (res.cutting) {
       const r = specimenRarity(res.cutting.defId, res.cutting.variantId);
       if (res.cutting.changed) msg += ` You saved a cutting — though it’s a ${fullName(res.cutting.defId, res.cutting.variantId)}, not quite the same.`;
@@ -1311,13 +1316,14 @@ export class Game {
       this.flourish(where.x, where.y, r, res.cutting.newVariant);
     } else if (res.noRoom) msg += ' There was a cutting worth saving, but your basket was full.';
     this.pushToast(msg, 'info');
-    this.hint('compost', `Compost digs garden beds. The stall sells it by the sack.`, 'important', this.outdoors);
     this.onStateTouched?.();
   }
 
   fillInBed(id: string) {
-    if (removeBed(this.state, id)) {
-      this.pushToast('Filled the bed back in. Its plants stay, free to wander again.', 'info');
+    const bed = findBed(this.state, id);
+    if (bed && removeBed(this.state, id)) {
+      this.refreshCleared();
+      this.pushToast(bed.raised ? 'Took up the raised bed. It’s back in your basket.' : 'Filled the bed back in. Its plants stay, free to wander again.', 'info');
       this.onStateTouched?.();
     }
   }
@@ -1684,9 +1690,7 @@ export class Game {
     this.refreshIndoor();
     this.audio.playToolChime();
     this.pushToast(
-      itemId === 'compostSack'
-        ? `Bought a sack of compost: +${COMPOST_PER_SACK}. You have ${this.state.compost}.`
-        : item.category === 'garden'
+      item.category === 'garden'
         ? `Bought ${item.name}. Place it outdoors from your basket.`
         : item.category === 'greenhouse'
           ? item.repeatable

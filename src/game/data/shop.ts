@@ -72,6 +72,11 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'wateringCan', name: 'Watering Can', category: 'greenhouse', price: 15, repeatable: true, purpose: 'display', role: 'decoration', blurb: 'Decoration', description: 'A dented brass can. Purely for the look of the place.' },
   { id: 'houseRug', name: 'Woven Rug', category: 'greenhouse', price: 40, repeatable: true, purpose: 'display', role: 'decoration', blurb: 'Decoration', description: 'A soft jute rug to put down anywhere indoors. Things stand on it happily.' },
   { id: 'sunRoom', name: 'Clear Out the Sun Room', category: 'greenhouse', price: 700, purpose: 'space', role: 'foundation', blurb: 'Opens a new corner · 4 display spots', description: 'Haul away the old crates in the south-east corner and fit it out: four new display spots in full sun.' },
+  // The big ones: whole new stretches of the greenhouse, for a collector
+  // whose ambitions have outgrown it.
+  { id: 'pottingAnnex', name: 'The Potting Annex', category: 'greenhouse', price: 3500, purpose: 'production', role: 'foundation', blurb: 'Adds 4 nursery beds along the north glass', description: 'Knock through to the old lean-to along the north glass and fit it out as a nursery: four more beds, in the best morning light. The most a greenhouse this size can root at once.' },
+  { id: 'orangery', name: 'The Orangery', category: 'greenhouse', price: 6000, after: 'sunRoom', purpose: 'space', role: 'foundation', blurb: 'Opens the south glass · 4 display spots', description: 'A proper orangery along the south wall: tall glass, a tiled floor, and four display spots for the plants you want the whole valley to see through the window.' },
+  { id: 'roofLights', name: 'Roof Lights', category: 'greenhouse', price: 9000, after: 'growLights', purpose: 'production', role: 'foundation', blurb: 'Everything indoors grows 2× (up from 1.5×)', description: 'Replace the roof glass with lights that follow the sun round. Everything indoors grows twice as fast; the grow lights come out.' },
 
   // Pots
   { id: 'potGlazed', name: 'Teal Glazed Pots', category: 'pots', price: 25, description: 'Deep sea-green glaze with a drip at the rim.' },
@@ -81,7 +86,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'potPorcelain', name: 'Gold-Rim Porcelain', category: 'pots', price: 140, description: 'For the plants you’re most proud of.' },
 
   // Garden decor (placed outdoors)
-  { id: 'compostSack', name: 'Sack of Compost', category: 'garden', price: 20, repeatable: true, description: 'Three scoops of rich compost. Garden beds are dug with it — or compost plants of your own.' },
+  { id: 'raisedBed', name: 'Raised Bed', category: 'garden', price: 90, priceGrowth: 1.2, repeatable: true, description: 'A timber-framed bed, ready made: set it down on any open ground and plant into it. Like a dug bed, whatever grows in it stays in it. Each one costs a little more than the last.' },
   { id: 'steppingStones', name: 'Stepping Stones', category: 'garden', price: 6, repeatable: true, description: 'A few flat stones. Lay a path through your plantings.' },
   { id: 'picketFence', name: 'Picket Fence', category: 'garden', price: 12, repeatable: true, description: 'A short run of white fence to frame a bed.' },
   { id: 'gardenLantern', name: 'Garden Lantern', category: 'garden', price: 30, repeatable: true, description: 'Glows warmly after dark.' },
@@ -130,8 +135,8 @@ export function findPotStyle(id: string): PotStyle {
   return POT_STYLES.find((p) => p.id === id) ?? POT_STYLES[0];
 }
 
-export type DecorId = 'steppingStones' | 'picketFence' | 'gardenLantern' | 'birdbath' | 'gardenBench' | 'gardenTrellis';
-export const DECOR_IDS: DecorId[] = ['steppingStones', 'picketFence', 'gardenLantern', 'birdbath', 'gardenBench', 'gardenTrellis'];
+export type DecorId = 'steppingStones' | 'picketFence' | 'gardenLantern' | 'birdbath' | 'gardenBench' | 'gardenTrellis' | 'raisedBed';
+export const DECOR_IDS: DecorId[] = ['raisedBed', 'steppingStones', 'picketFence', 'gardenLantern', 'birdbath', 'gardenBench', 'gardenTrellis'];
 
 /**
  * Everything that can stand (or hang) indoors. The first group is sold at
@@ -186,5 +191,5 @@ export const FURNITURE_IDS: FurnitureId[] = [
   'sunroomStand',
 ];
 
-/** Compost you get from a sack bought at the market. */
-export const COMPOST_PER_SACK = 3;
+/** The raised bed a piece of stocked decor becomes when it's set down, in tiles. */
+export const RAISED_BED = { w: 2.5, h: 1.5 };

@@ -4,7 +4,7 @@ import { el } from './dom';
 import { PLANTS, specimenName, specimenRarity, findVariant, latinLine, rarityRank } from '../game/data/plants';
 import { STAGES, STAGE_LABEL, stageFloat, stageIndexOf, minutesToNextStage } from '../game/systems/growth';
 import { cuttingBlockReason, cuttingCooldown } from '../game/systems/propagation';
-import { canTransplant, compostYield, findBed } from '../game/systems/landscape';
+import { canTransplant, findBed } from '../game/systems/landscape';
 import { zoneLabel } from '../game/engine/Game';
 import { button, note, portrait, rarityBadge, realTime, crossButton } from './common';
 
@@ -96,7 +96,6 @@ export class PlantCard {
 
     // Composting: a real decision, so it takes two taps.
     const compost = el('div', 'compost-box');
-    const { compost: amount } = compostYield(plant);
     const others = Object.values(state.plants).filter((p) => p !== plant && p.defId === plant.defId && p.variantId === plant.variantId).length + state.basket.filter((b) => b.defId === plant.defId && b.variantId === plant.variantId).length;
     if (!this.confirmCompost) {
       compost.appendChild(note(idx >= 3 ? 'Settled in for good now — too big to move. If it’s in the wrong place, it can go on the compost.' : 'Not where you wanted it? It can go on the compost.', 'row-note'));
@@ -105,7 +104,7 @@ export class PlantCard {
         this.render();
       }, 'secondary-btn compost-btn'));
     } else {
-      const lines = [`You’ll get ${amount} compost.`];
+      const lines: string[] = ['It’ll be gone for good.'];
       if (idx >= 2) lines.push('You may manage to save a cutting — or you may not, and it may not come true.');
       if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 2 && others === 0) lines.push('It’s the only one you have.');
       compost.appendChild(note(lines.join(' '), `row-note${others === 0 ? ' warn' : ''}`));

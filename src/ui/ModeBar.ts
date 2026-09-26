@@ -5,7 +5,6 @@ import { STALL_ID } from '../game/systems/yard';
 import { FURNITURE_DEFS } from '../game/data/furniture';
 import { findFurniture } from '../game/systems/furniture';
 import { occupantOf } from '../game/systems/propagation';
-import { bedCost } from '../game/systems/landscape';
 import { specimenName } from '../game/data/plants';
 
 // The bar along the bottom of the screen while the player is using their
@@ -39,8 +38,8 @@ export class ModeBar {
     if (m.kind === 'plant') sig += `${m.check.block}|${m.check.bedId}`;
     else if (m.kind === 'arrange') sig += `${m.selectedId}|${m.pending?.kind}|${m.pending?.block}|${m.pending?.rot}|${JSON.stringify(state.furnitureStock)}|${state.furniture.length}`;
     else if (m.kind === 'yard') sig += `${m.selectedId}|${m.pending?.decorId}|${m.pending?.block}|${JSON.stringify(state.decorStock)}|${state.decor.length}`;
-    else if (m.kind === 'bed') sig += `${m.shape}|${m.block}|${this.game.tools.bedCost()}|${state.compost}|${!!m.a}`;
-    else if (m.kind === 'path') sig += `${m.preview?.block}|${m.preview?.plants.length}|${m.points.length > 0}`;
+    else if (m.kind === 'bed') sig += `${m.shape}|${m.block}|${this.game.tools.bedCost()}|${state.coins}|${!!m.a}`;
+    else if (m.kind === 'path') sig += `${m.preview?.block}|${m.preview?.plants.length}|${m.preview?.cost}|${m.points.length > 0}`;
     if (sig === this.sig) return;
     this.sig = sig;
     this.render();
@@ -65,14 +64,14 @@ export class ModeBar {
     } else if (m.kind === 'bed') {
       const cost = this.game.tools.bedCost();
       status.textContent = !m.a
-        ? `Drag across the ground to mark out a bed · ${state.compost} compost`
-        : m.block === 'compost'
-          ? `Needs ${cost} compost — you have ${state.compost}`
+        ? `Drag across the ground to mark out a bed · you have ${state.coins} coins`
+        : m.block === 'coins'
+          ? `Costs ${cost} coins — you have ${state.coins}`
           : m.block === 'too-small'
             ? 'Drag it a little bigger'
             : m.block
               ? 'Not there — try another stretch of ground'
-              : `Dig it? Uses ${cost ?? bedCost(2, 2)} compost`;
+              : `Dig it? ${cost} coins`;
       const shape = bigButton(m.shape === 'rect' ? '▭' : '◯', 'shape', () => this.game.tools.setBedShape(m.shape === 'rect' ? 'oval' : 'rect'));
       shape.setAttribute('aria-label', 'Change shape');
       row.append(cancel, shape, bigButton('✓ Dig', 'confirm', () => this.game.confirmTool(), !this.game.tools.canConfirm()));
@@ -84,11 +83,11 @@ export class ModeBar {
           ? 'Keep tracing…'
           : p.block === 'bed'
             ? 'Paths go around garden beds, not through them'
-            : p.block
-            ? 'Trees, rocks or water are in the way'
-            : p.plants.length
-              ? `Carve it? ${p.plants.length} of your plants will be composted`
-              : 'Carve this path?';
+            : p.block === 'coins'
+              ? `Costs ${p.cost} coins — you have ${state.coins}`
+              : p.block
+                ? 'Water or the house is in the way'
+                : `Carve it? ${p.cost} coins${p.trees.length || p.rocks.length ? ` · clears ${[p.trees.length ? `${p.trees.length} tree${p.trees.length === 1 ? '' : 's'}` : '', p.rocks.length ? `${p.rocks.length} rock${p.rocks.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')}` : ''}${p.plants.length ? ` · ${p.plants.length} of your plants dug up` : ''}`;
       row.append(cancel, bigButton('✓ Carve', 'confirm', () => this.game.confirmTool(), !this.game.tools.canConfirm()));
     } else if (m.kind === 'arrange') {
       this.renderArrange(m, status, row);

@@ -52,7 +52,7 @@ export function isRooted(growth: number): boolean {
   return growth >= STAGE_AT.young;
 }
 
-/** Plants in a dug, composted garden bed grow a little faster. */
+/** Plants in a garden bed grow a little faster. */
 export const BED_GROWTH_BOOST = 1.15;
 
 /** Lookups shared by every plant in one growth tick, so they're built once. */
@@ -81,7 +81,8 @@ export function growthMultiplier(state: GameState, plant: OwnedPlant, ctx?: Grow
     const zone = zoneAt(Math.floor(planter.x), Math.floor(planter.y));
     m *= zone !== 'greenhouse' && def.habitat.includes(zone) ? 1.3 : 0.85;
   } else {
-    if (state.owned.includes('growLights')) m *= 1.5;
+    if (state.owned.includes('roofLights')) m *= 2;
+    else if (state.owned.includes('growLights')) m *= 1.5;
     const c = ctx ?? growthContext(state);
     if (c.lamps.length) {
       const pieceId = plant.location.kind === 'nursery' ? plant.location.bedId : plant.location.slotId;
