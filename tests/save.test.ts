@@ -158,12 +158,11 @@ describe('save migration', () => {
 describe('the world the player made persists', () => {
   beforeEach(() => localStorage.clear());
 
-  it('round-trips furniture positions, beds, paths, cleared scrub, compost, fox history and curiosities', () => {
+  it('round-trips furniture positions, beds, paths, cleared scrub, fox history and curiosities', () => {
     const state = createNewGame();
     state.furniture.push({ id: 'bed1', kind: 'nurseryBed', x: 6.25, y: 6.5, rot: 1 });
     state.seededFixtures.push('bed1');
     state.furniture.push({ id: 'lamp', kind: 'growLamp', x: 12.125, y: 8.375 });
-    state.compost = 7;
     state.gardenBeds.push({ id: 'gb', x: 50, y: 20, w: 3.5, h: 2.25, shape: 'oval', createdAt: 10 });
     state.paths.push({ id: 'pa', points: [50, 30, 51.5, 30.2, 53, 30.9], width: 1.15, createdAt: 20 });
     state.clearedObstacles.push('51,30');
@@ -175,7 +174,6 @@ describe('the world the player made persists', () => {
     const loaded = loadGame()!;
     expect(loaded.furniture).toEqual(state.furniture);
     expect(loaded.seededFixtures).toEqual(['bed1']);
-    expect(loaded.compost).toBe(7);
     expect(loaded.gardenBeds).toEqual(state.gardenBeds);
     expect(loaded.paths).toEqual(state.paths);
     expect(loaded.clearedObstacles).toEqual(['51,30']);
@@ -193,7 +191,7 @@ describe('the world the player made persists', () => {
     (old.furniture as unknown[]).push({ id: 'old', kind: 'plantStand', x: 3, y: 6 });
     const migrated = migrateSave(JSON.parse(JSON.stringify(old)))!;
     expect(migrated.version).toBe(SAVE_VERSION);
-    expect(migrated.compost).toBe(0);
+    expect((migrated as unknown as Record<string, unknown>).compost).toBeUndefined();
     expect(migrated.gardenBeds).toEqual([]);
     expect(migrated.foxLog.trailsStarted).toBe(0);
     expect(migrated.furniture[0]).toMatchObject({ x: 3, y: 6 });

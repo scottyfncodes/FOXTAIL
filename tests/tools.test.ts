@@ -130,14 +130,14 @@ describe('arranging the house by touch', () => {
 describe('marking out ground', () => {
   it('drags out a bed, previews its cost, and digs it', () => {
     const { state, tools } = setup();
-    state.compost = 5;
+    state.coins = 1000;
     tools.startBed('rect');
     expect(tools.pointerDown(50, 20)).toBe('draw');
     tools.pointerMove(51, 21);
     expect(tools.mode.kind === 'bed' && tools.mode.block).toBe('too-small');
     tools.pointerMove(53, 22.6);
     tools.pointerUp(53, 22.6);
-    expect(tools.bedCost()).toBe(2);
+    expect(tools.bedCost()).toBeGreaterThan(0);
     expect(tools.canConfirm()).toBe(true);
     expect(tools.confirm().kind).toBe('bed');
     expect(state.gardenBeds[0]).toMatchObject({ x: 50, y: 20, w: 3, h: 2.5, shape: 'rect' });
@@ -145,6 +145,7 @@ describe('marking out ground', () => {
 
   it('traces a path with the finger and carves it', () => {
     const { state, tools } = setup();
+    state.coins = 1000;
     tools.startPath();
     expect(tools.pointerDown(50, 34)).toBe('draw');
     for (let x = 50.3; x <= 54; x += 0.3) tools.pointerMove(x, 34 + (x - 50) * 0.1);

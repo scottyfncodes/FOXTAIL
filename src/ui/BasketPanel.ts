@@ -29,7 +29,6 @@ export class BasketPanel {
     this.panel.clearBody();
     this.panel.setTitle(`Basket (${state.basket.length}/${basketCapacity(state)})`);
     const outdoors = !state.player.inGreenhouse;
-    if (state.compost > 0) this.panel.body.appendChild(el('div', 'compost-line', `\u{1F342} ${state.compost} compost — for digging garden beds.`));
 
     if (state.basket.length === 0) {
       this.panel.body.appendChild(el('div', 'empty-state', 'Empty. Go and see what’s growing out there.'));

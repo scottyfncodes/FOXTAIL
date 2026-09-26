@@ -11,7 +11,7 @@ import { STALL_ID, stallRect, yardFootprint, type YardPiece } from '../systems/y
 import { PLANTS, lookFor, specimenRarity, rarityRank } from '../data/plants';
 import { TOOL_PICKUPS } from '../data/toolPickups';
 import { DISCOVERY_SPOTS } from '../data/discoveryPoints';
-import { findPotStyle } from '../data/shop';
+import { findPotStyle, RAISED_BED } from '../data/shop';
 import { ELLEN_APPEARANCE, SCOUT_APPEARANCE, SCOTT_APPEARANCE, CAT_APPEARANCE, CHARACTER_SCALE } from '../data/character';
 import { daylightFactor, isNight } from '../engine/Clock';
 import { spotContent } from '../systems/spots';
@@ -45,7 +45,7 @@ import { allFurniture, footprint } from '../systems/furniture';
 import { catLift } from '../systems/cat';
 import { foxFade } from '../systems/fox';
 import { isCouchNap, isCouchSpot } from '../data/scottSpots';
-import { PATH_WIDTH } from '../systems/landscape';
+import { PATH_WIDTH, bedCost } from '../systems/landscape';
 import { dipAmount, smiling, DIP_END } from '../systems/scott';
 
 /** Everything the scene needs beyond the game state: what the player is doing with their hands, and passing effects. */
@@ -417,7 +417,7 @@ export class Renderer {
     // Tool previews for marking out ground sit on top of the scene so they're never lost under foliage.
     if (tools.kind === 'bed') {
       const spec = tools.a && tools.b ? this.bedSpecOf(tools) : null;
-      if (spec) drawBedPreview(this.ctx, camera, spec, tools.block, state.compost);
+      if (spec) drawBedPreview(this.ctx, camera, spec, tools.block, bedCost(state, spec.w, spec.h), state.coins);
     } else if (tools.kind === 'path') {
       if (tools.points.length >= 2) drawPathPreview(this.ctx, camera, tools.points, tools.preview, PATH_WIDTH);
     }
@@ -1056,6 +1056,22 @@ export class Renderer {
     const tile = TILE_SIZE * camera.zoom;
     const s = camera.worldToScreen(d.x * TILE_SIZE, d.y * TILE_SIZE);
     switch (d.decorId) {
+      case 'raisedBed': {
+        // Only ever drawn while it's being set down: once placed it's a garden bed.
+        const w = RAISED_BED.w * tile;
+        const h = RAISED_BED.h * tile;
+        const x0 = s.x - w / 2;
+        const y0 = s.y - h / 2;
+        ctx.fillStyle = 'rgba(74,54,36,0.7)';
+        ctx.fillRect(x0, y0, w, h);
+        ctx.strokeStyle = '#8a6a44';
+        ctx.lineWidth = Math.max(3, tile * 0.2);
+        ctx.strokeRect(x0, y0, w, h);
+        ctx.strokeStyle = 'rgba(230,200,150,0.55)';
+        ctx.lineWidth = Math.max(1, tile * 0.06);
+        ctx.strokeRect(x0, y0, w, h);
+        break;
+      }
       case 'steppingStones':
         for (let i = 0; i < 3; i++) {
           ctx.fillStyle = lerpColor('#9a9484', '#b8b09c', hash2(d.x * 3 + i, d.y));

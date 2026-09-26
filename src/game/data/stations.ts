@@ -38,6 +38,11 @@ export const NURSERY_BEDS: NurseryBed[] = [
   { id: 'bed6', x: 6, y: 4, requires: 'nurseryBeds' },
   { id: 'bed7', x: 4, y: 6, requires: 'moreNurseryBeds' },
   { id: 'bed8', x: 6, y: 6, requires: 'moreNurseryBeds' },
+  // The potting annex: a row along the north glass.
+  { id: 'annex1', x: 1, y: 0.9, requires: 'pottingAnnex' },
+  { id: 'annex2', x: 3, y: 0.9, requires: 'pottingAnnex' },
+  { id: 'annex3', x: 5, y: 0.9, requires: 'pottingAnnex' },
+  { id: 'annex4', x: 7, y: 0.9, requires: 'pottingAnnex' },
 ];
 
 export const DISPLAY_SLOTS: DisplaySlot[] = [
@@ -60,6 +65,11 @@ export const DISPLAY_SLOTS: DisplaySlot[] = [
   { id: 'sun2', x: 15, y: 8, kind: 'sunroom', requires: 'sunRoom' },
   { id: 'sun3', x: 14, y: 10, kind: 'sunroom', requires: 'sunRoom' },
   { id: 'sun4', x: 16, y: 10, kind: 'sunroom', requires: 'sunRoom' },
+  // The orangery: a row along the south glass, west of the garden door.
+  { id: 'orang1', x: 2, y: 10, kind: 'pedestal', requires: 'orangery' },
+  { id: 'orang2', x: 4, y: 10, kind: 'pedestal', requires: 'orangery' },
+  { id: 'orang3', x: 6, y: 10, kind: 'pedestal', requires: 'orangery' },
+  { id: 'orang4', x: 8, y: 9.4, kind: 'planter', requires: 'orangery' },
 ];
 
 /** Stacked junk that fills the sun room until it's cleared out and fitted. */

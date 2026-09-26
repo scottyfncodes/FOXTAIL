@@ -5,7 +5,7 @@ import { SHOP_ITEMS } from './data/shop';
 
 // Bump SAVE_VERSION when the state shape changes; SaveManager.migrateSave
 // fills new fields from createNewGame(). The storage key stays fixed.
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 // The storage key keeps the game's working title so existing saves carry over.
 export const SAVE_KEY = 'foxtrot-save-v4';
 
@@ -152,6 +152,10 @@ export interface GardenBed {
   h: number;
   shape: 'rect' | 'oval';
   createdAt: number;
+  /** A timber raised bed bought at the stall and set down, rather than dug. */
+  raised?: boolean;
+  /** What digging it cost, so filling it in can give some of it back. */
+  paid?: number;
 }
 
 /** A walking path carved through the vegetation: a polyline, stored flat as x0,y0,x1,y1,… */
@@ -302,8 +306,6 @@ export interface GameState {
    * been taken over that way.
    */
   seededFixtures: string[];
-  /** Compost: from composting plants or bought by the sack. Garden beds are dug with it. */
-  compost: number;
   gardenBeds: GardenBed[];
   paths: GardenPath[];
   /** Wild bushes, flowers and reeds cleared away by paths and beds ("x,y" tiles). */
@@ -362,7 +364,6 @@ export function createNewGame(): GameState {
     furnitureStock: {},
     furniture: [],
     seededFixtures: [],
-    compost: 0,
     gardenBeds: [],
     paths: [],
     clearedObstacles: [],

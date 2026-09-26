@@ -1,7 +1,7 @@
 import type { Game } from '../game/engine/Game';
 import { Panel } from './Panel';
 import { el } from './dom';
-import { findBed, plantsInBed, bedCost, routeLength } from '../game/systems/landscape';
+import { findBed, plantsInBed, bedRefund, routeLength } from '../game/systems/landscape';
 import { bedLiveliness, ROLE_WANT, ROLE_HAS, LIVELY_TIER } from '../game/systems/beds';
 import { MINUTES_PER_DAY } from '../game/engine/Clock';
 import { button, note } from './common';
@@ -39,10 +39,10 @@ export class GroundCard {
     if (t.kind === 'bed') {
       const bed = findBed(state, t.id);
       if (!bed) return this.panel.close();
-      this.panel.setTitle('Garden Bed');
+      this.panel.setTitle(bed.raised ? 'Raised Bed' : 'Garden Bed');
       const plants = plantsInBed(state, bed.id);
       const life = bedLiveliness(state, bed.id);
-      body.appendChild(note(`Dug ${this.age(bed.createdAt)}. ${plants.length ? `${plants.length} plant${plants.length === 1 ? '' : 's'} of ${life.species} kind${life.species === 1 ? '' : 's'}${life.plants < plants.length ? ', some still rooting' : ''}.` : 'Nothing growing in it yet — plant something from your basket.'}`));
+      body.appendChild(note(`${bed.raised ? 'Set down' : 'Dug'} ${this.age(bed.createdAt)}. ${plants.length ? `${plants.length} plant${plants.length === 1 ? '' : 's'} of ${life.species} kind${life.species === 1 ? '' : 's'}${life.plants < plants.length ? ', some still rooting' : ''}.` : 'Nothing growing in it yet — plant something from your basket.'}`));
       // How much life is in it, in the same quiet pips as rarity, and what would bring more.
       const row = el('div', 'liveliness');
       row.append(el('span', 'rarity-pips', '●'.repeat(life.tier + 1) + '○'.repeat(4 - life.tier)), el('span', 'liveliness-word', life.word));
@@ -64,19 +64,19 @@ export class GroundCard {
       );
       body.appendChild(note('Whatever grows here spreads only within the bed.', 'row-note'));
       if (!this.confirm) {
-        body.appendChild(button('Fill it in…', () => {
+        body.appendChild(button(bed.raised ? 'Take it up…' : 'Fill it in…', () => {
           this.confirm = true;
           this.render();
         }, 'secondary-btn'));
       } else {
-        body.appendChild(note(`The plants stay where they are, free to wander. You’ll get ${Math.floor(bedCost(bed.w, bed.h) / 2)} compost back.`, 'row-note'));
+        body.appendChild(note(bed.raised ? 'The plants stay where they are, free to wander. The bed goes back in your basket to set down somewhere else.' : `The plants stay where they are, free to wander. You’ll get ${bedRefund(bed)} coins back.`, 'row-note'));
         const row = el('div', 'action-row');
         row.append(
           button('Keep it', () => {
             this.confirm = false;
             this.render();
           }, 'secondary-btn'),
-          button('Fill it in', () => {
+          button(bed.raised ? 'Take it up' : 'Fill it in', () => {
             this.game.fillInBed(bed.id);
             this.panel.close();
           }, 'primary-btn danger')

@@ -1,5 +1,5 @@
 import type { GameState, OwnedPlant } from '../state';
-import type { DecorId, FurnitureId } from '../data/shop';
+import { RAISED_BED, type DecorId, type FurnitureId } from '../data/shop';
 import { FURNITURE_DEFS } from '../data/furniture';
 import {
   allFurniture,
@@ -18,6 +18,7 @@ import {
   checkPlanting,
   createBed,
   createPath,
+  placeRaisedBed,
   normRect,
   previewPath,
   simplifyRoute,
@@ -289,7 +290,7 @@ export class ToolController {
     const { x, y } = snapYard(decorId, at.x, at.y);
     m.pending = { decorId, x, y, block: null };
     m.selectedId = null;
-    m.pending.block = decorBlockReason(this.host.state, this.open, x, y);
+    m.pending.block = this.decorPendingBlock(decorId, x, y);
     this.changed();
   }
 
@@ -354,7 +355,16 @@ export class ToolController {
 
   bedCost(): number | null {
     const spec = this.bedSpec();
-    return spec ? bedCost(spec.w, spec.h) : null;
+    return spec ? bedCost(this.host.state, spec.w, spec.h) : null;
+  }
+
+  /** A raised bed from stock stands where a bed could be dug; other decor where a piece could stand. */
+  private decorPendingBlock(decorId: DecorId, x: number, y: number) {
+    if (decorId === 'raisedBed') {
+      const spec = { x: Math.round((x - RAISED_BED.w / 2) * 4) / 4, y: Math.round((y - RAISED_BED.h / 2) * 4) / 4, w: RAISED_BED.w, h: RAISED_BED.h, shape: 'rect' as const, raised: true };
+      return bedBlockReason(this.host.state, spec, this.host.world) ? ('ground' as const) : null;
+    }
+    return decorBlockReason(this.host.state, this.open, x, y);
   }
 
   private updateBed() {
@@ -478,7 +488,7 @@ export class ToolController {
           const at = snapYard(m.pending.decorId, x + m.pendingDrag.offX, y + m.pendingDrag.offY);
           m.pending.x = at.x;
           m.pending.y = at.y;
-          m.pending.block = decorBlockReason(this.host.state, this.open, at.x, at.y);
+          m.pending.block = this.decorPendingBlock(m.pending.decorId, at.x, at.y);
         } else if (m.drag) {
           const piece = findYardPiece(this.host.state, m.drag.id);
           if (!piece) return;
@@ -646,6 +656,13 @@ export class ToolController {
       }
       case 'yard': {
         if (m.pending) {
+          if (m.pending.decorId === 'raisedBed') {
+            const res = placeRaisedBed(state, m.pending.x, m.pending.y, this.host.world, now, RAISED_BED);
+            if (res) out = { kind: 'bed', result: res };
+            m.pending = null;
+            this.changed();
+            return out;
+          }
           const id = placeYardDecor(state, this.open, m.pending.decorId, m.pending.x, m.pending.y);
           if (id) out = { kind: 'placed', id };
           m.pending = null;

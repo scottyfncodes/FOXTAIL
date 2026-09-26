@@ -64,7 +64,10 @@ export function migrateSave(raw: unknown): GameState | null {
     if (!isRecord(merged[key])) merged[key] = defaults[key];
   }
   if (typeof merged.coins !== 'number' || !Number.isFinite(merged.coins)) merged.coins = defaults.coins;
-  if (typeof merged.compost !== 'number' || !Number.isFinite(merged.compost)) merged.compost = defaults.compost;
+  // Compost stopped being a currency in v10: whatever was in the heap is
+  // worth a few coins each, and beds are dug with coins from here on.
+  if (typeof merged.compost === 'number' && Number.isFinite(merged.compost)) merged.coins = (merged.coins as number) + Math.max(0, Math.floor(merged.compost as number)) * 5;
+  delete merged.compost;
   const fromVersion = raw.version;
   // Only the lantern survives from the old tool set; the rest of the old
   // collecting/ecosystem state (journal, inventory, populations) belonged

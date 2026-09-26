@@ -38,6 +38,13 @@ export function realTime(gameMinutes: number): string {
   return `about ${Math.round(mins / 60)} h`;
 }
 
+/** A little gold coin, for anywhere a number of coins is shown. */
+export function coin(): HTMLElement {
+  const c = el('span', 'coin');
+  c.setAttribute('aria-label', 'coins');
+  return c;
+}
+
 export function note(text: string, cls = 'panel-note'): HTMLElement {
   return el('p', cls, text);
 }

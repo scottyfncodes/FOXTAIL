@@ -219,8 +219,19 @@ export function drawGardenBed(ctx: Ctx, camera: Camera, bed: GardenBed, now: num
     ctx.fillRect(px, py, tile * 0.05, tile * 0.03);
   }
   ctx.restore();
-  // Edging: timber sleepers for a straight bed, a ring of stones for a round one.
-  if (bed.shape === 'oval') {
+  // Edging: a tall timber frame for a raised bed, sleepers for a dug one, a ring of stones for a round one.
+  if (bed.raised) {
+    bedOutline(ctx, camera, bed, 0.02, seed);
+    ctx.lineWidth = Math.max(3, tile * 0.2);
+    ctx.strokeStyle = '#8a6a44';
+    ctx.stroke();
+    ctx.lineWidth = Math.max(1, tile * 0.06);
+    ctx.strokeStyle = 'rgba(230,200,150,0.55)';
+    ctx.stroke();
+    // A shadow under the front edge, so it stands up off the ground.
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(tl.x, tl.y + bed.h * tile + tile * 0.08, bed.w * tile, tile * 0.1);
+  } else if (bed.shape === 'oval') {
     const c = camera.worldToScreen((bed.x + bed.w / 2) * TILE_SIZE, (bed.y + bed.h / 2) * TILE_SIZE);
     const rx = (bed.w / 2) * tile;
     const ry = (bed.h / 2) * tile;
@@ -425,13 +436,13 @@ export function drawPlantPreview(
 const BED_BLOCK_TEXT: Record<string, string> = {
   'too-small': 'Drag it bigger',
   'too-big': 'Too big for one bed',
-  compost: 'Not enough compost',
+  coins: 'Not enough coins',
   blocked: 'Trees, rocks or water in the way',
   patch: 'A wild patch grows there — leave it be',
   overlap: 'Overlaps another bed',
 };
 
-export function drawBedPreview(ctx: Ctx, camera: Camera, spec: Pick<GardenBed, 'x' | 'y' | 'w' | 'h' | 'shape'>, block: string | null, compost: number) {
+export function drawBedPreview(ctx: Ctx, camera: Camera, spec: Pick<GardenBed, 'x' | 'y' | 'w' | 'h' | 'shape'>, block: string | null, cost: number | null, coins: number) {
   const tile = TILE_SIZE * camera.zoom;
   const ok = !block;
   bedOutline(ctx, camera, spec, 0, 1);
@@ -443,8 +454,7 @@ export function drawBedPreview(ctx: Ctx, camera: Camera, spec: Pick<GardenBed, '
   ctx.stroke();
   ctx.setLineDash([]);
   const c = camera.worldToScreen((spec.x + spec.w / 2) * TILE_SIZE, (spec.y + spec.h / 2) * TILE_SIZE);
-  const cost = bedCost(spec.w, spec.h);
-  label(ctx, c.x, c.y, ok ? `${cost} compost` : block === 'compost' ? `Needs ${cost} compost (you have ${compost})` : BED_BLOCK_TEXT[block!] ?? 'Not here', !ok, tile);
+  label(ctx, c.x, c.y, ok ? `${cost ?? ''} coins` : block === 'coins' ? `${cost} coins (you have ${coins})` : BED_BLOCK_TEXT[block!] ?? 'Not here', !ok, tile);
 }
 
 export function drawPathPreview(ctx: Ctx, camera: Camera, points: number[], preview: PathPreview | null, width: number) {
@@ -498,9 +508,9 @@ export function drawPathPreview(ctx: Ctx, camera: Camera, points: number[], prev
           ? 'Paths go around garden beds'
         : preview.plants.length
           ? `Composts ${preview.plants.length} of your plants`
-          : preview.scrub.length
-            ? 'Clears the scrub'
-            : 'A path';
+          : preview.block === 'coins'
+            ? `${preview.cost} coins — not enough`
+            : `${preview.cost} coins${preview.trees.length ? ` · ${preview.trees.length} tree${preview.trees.length === 1 ? '' : 's'}` : ''}${preview.rocks.length ? ` · ${preview.rocks.length} rock${preview.rocks.length === 1 ? '' : 's'}` : ''}`;
   label(ctx, s.x, s.y - tile * 0.8, text, !!preview.block && preview.block !== 'too-short', tile);
 }
 

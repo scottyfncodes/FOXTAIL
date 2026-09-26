@@ -1,7 +1,7 @@
 import type { BasketItem, GameState } from '../state';
 import type { Rarity } from '../types';
 import { PLANTS, PLANT_LIST, specimenRarity } from '../data/plants';
-import { findShopItem, type DecorId, DECOR_IDS, type FurnitureId, FURNITURE_IDS, COMPOST_PER_SACK } from '../data/shop';
+import { findShopItem, type DecorId, DECOR_IDS, type FurnitureId, FURNITURE_IDS } from '../data/shop';
 import { MINUTES_PER_DAY } from '../engine/Clock';
 import { hashString } from '../engine/Random';
 import { takeFromBasket } from './basket';
@@ -158,9 +158,7 @@ export function buyItem(state: GameState, itemId: string): boolean {
   state.coins -= itemPrice(state, itemId);
   if (item.priceGrowth) state.purchases[itemId] = (state.purchases[itemId] ?? 0) + 1;
   markShopSeen(state, [itemId]);
-  if (itemId === 'compostSack') {
-    state.compost += COMPOST_PER_SACK;
-  } else if (item.repeatable && (DECOR_IDS as string[]).includes(itemId)) {
+  if (item.repeatable && (DECOR_IDS as string[]).includes(itemId)) {
     const id = itemId as DecorId;
     state.decorStock[id] = (state.decorStock[id] ?? 0) + 1;
   } else if (item.repeatable && (FURNITURE_IDS as string[]).includes(itemId)) {

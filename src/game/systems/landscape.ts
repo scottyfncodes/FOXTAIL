@@ -107,8 +107,17 @@ export function wildGrid(state: GameState): SpatialGrid<OwnedPlant> {
 export const BED_MIN = 1.5;
 export const BED_MAX = 9;
 
-export function bedCost(w: number, h: number): number {
-  return Math.max(2, Math.ceil((w * h) / 5));
+/** What a bed of this size costs to dig: a base plus the ground, and each bed dug so far makes the next dearer. */
+export const BED_BASE_COST = 40;
+export const BED_COST_PER_TILE = 12;
+export const BED_COST_GROWTH = 1.25;
+
+export function bedsDug(state: Pick<GameState, 'purchases'>): number {
+  return state.purchases?.gardenBed ?? 0;
+}
+
+export function bedCost(state: Pick<GameState, 'purchases'>, w: number, h: number): number {
+  return Math.round((BED_BASE_COST + BED_COST_PER_TILE * Math.ceil(w * h)) * Math.pow(BED_COST_GROWTH, bedsDug(state)));
 }
 
 export function bedContains(bed: Pick<GardenBed, 'x' | 'y' | 'w' | 'h' | 'shape'>, x: number, y: number, inset = 0): boolean {
@@ -140,7 +149,7 @@ export function bedDiversity(state: GameState, bedId: string): number {
   return new Set(plantsInBed(state, bedId).map((p) => p.defId)).size;
 }
 
-export type BedBlock = 'too-small' | 'too-big' | 'compost' | 'blocked' | 'patch' | 'overlap';
+export type BedBlock = 'too-small' | 'too-big' | 'coins' | 'blocked' | 'patch' | 'overlap';
 
 function rectsTouch(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }, gap = 0): boolean {
   return a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y;
@@ -169,7 +178,7 @@ export function bedBlockReason(state: GameState, bed: Omit<GardenBed, 'id' | 'cr
     if (world.isSpot(tx, ty)) return 'patch';
   }
   if (state.gardenBeds.some((b) => rectsTouch(b, bed, 0.2))) return 'overlap';
-  if (state.compost < bedCost(bed.w, bed.h)) return 'compost';
+  if (!bed.raised && state.coins < bedCost(state, bed.w, bed.h)) return 'coins';
   return null;
 }
 
@@ -182,8 +191,13 @@ export interface BedResult {
 /** Digs a bed: clears the scrub inside it, and takes in whatever you'd already planted there. */
 export function createBed(state: GameState, spec: Omit<GardenBed, 'id' | 'createdAt'>, world: LandscapeWorld, now: number): BedResult | null {
   if (bedBlockReason(state, spec, world)) return null;
-  state.compost -= bedCost(spec.w, spec.h);
-  const bed: GardenBed = { id: makeUid('bed'), ...spec, createdAt: now };
+  let paid = 0;
+  if (!spec.raised) {
+    paid = bedCost(state, spec.w, spec.h);
+    state.coins -= paid;
+    state.purchases.gardenBed = bedsDug(state) + 1;
+  }
+  const bed: GardenBed = { id: makeUid('bed'), ...spec, createdAt: now, paid };
   state.gardenBeds.push(bed);
   let cleared = 0;
   for (const [tx, ty] of tilesUnder(bed)) {
@@ -205,12 +219,27 @@ export function createBed(state: GameState, spec: Omit<GardenBed, 'id' | 'create
   return { bed, cleared, adopted };
 }
 
-/** Fills a bed back in: its plants stay where they are, now free to roam. Half the compost comes back. */
+/** What filling a bed in gives back: half of what it cost to dig; a raised bed goes back in stock instead. */
+export function bedRefund(bed: GardenBed): number {
+  return bed.raised ? 0 : Math.floor((bed.paid ?? 0) / 2);
+}
+
+/** Sets a stocked raised bed down, centred on (x, y): a bed like any other, just not dug. */
+export function placeRaisedBed(state: GameState, x: number, y: number, world: LandscapeWorld, now: number, size: { w: number; h: number }): BedResult | null {
+  if ((state.decorStock.raisedBed ?? 0) <= 0) return null;
+  const spec = { x: Math.round((x - size.w / 2) * 4) / 4, y: Math.round((y - size.h / 2) * 4) / 4, w: size.w, h: size.h, shape: 'rect' as const, raised: true };
+  const res = createBed(state, spec, world, now);
+  if (res) state.decorStock.raisedBed = (state.decorStock.raisedBed ?? 0) - 1;
+  return res;
+}
+
+/** Fills a bed back in: its plants stay where they are, now free to roam. Half the coins come back; a raised bed goes back in stock. */
 export function removeBed(state: GameState, id: string): boolean {
   const idx = state.gardenBeds.findIndex((b) => b.id === id);
   if (idx === -1) return false;
   const [bed] = state.gardenBeds.splice(idx, 1);
-  state.compost += Math.floor(bedCost(bed.w, bed.h) / 2);
+  if (bed.raised) state.decorStock.raisedBed = (state.decorStock.raisedBed ?? 0) + 1;
+  else state.coins += bedRefund(bed);
   for (const p of Object.values(state.plants)) if (p.location.kind === 'wild' && p.location.bedId === id) delete p.location.bedId;
   return true;
 }
@@ -292,7 +321,13 @@ export function onPath(state: GameState, x: number, y: number, now: number, forS
   return undefined;
 }
 
-export type PathBlock = 'too-short' | 'blocked' | 'bed';
+export type PathBlock = 'too-short' | 'blocked' | 'bed' | 'coins';
+
+/** What a path costs: the labour by the pace, and a lot more for every tree felled and rock dug out. */
+export const PATH_BASE_COST = 30;
+export const PATH_COST_PER_PACE = 12;
+export const PATH_COST_TREE = 120;
+export const PATH_COST_ROCK = 70;
 
 export interface PathPreview {
   block: PathBlock | null;
@@ -300,25 +335,42 @@ export interface PathPreview {
   plants: OwnedPlant[];
   /** Scrub that would be cleared. */
   scrub: string[];
-  /** Points along the route that can't be cleared (trees, rocks, water, buildings). */
+  /** Points along the route that can't be cleared (water, buildings, the map's edge). */
   badPoints: number[];
+  /** Trees and rocks on the route, which the crew will clear for a price ("x,y" tiles). */
+  trees: string[];
+  rocks: string[];
+  /** What it all costs. */
+  cost: number;
+}
+
+export function pathCost(length: number, trees: number, rocks: number): number {
+  return Math.round(PATH_BASE_COST + PATH_COST_PER_PACE * length + PATH_COST_TREE * trees + PATH_COST_ROCK * rocks);
 }
 
 export function previewPath(state: GameState, points: number[], world: LandscapeWorld, width = PATH_WIDTH): PathPreview {
-  const res: PathPreview = { block: null, plants: [], scrub: [], badPoints: [] };
+  const res: PathPreview = { block: null, plants: [], scrub: [], badPoints: [], trees: [], rocks: [], cost: 0 };
   if (points.length < 4 || routeLength(points) < PATH_MIN_LENGTH) res.block = 'too-short';
   // Check the whole centreline, not just the traced points: a straight
-  // stretch mustn't slip through a tree between two of them.
+  // stretch mustn't slip past a tree between two of them. Trees and rocks
+  // on the line are cleared, at a price; water and buildings stop it.
   const pairs = pathPairs(points);
   const bad = new Set<string>();
+  const hard = new Set<string>();
   const test = (x: number, y: number) => {
     const tx = Math.floor(x);
     const ty = Math.floor(y);
     const key = `${tx},${ty}`;
-    if (bad.has(key)) return;
-    if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H || world.isBuiltOrWater(tx, ty) || isHardObstacle(world.obstacleAt(tx, ty))) {
+    if (bad.has(key) || hard.has(key)) return;
+    if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H || world.isBuiltOrWater(tx, ty)) {
       bad.add(key);
       res.badPoints.push(x, y);
+      return;
+    }
+    const o = world.obstacleAt(tx, ty);
+    if (o === 'tree' || o === 'rock') {
+      hard.add(key);
+      (o === 'tree' ? res.trees : res.rocks).push(key);
     }
   };
   if (pairs.length === 1) test(pairs[0][0], pairs[0][1]);
@@ -351,30 +403,32 @@ export function previewPath(state: GameState, points: number[], world: Landscape
     if (p.location.kind !== 'wild') continue;
     if (distToRoute(points, p.location.x, p.location.y) < half + currentRadius(p) * 0.35) res.plants.push(p);
   }
+  res.cost = pathCost(routeLength(points), res.trees.length, res.rocks.length);
+  if (!res.block && state.coins < res.cost) res.block = 'coins';
   return res;
 }
 
 export interface PathResult {
   path: GardenPath;
-  composted: number;
-  compost: number;
+  /** Plants of yours that were dug up to make way. */
+  dugUp: number;
+  /** Scrub cleared along it. */
   cleared: number;
+  trees: number;
+  rocks: number;
+  cost: number;
 }
 
-/** Carves a path: clears the scrub along it and composts whatever of yours was growing in the way. */
+/** Carves a path: pays the crew, clears everything along it (scrub, trees, rocks) and digs up whatever of yours was in the way. */
 export function createPath(state: GameState, points: number[], world: LandscapeWorld, now: number): PathResult | null {
   const preview = previewPath(state, points, world);
   if (preview.block) return null;
-  let compost = 0;
-  for (const p of preview.plants) {
-    compost += compostYield(p).compost;
-    delete state.plants[p.id];
-  }
-  state.compost += compost;
-  for (const key of preview.scrub) if (!state.clearedObstacles.includes(key)) state.clearedObstacles.push(key);
+  for (const p of preview.plants) delete state.plants[p.id];
+  state.coins -= preview.cost;
+  for (const key of [...preview.scrub, ...preview.trees, ...preview.rocks]) if (!state.clearedObstacles.includes(key)) state.clearedObstacles.push(key);
   const path: GardenPath = { id: makeUid('path'), points: [...points], width: PATH_WIDTH, createdAt: now };
   state.paths.push(path);
-  return { path, composted: preview.plants.length, compost, cleared: preview.scrub.length };
+  return { path, dugUp: preview.plants.length, cleared: preview.scrub.length, trees: preview.trees.length, rocks: preview.rocks.length, cost: preview.cost };
 }
 
 /** Lets a path grow back over. The scrub it cleared stays cleared — whatever grows there now is up to your plants. */
@@ -391,18 +445,7 @@ export function pathAt(state: GameState, x: number, y: number, slack = 0.2): Gar
 
 // ---------------------------------------------------------------- compost
 
-export interface CompostYield {
-  compost: number;
-}
-
-/** Bigger plants make more compost. */
-export function compostYield(p: Pick<OwnedPlant, 'growth'>): CompostYield {
-  const stage = stageIndexOf(p.growth);
-  return { compost: [1, 1, 2, 3, 5][stage] };
-}
-
 export interface CompostResult {
-  compost: number;
   /** A cutting saved from it — not always, and not always true to type. */
   cutting: { defId: string; variantId: string; changed: boolean; newVariant: boolean } | null;
   /** There would have been a cutting, but the basket was full. */
@@ -411,8 +454,8 @@ export interface CompostResult {
 }
 
 /**
- * Composts an outdoor plant, clearing its ground. Always gives compost; a
- * well-grown plant also usually leaves something to propagate from — but
+ * Composts an outdoor plant, clearing its ground. A well-grown plant
+ * usually leaves something to propagate from — but
  * not reliably the same thing: roughly half the time it's true to type,
  * otherwise it's the plain species or (rarely) a sport. Taking out a
  * special plant is a real decision.
@@ -421,10 +464,8 @@ export function compostPlant(state: GameState, plantId: string, now: number, ran
   const p = state.plants[plantId];
   if (!p || p.location.kind !== 'wild') return null;
   const name = specimenName(p.defId, p.variantId);
-  const { compost } = compostYield(p);
-  state.compost += compost;
   delete state.plants[plantId];
-  const result: CompostResult = { compost, cutting: null, noRoom: false, name };
+  const result: CompostResult = { cutting: null, noRoom: false, name };
   const stage = stageIndexOf(p.growth);
   if (stage < 2 || rand() >= 0.6) return result;
   const def = PLANTS[p.defId];

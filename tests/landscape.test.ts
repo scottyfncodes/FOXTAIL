@@ -7,6 +7,8 @@ import {
   canTransplant,
   checkPlanting,
   compostPlant,
+  placeRaisedBed,
+  bedRefund,
   createBed,
   createPath,
   encroachment,
@@ -22,6 +24,7 @@ import {
 } from '../src/game/systems/landscape';
 import { spreadStep, advanceWorld } from '../src/game/systems/wild';
 import { STAGE_AT, growthMultiplier } from '../src/game/systems/growth';
+import { RAISED_BED } from '../src/game/data/shop';
 import { mulberry32 } from '../src/game/engine/Random';
 
 /** A patch of open meadow with a tree at (60,30) and a bush at (62,30). */
@@ -108,14 +111,14 @@ describe('moving plants outdoors', () => {
 });
 
 describe('composting wild plants', () => {
-  it('always gives compost — more for bigger plants — and clears the ground', () => {
+  it('clears the ground, and gives nothing back but maybe a cutting', () => {
     const state = createNewGame();
     wild(state, 'small', 55, 28, 10);
     wild(state, 'big', 58, 28, STAGE_AT.specimen);
+    const coins = state.coins;
     const a = compostPlant(state, 'small', 0, () => 0.99)!;
-    const b = compostPlant(state, 'big', 0, () => 0.99)!;
-    expect(a.compost).toBeLessThan(b.compost);
-    expect(state.compost).toBe(a.compost + b.compost);
+    compostPlant(state, 'big', 0, () => 0.99)!;
+    expect(state.coins).toBe(coins);
     expect(state.plants.small).toBeUndefined();
     expect(state.plants.big).toBeUndefined();
     expect(a.cutting).toBeNull();
@@ -146,29 +149,58 @@ describe('composting wild plants', () => {
 });
 
 describe('garden beds', () => {
-  it('cost compost, clear the scrub inside, and take in plants already growing there', () => {
+  it('cost coins, clear the scrub inside, and take in plants already growing there', () => {
     const state = createNewGame();
-    state.compost = 10;
+    state.coins = 500;
     wild(state, 'inside', 62.5, 31.2, STAGE_AT.young);
     const spec = { x: 61.5, y: 29.5, w: 3, h: 3, shape: 'rect' as const };
+    const cost = bedCost(state, 3, 3);
+    expect(cost).toBeGreaterThan(0);
     const res = createBed(state, spec, world(), 5)!;
     expect(res).not.toBeNull();
-    expect(state.compost).toBe(10 - bedCost(3, 3));
+    expect(state.coins).toBe(500 - cost);
+    expect(res.bed.paid).toBe(cost);
     expect(state.clearedObstacles).toEqual(expect.arrayContaining(['62,30', '63,31']));
     expect(state.plants.inside.location).toMatchObject({ bedId: res.bed.id });
   });
 
-  it('can’t be dug through trees, over water, over wild patches, on another bed, or without compost', () => {
+  it('cost more each time you dig one, and more for bigger ones', () => {
     const state = createNewGame();
-    state.compost = 50;
+    state.coins = 5000;
+    const first = bedCost(state, 3, 3);
+    expect(bedCost(state, 4, 4)).toBeGreaterThan(first);
+    createBed(state, { x: 50, y: 20, w: 3, h: 3, shape: 'rect' }, world(), 0);
+    expect(bedCost(state, 3, 3)).toBeGreaterThan(first);
+  });
+
+  it('can’t be dug through trees, over water, over wild patches, on another bed, or without coins', () => {
+    const state = createNewGame();
+    state.coins = 5000;
     expect(bedBlockReason(state, { x: 59.5, y: 29.5, w: 2, h: 2, shape: 'rect' }, world())).toBe('blocked');
     expect(bedBlockReason(state, { x: 39, y: 20, w: 3, h: 2, shape: 'rect' }, world())).toBe('blocked');
     expect(bedBlockReason(state, { x: 69.5, y: 25.5, w: 2, h: 2, shape: 'rect' }, world())).toBe('patch');
     expect(bedBlockReason(state, { x: 50, y: 20, w: 1, h: 3, shape: 'rect' }, world())).toBe('too-small');
     createBed(state, { x: 50, y: 20, w: 3, h: 3, shape: 'oval' }, world(), 0);
     expect(bedBlockReason(state, { x: 52, y: 21, w: 3, h: 3, shape: 'rect' }, world())).toBe('overlap');
-    state.compost = 0;
-    expect(bedBlockReason(state, { x: 70, y: 40, w: 3, h: 3, shape: 'rect' }, world())).toBe('compost');
+    state.coins = 0;
+    expect(bedBlockReason(state, { x: 70, y: 40, w: 3, h: 3, shape: 'rect' }, world())).toBe('coins');
+  });
+
+  it('come raised, from the stall: set down from the basket, no coins at dig time, and taken up again whole', () => {
+    const state = createNewGame();
+    state.coins = 0;
+    state.decorStock.raisedBed = 1;
+    const spec = { x: 50, y: 20, w: RAISED_BED.w, h: RAISED_BED.h, shape: 'rect' as const };
+    expect(bedBlockReason(state, { ...spec, raised: true }, world())).toBeNull();
+    const res = placeRaisedBed(state, 50, 20, world(), 0, RAISED_BED)!;
+    expect(res).not.toBeNull();
+    expect(res.bed.raised).toBe(true);
+    expect(state.decorStock.raisedBed).toBe(0);
+    expect(state.coins).toBe(0);
+    expect(bedRefund(res.bed)).toBe(0);
+    expect(removeBed(state, res.bed.id)).toBe(true);
+    expect(state.decorStock.raisedBed).toBe(1);
+    expect(state.coins).toBe(0);
   });
 
   it('come in round shapes too', () => {
@@ -210,17 +242,18 @@ describe('garden beds', () => {
     expect(a.growth).toBeGreaterThan(STAGE_AT.large);
   });
 
-  it('can be filled back in: the plants stay, free to roam, with half the compost back', () => {
+  it('can be filled back in: the plants stay, free to roam, with half the coins back', () => {
     const state = createNewGame();
-    state.compost = 10;
+    state.coins = 500;
     wild(state, 'p', 51.5, 21.5, STAGE_AT.young);
     const res = createBed(state, { x: 50, y: 20, w: 3, h: 3, shape: 'rect' }, world(), 0)!;
-    const left = state.compost;
+    const left = state.coins;
     expect(removeBed(state, res.bed.id)).toBe(true);
     expect(state.gardenBeds).toHaveLength(0);
     expect(state.plants.p).toBeDefined();
     expect((state.plants.p.location as { bedId?: string }).bedId).toBeUndefined();
-    expect(state.compost).toBe(left + Math.floor(bedCost(3, 3) / 2));
+    expect(state.coins).toBe(left + bedRefund(res.bed));
+    expect(bedRefund(res.bed)).toBe(Math.floor(res.bed.paid! / 2));
   });
 });
 
@@ -239,8 +272,9 @@ describe('carved paths', () => {
     expect(pts.slice(0, 2)).toEqual([58, 34]);
   });
 
-  it('clear the scrub in the way and compost your plants that stood on the route', () => {
+  it('clear the scrub in the way, dig up your plants that stood on the route, and cost coins', () => {
     const state = createNewGame();
+    state.coins = 1000;
     wild(state, 'inWay', 61, 34.2, STAGE_AT.large);
     wild(state, 'besides', 61, 36.5, STAGE_AT.large);
     const pts = simplifyRoute(route);
@@ -248,18 +282,31 @@ describe('carved paths', () => {
     const preview = previewPath(state, pts, w);
     expect(preview.block).toBeNull();
     expect(preview.plants.map((p) => p.id)).toEqual(['inWay']);
+    expect(preview.cost).toBeGreaterThan(0);
     const res = createPath(state, pts, w, 100)!;
-    expect(res.composted).toBe(1);
+    expect(res.dugUp).toBe(1);
+    expect(res.cost).toBe(preview.cost);
+    expect(state.coins).toBe(1000 - res.cost);
     expect(state.plants.inWay).toBeUndefined();
     expect(state.plants.besides).toBeDefined();
-    expect(state.compost).toBe(res.compost);
     expect(state.clearedObstacles).toContain('61,34');
     expect(onPath(state, 62, 34.3, 100)).toBeDefined();
   });
 
-  it('won’t go through trees, rocks, water or a garden bed', () => {
+  it('go through trees and rocks for a higher price, but never water or a garden bed', () => {
     const state = createNewGame();
-    expect(previewPath(state, simplifyRoute([{ x: 58, y: 30.5 }, { x: 62, y: 30.5 }]), world()).block).toBe('blocked');
+    state.coins = 5000;
+    const plain = previewPath(state, simplifyRoute([{ x: 58, y: 36.5 }, { x: 62, y: 36.5 }]), world({}));
+    const treed = previewPath(state, simplifyRoute([{ x: 58, y: 36.5 }, { x: 62, y: 36.5 }]), world({ '60,36': 'tree' }));
+    const rocky = previewPath(state, simplifyRoute([{ x: 58, y: 36.5 }, { x: 62, y: 36.5 }]), world({ '60,36': 'rock' }));
+    expect(treed.block).toBeNull();
+    expect(treed.trees).toHaveLength(1);
+    expect(treed.cost).toBeGreaterThan(plain.cost);
+    expect(rocky.rocks).toHaveLength(1);
+    expect(rocky.cost).toBeGreaterThan(plain.cost);
+    state.coins = 0;
+    expect(previewPath(state, simplifyRoute([{ x: 58, y: 36.5 }, { x: 62, y: 36.5 }]), world({})).block).toBe('coins');
+    state.coins = 5000;
     expect(previewPath(state, simplifyRoute([{ x: 38, y: 20 }, { x: 45, y: 20 }]), world()).block).toBe('blocked');
     state.gardenBeds.push({ id: 'bed', x: 59, y: 33, w: 3, h: 3, shape: 'rect', createdAt: 0 });
     expect(previewPath(state, simplifyRoute(route), world()).block).toBe('bed');
@@ -268,6 +315,7 @@ describe('carved paths', () => {
 
   it('stay clear down the middle, while the verges slowly grow back in', () => {
     const state = createNewGame();
+    state.coins = 1000;
     const pts = simplifyRoute(route);
     const path = createPath(state, pts, world(), 0)!.path;
     // New seedlings can't come up on a fresh path at all…
@@ -288,6 +336,7 @@ describe('carved paths', () => {
 
   it('can be let go again, and reshaped by carving a new one', () => {
     const state = createNewGame();
+    state.coins = 1000;
     const res = createPath(state, simplifyRoute(route), world(), 0)!;
     expect(removePath(state, res.path.id)).toBe(true);
     expect(state.paths).toHaveLength(0);
