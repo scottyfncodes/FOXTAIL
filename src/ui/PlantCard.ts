@@ -3,7 +3,7 @@ import { Panel } from './Panel';
 import { el } from './dom';
 import { PLANTS, specimenName, specimenRarity, findVariant, latinLine, rarityRank } from '../game/data/plants';
 import { STAGES, STAGE_LABEL, stageFloat, stageIndexOf, minutesToNextStage } from '../game/systems/growth';
-import { cuttingBlockReason, cuttingCooldown } from '../game/systems/propagation';
+import { cuttingBlockReason, cuttingCooldown, cuttingOdds } from '../game/systems/propagation';
 import { canTransplant, findBed } from '../game/systems/landscape';
 import { zoneLabel } from '../game/engine/Game';
 import { button, note, portrait, rarityBadge, realTime, crossButton } from './common';
@@ -86,6 +86,8 @@ export class PlantCard {
     }, 'primary-btn', !!block));
     const crossBtn = crossButton(this.game, plant, () => this.render());
     if (crossBtn) actions.appendChild(crossBtn);
+    const odds = block === 'not-rooted' ? null : cuttingOdds(state, plant);
+    if (odds) body.appendChild(note(odds, 'row-note'));
     if (canTransplant(plant)) {
       actions.appendChild(button('Move it', () => {
         this.panel.close();

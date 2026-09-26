@@ -4,6 +4,7 @@ import type { OutdoorZoneId, PlantDef, Rarity } from '../types';
 import { PLANTS, PLANT_LIST, rarityRank } from '../data/plants';
 import { CURIOSITIES, findCuriosity, type CuriosityDef } from '../data/curiosities';
 import { weightedPick } from '../engine/Random';
+import { everythingFound, variantAllowed } from './lineage';
 import { addToBasket, basketFull } from './basket';
 import { hasFound, recordFound } from './collection';
 
@@ -15,7 +16,6 @@ import { hasFound, recordFound } from './collection';
 /** Game-minutes a find waits before the undergrowth closes over it. */
 export const FOX_FIND_LIFETIME = 2160;
 /** Found this many species, and very rarely the fox knows where something else grows. */
-export const SECRET_MIN_SPECIES = 10;
 export const SECRET_FIND_CHANCE = 0.03;
 
 const RARITY_WEIGHT: Record<Rarity, number> = { common: 100, uncommon: 40, rare: 14, veryRare: 5, extremelyRare: 1.5, unheardOf: 0, mythic: 0 };
@@ -25,15 +25,12 @@ export interface FindConditions {
   rain: boolean;
 }
 
-function speciesFound(state: GameState): number {
-  return Object.keys(state.collection).length;
-}
-
 /** A plant worth being led to: the fox's own species, or an unusual form of something that grows here. */
 export function pickFoxPlant(state: GameState, zone: OutdoorZoneId, rand: () => number): { defId: string; variantId: string } | null {
   const secrets = PLANT_LIST.filter((p) => p.secret && !p.parents && p.habitat.includes(zone));
   const secret = secrets.length ? secrets[Math.floor(rand() * secrets.length) % secrets.length] : undefined;
-  if (secret && speciesFound(state) >= SECRET_MIN_SPECIES && rand() < SECRET_FIND_CHANCE) {
+  // The fox's own plants only once every listed plant, in every form, has been found.
+  if (secret && everythingFound(state) && rand() < SECRET_FIND_CHANCE) {
     return { defId: secret.id, variantId: secret.variants[0].id };
   }
   const options: { def: PlantDef; variantId: string; w: number }[] = [];
@@ -42,8 +39,9 @@ export function pickFoxPlant(state: GameState, zone: OutdoorZoneId, rand: () => 
     const native = def.habitat.includes(zone);
     if (!native && !def.foxOnly) continue;
     for (const v of def.variants) {
-      // Even the fox has never seen the forms nature didn't make.
-      if (v.sportOnly) continue;
+      // Even the fox has never seen the forms nature didn't make — and it
+      // only shows you the next form along a line, never one further on.
+      if (v.sportOnly || !variantAllowed(state, def.id, v.id)) continue;
       const rank = Math.max(rarityRank(v.rarity), rarityRank(def.rarity));
       // The fox doesn't bother with the everyday.
       if (!def.foxOnly && rank < 2) continue;
@@ -113,7 +111,7 @@ export function createFoxFinds(
         const gx = x + Math.cos(a) * r;
         const gy = y + Math.sin(a) * r * 0.8;
         if (!isClear(gx, gy)) continue;
-        const v = weightedPick(def.variants, (vv) => (vv.sportOnly ? 0 : (vv.id === centre.variantId ? 3 : 1) * (vv === def.variants[0] ? 2 : 1)), rand) ?? def.variants[0];
+        const v = weightedPick(def.variants, (vv) => (vv.sportOnly || !variantAllowed(state, def.id, vv.id) ? 0 : (vv.id === centre.variantId ? 3 : 1) * (vv === def.variants[0] ? 2 : 1)), rand) ?? def.variants[0];
         out.push(make('grove', gx, gy, { defId: def.id, variantId: v.id }));
       }
     } else if (centre) out.push(make('plant', x, y, centre));

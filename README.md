@@ -16,11 +16,17 @@ grow in patches all over it.
   lantern light, and a few only where the fox leads you.
 - **Propagate.** Pot a cutting in a nursery bed; it roots, then grows from
   *cutting → young → established → large → specimen*. Rooted plants give
-  cuttings of their own, and every so often a cutting comes out as a *sport*
-  — a different, often rarer variant. Every species also has one form that
-  nature never made: it never grows wild and the fox has never seen it; it
-  can only come up as a sport, from a large plant's cutting or a lively
-  bed's seedling, and it glows after dark.
+  cuttings of their own — one a day from each plant, and not every cutting
+  takes: the rarer the plant, the more often one fails (the rooting kit
+  halves that). Every so often a cutting comes out as a *sport*, the next
+  form along its species' line. Each species' forms come in order: you
+  can't find the third until you've found the second, and a sport only
+  ever takes one step — the second from the first, never the fourth. Every
+  species also has one form that nature never made: it never grows wild
+  and the fox has never seen it; it can only come up as a sport, from a
+  large plant's cutting or a lively bed's seedling, and it glows after
+  dark. A few plants are not listed at all, and nothing of theirs turns up
+  until every listed plant, in every form, has been found.
 - **Establish, then choose.** Once you've raised two of a species, it's
   established and you choose what each plant is for: a pot in the
   greenhouse gallery (it stays and keeps growing), or a place out in the wild.

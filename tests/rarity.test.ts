@@ -5,7 +5,8 @@ import { DISCOVERY_SPOTS } from '../src/game/data/discoveryPoints';
 import { spotPool, spotContent } from '../src/game/systems/spots';
 import { canSell, sellItem, demandSpecies } from '../src/game/systems/market';
 import { spreadStep, VOLUNTEER_POOL, DIVERSE_BED_SPECIES } from '../src/game/systems/wild';
-import { pickFoxPlant, SECRET_MIN_SPECIES } from '../src/game/systems/foxFinds';
+import { pickFoxPlant } from '../src/game/systems/foxFinds';
+import { listedSpecies } from '../src/game/systems/lineage';
 import { discoveryFlourish, discoveryAside } from '../src/game/systems/rarity';
 import { rollSport, crossPollinate, crossBlockReason, crossOf } from '../src/game/systems/propagation';
 import { collectionTotals } from '../src/game/systems/collection';
@@ -14,6 +15,11 @@ import { SHOP_ITEMS } from '../src/game/data/shop';
 import { mulberry32 } from '../src/game/engine/Random';
 
 const ID = 'cannabisSativa';
+
+/** Every listed plant, in every form, found: the only state in which anything unlisted turns up. */
+function findEverything(state: GameState) {
+  for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
+}
 
 describe('the rarity ladder', () => {
   it('still climbs common → uncommon → rare → very rare → extremely rare, with one tier above', () => {
@@ -87,7 +93,7 @@ describe('Cannabis sativa', () => {
     }
   });
 
-  it('may very rarely be where the fox leads — but only for a seasoned collector, in open country', () => {
+  it('may very rarely be where the fox leads — but only once everything listed has been found, in open country', () => {
     const state = createNewGame();
     const rand = mulberry32(12);
     const tally = (zone: 'meadow' | 'woodland') => {
@@ -96,16 +102,22 @@ describe('Cannabis sativa', () => {
       return n;
     };
     expect(tally('meadow')).toBe(0);
-    for (const p of PLANT_LIST.slice(0, SECRET_MIN_SPECIES)) state.collection[p.id] = { foundAt: 0, variants: [], grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
+    // Nearly everything isn't enough.
+    findEverything(state);
+    const last = listedSpecies()[listedSpecies().length - 1];
+    state.collection[last.id].variants.pop();
+    expect(tally('meadow')).toBe(0);
+    findEverything(state);
     const meadow = tally('meadow');
     expect(meadow).toBeGreaterThan(20);
     expect(meadow).toBeLessThan(400);
     expect(tally('woodland')).toBe(0);
   });
 
-  it('may very rarely come up by itself in a garden bed full of different plants — and nowhere else', () => {
-    const grow = (species: string[], bed: boolean) => {
+  it('may very rarely come up by itself in a garden bed full of different plants — and nowhere else, and only once everything listed has been found', () => {
+    const grow = (species: string[], bed: boolean, found = true) => {
       const state = createNewGame();
+      if (found) findEverything(state);
       if (bed) state.gardenBeds.push({ id: 'bed', x: 45, y: 20, w: 9, h: 9, shape: 'rect', createdAt: 0 });
       species.forEach((defId, i) => {
         const p: OwnedPlant = {
@@ -139,6 +151,7 @@ describe('Cannabis sativa', () => {
     const mix = ['pothos', 'bostonFern', 'fittonia', 'peaceLily', 'calathea', 'spiderPlant'];
     expect(mix.length).toBeGreaterThanOrEqual(DIVERSE_BED_SPECIES);
     expect(count(grow(mix, true))).toBeGreaterThan(0);
+    expect(count(grow(mix, true, false))).toBe(0);
     expect(count(grow(mix, false))).toBe(0);
     expect(count(grow(['pothos', 'pothos', 'pothos', 'pothos', 'pothos', 'pothos'], true))).toBe(0);
   });
@@ -179,7 +192,7 @@ describe('Cannabis indica and the hybrid', () => {
 
   it('the fox may lead to indica, but never to the hybrid', () => {
     const state = createNewGame();
-    for (const p of PLANT_LIST.slice(0, SECRET_MIN_SPECIES)) state.collection[p.id] = { foundAt: 0, variants: [], grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
+    findEverything(state);
     const rand = mulberry32(5);
     const seen = new Set<string>();
     for (let i = 0; i < 6000; i++) {

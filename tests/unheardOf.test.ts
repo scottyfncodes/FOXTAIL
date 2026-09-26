@@ -12,6 +12,8 @@ import { STAGE_AT } from '../src/game/systems/growth';
 
 const listed = PLANT_LIST.filter((p) => !p.unlisted);
 const beyond = (id: string) => PLANTS[id].variants.find((v) => v.sportOnly)!;
+/** The last form nature did make: the one a sport steps from to reach the one it didn't. */
+const before = (id: string) => PLANTS[id].variants[PLANTS[id].variants.indexOf(beyond(id)) - 1];
 
 describe('the form nature never made', () => {
   it('every listed species has exactly one, unheard of and sport-only, glowing after dark', () => {
@@ -48,27 +50,19 @@ describe('the form nature never made', () => {
     }
   });
 
-  it('only comes as a sport from a big plant, never from a young one', () => {
+  it('only comes as a sport from a big plant, never from a young one — and only from the form just before it', () => {
     const rand = mulberry32(3);
-    const hits = { young: 0, big: 0 };
-    for (let i = 0; i < 4000; i++) {
-      if (rollSport('pothos', 'golden', rand) === beyond('pothos').id) hits.young++;
-      if (rollSport('pothos', 'golden', rand, true) === beyond('pothos').id) hits.big++;
-    }
-    expect(hits.young).toBe(0);
-    expect(hits.big).toBeGreaterThan(0);
-    // And rarer than anything else on the table.
-    const counts: Record<string, number> = {};
-    for (let i = 0; i < 4000; i++) {
-      const v = rollSport('pothos', 'golden', rand, true)!;
-      counts[v] = (counts[v] ?? 0) + 1;
-    }
-    for (const [v, n] of Object.entries(counts)) if (v !== beyond('pothos').id) expect(n).toBeGreaterThan(counts[beyond('pothos').id]);
+    expect(rollSport('pothos', before('pothos').id, rand)).toBeNull();
+    expect(rollSport('pothos', before('pothos').id, rand, true)).toBe(beyond('pothos').id);
+    // It's the last step of the line: nothing earlier can leap to it.
+    for (const v of PLANTS.pothos.variants) if (v !== before('pothos') && v !== beyond('pothos')) expect(rollSport('pothos', v.id, rand, true)).not.toBe(beyond('pothos').id);
+    // And it's the end of the line.
+    expect(rollSport('pothos', beyond('pothos').id, rand, true)).toBeNull();
   });
 
   it('a cutting from a large plant can throw it; from a young one it cannot', () => {
     const young = createNewGame();
-    young.plants.p = { id: 'p', defId: 'pothos', variantId: 'golden', seed: 1, growth: STAGE_AT.young, location: { kind: 'nursery', bedId: 'bed1' }, plantedAt: 0, lastCuttingAt: null, generation: 0, bornWild: false };
+    young.plants.p = { id: 'p', defId: 'pothos', variantId: before('pothos').id, seed: 1, growth: STAGE_AT.young, location: { kind: 'nursery', bedId: 'bed1' }, plantedAt: 0, lastCuttingAt: null, generation: 0, bornWild: false };
     const big = createNewGame();
     big.plants.p = { ...young.plants.p, growth: STAGE_AT.large };
     let fromYoung = 0;
@@ -76,11 +70,11 @@ describe('the form nature never made', () => {
     for (let i = 0; i < 3000; i++) {
       const r = mulberry32(i);
       const a = takeCutting(young, 'p', 0, r);
-      if (a?.item.variantId === beyond('pothos').id) fromYoung++;
+      if (a?.item?.variantId === beyond('pothos').id) fromYoung++;
       young.basket = [];
       young.plants.p.lastCuttingAt = null;
       const b = takeCutting(big, 'p', 0, mulberry32(i));
-      if (b?.item.variantId === beyond('pothos').id) fromBig++;
+      if (b?.item?.variantId === beyond('pothos').id) fromBig++;
       big.basket = [];
       big.plants.p.lastCuttingAt = null;
     }

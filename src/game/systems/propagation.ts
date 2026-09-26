@@ -1,18 +1,21 @@
 import type { BasketItem, GameState, OwnedPlant, PlantLocation } from '../state';
 import { makeUid } from '../state';
 import type { OutdoorZoneId, Rarity } from '../types';
-import { PLANTS, rarityRank } from '../data/plants';
-import { weightedPick } from '../engine/Random';
+import { PLANTS, rarityRank, specimenRarity } from '../data/plants';
 import { addToBasket, basketFull, takeFromBasket } from './basket';
 import { ensureRecord, isEstablished, recordFound } from './collection';
 import { isRooted, stageIndexOf } from './growth';
+import { nextInLine } from './lineage';
 
-/** Game-minutes a plant needs to recover before another cutting (halved with the rooting kit). */
-export const CUTTING_COOLDOWN = 240;
+/** Game-minutes a plant needs to recover before another cutting: a full day (halved with the rooting kit). */
+export const CUTTING_COOLDOWN = 1440;
 const BASE_SPORT_CHANCE = 0.06;
 
-/** How likely a sport (mutation) is to land on each variant rarity. */
-const SPORT_WEIGHT: Record<Rarity, number> = { common: 30, uncommon: 30, rare: 20, veryRare: 12, extremelyRare: 5, unheardOf: 1.5, mythic: 0 };
+/**
+ * Chance a cutting fails to strike, by what it's taken from. The rarer
+ * the plant, the harder it is to root; the rooting kit halves the odds.
+ */
+export const CUTTING_FAIL: Record<Rarity, number> = { common: 0.05, uncommon: 0.12, rare: 0.22, veryRare: 0.32, extremelyRare: 0.42, unheardOf: 0.5, mythic: 0.5 };
 
 export function cuttingCooldown(state: GameState): number {
   return state.owned.includes('rootingKit') ? CUTTING_COOLDOWN / 2 : CUTTING_COOLDOWN;
@@ -22,18 +25,30 @@ export function sportChance(state: GameState): number {
   return state.owned.includes('rootingKit') ? BASE_SPORT_CHANCE * 2 : BASE_SPORT_CHANCE;
 }
 
+export function cuttingFailChance(state: GameState, plant: Pick<OwnedPlant, 'defId' | 'variantId'>): number {
+  const base = CUTTING_FAIL[specimenRarity(plant.defId, plant.variantId)] ?? 0;
+  return state.owned.includes('rootingKit') ? base / 2 : base;
+}
+
+/** A plain line for the card: how often a cutting from this plant takes. */
+export function cuttingOdds(state: GameState, plant: Pick<OwnedPlant, 'defId' | 'variantId'>): string | null {
+  const fail = cuttingFailChance(state, plant);
+  if (fail <= 0) return null;
+  const takes = Math.round((1 - fail) * 10);
+  return takes >= 10 ? null : `Cuttings from it take about ${takes} times in 10${state.owned.includes('rootingKit') ? '' : ' — better with a rooting kit'}.`;
+}
+
 /**
- * A "sport": the plant throws a shoot unlike its parent. Picks another of
- * the species' variants, weighted so rarer forms are rarer outcomes. The
- * form nature never made is only on the table when `beyond` is true: a
- * cutting from a big, settled plant, or a seedling in a lively bed.
+ * A "sport": the plant throws a shoot unlike its parent. It is always the
+ * next form along the species' line — the second from the first, the
+ * third from the second — never a leap. The form nature never made is
+ * only on the table when `beyond` is true: a cutting from a big, settled
+ * plant, or a seedling in a lively bed.
  */
-export function rollSport(defId: string, fromVariantId: string, rand: () => number, beyond = false): string | null {
-  const def = PLANTS[defId];
-  if (!def) return null;
-  const others = def.variants.filter((v) => v.id !== fromVariantId && (beyond || !v.sportOnly));
-  if (others.length === 0) return null;
-  return weightedPick(others, (v) => SPORT_WEIGHT[v.rarity], rand)?.id ?? null;
+export function rollSport(defId: string, fromVariantId: string, _rand: () => number, beyond = false): string | null {
+  const next = nextInLine(defId, fromVariantId);
+  if (!next || (next.sportOnly && !beyond)) return null;
+  return next.id;
 }
 
 export type CuttingBlock = 'not-rooted' | 'recovering' | 'basket-full';
@@ -46,15 +61,26 @@ export function cuttingBlockReason(state: GameState, plant: OwnedPlant, now: num
 }
 
 export interface CuttingResult {
-  item: BasketItem;
+  /** What went in the basket — nothing, if the cutting didn't take. */
+  item: BasketItem | null;
   sport: boolean;
   newVariant: boolean;
+  /** The cutting failed to strike. The parent still needs its recovery time. */
+  failed: boolean;
 }
 
-/** Snips a cutting into the basket. The parent is never harmed — it just needs time to recover. */
+/**
+ * Snips a cutting into the basket. The parent is never harmed — it just
+ * needs time to recover, whether or not the cutting took.
+ */
 export function takeCutting(state: GameState, plantId: string, now: number, rand: () => number = Math.random): CuttingResult | null {
   const plant = state.plants[plantId];
   if (!plant || cuttingBlockReason(state, plant, now)) return null;
+  if (rand() < cuttingFailChance(state, plant)) {
+    plant.lastCuttingAt = now;
+    if (plant.unnoticed) plant.unnoticed = false;
+    return { item: null, sport: false, newVariant: false, failed: true };
+  }
   let variantId = plant.variantId;
   let sport = false;
   // Bigger, older plants are more likely to throw something unusual.
@@ -80,7 +106,7 @@ export function takeCutting(state: GameState, plantId: string, now: number, rand
   if (plant.unnoticed) plant.unnoticed = false;
   ensureRecord(state, plant.defId, now).propagated += 1;
   const found = recordFound(state, plant.defId, variantId, now);
-  return { item, sport, newVariant: found.newVariant };
+  return { item, sport, newVariant: found.newVariant, failed: false };
 }
 
 /** For one parent of a cross, its partner and what the two make together. */
