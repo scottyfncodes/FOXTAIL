@@ -7,6 +7,7 @@ import { ZONES } from '../game/data/zones';
 import type { OutdoorZoneId } from '../game/types';
 import { collectionTotals, speciesCounts, isEstablished, ESTABLISH_THRESHOLD } from '../game/systems/collection';
 import { describeRegion } from '../game/systems/wild';
+import { canName, NAME_MAX, regionLabel } from '../game/systems/regions';
 import { note, portrait, rarityBadge } from './common';
 
 type Tab = 'plants' | 'regions' | 'curiosities';
@@ -41,8 +42,9 @@ export class JournalPanel {
     }
   }
 
-  open() {
+  open(tab?: Tab) {
     this.detail = null;
+    if (tab) this.tab = tab;
     this.render();
     this.panel.open();
   }
@@ -193,6 +195,27 @@ export class JournalPanel {
     body.appendChild(list);
   }
 
+  /** A small field for what to call a region, prefilled with what it's turning into. */
+  private nameField(z: OutdoorZoneId, current?: string): HTMLElement {
+    const wrap = el('div', 'name-field');
+    const input = el('input', 'name-input') as HTMLInputElement;
+    input.maxLength = NAME_MAX;
+    input.value = current ?? this.game.suggestRegionName(z);
+    input.setAttribute('aria-label', 'Name for this region');
+    const btn = el('button', 'secondary-btn small', current ? 'Rename' : 'Put up a plaque');
+    const commit = () => {
+      if (this.game.nameRegion(z, input.value)) this.render();
+    };
+    btn.addEventListener('click', commit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') commit();
+      e.stopPropagation();
+    });
+    input.addEventListener('keyup', (e) => e.stopPropagation());
+    wrap.append(input, btn);
+    return wrap;
+  }
+
   private renderRegions() {
     const lush = this.game.lush;
     const body = this.panel.body;
@@ -203,7 +226,10 @@ export class JournalPanel {
       const count = lush.zoneCount[z] ?? 0;
       const row = el('div', 'entry-row region-row');
       const info = el('div', 'entry-info');
-      info.append(el('div', 'entry-name', ZONES[z].name), el('div', 'entry-sub', describeRegion(cover, count, lush.zoneCharacter[z])));
+      const named = this.game.state.regions[z];
+      info.append(el('div', 'entry-name', regionLabel(this.game.state, z)), el('div', 'entry-sub', `${named ? `${ZONES[z].name}. ` : ''}${describeRegion(cover, count, lush.zoneCharacter[z])}`));
+      // Changed enough to be worth a name: offer one, in the player's own words if they like.
+      if (canName(lush, z)) info.appendChild(this.nameField(z, named?.name));
       const natives = PLANT_LIST.filter((p) => p.habitat.includes(z) && !p.foxOnly && this.game.state.collection[p.id]).map((p) => p.name);
       if (natives.length) info.appendChild(el('div', 'entry-sub dim', `Thrives here: ${natives.join(', ')}`));
       const bar = el('div', 'trait-bar-track');

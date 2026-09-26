@@ -2,7 +2,7 @@ import type { DiscoverySpot, ZoneId } from '../types';
 import type { FoxFindKind, GameState } from '../state';
 import { spotContent } from './spots';
 import { hasFound } from './collection';
-import { BRIDGES } from '../data/worldMap';
+import { BRIDGES, outdoorWaypoint } from '../data/worldMap';
 
 // The fox. It turns up now and then, never for long, and it always seems to
 // be doing something. Sometimes it trots over to a patch it knows (its
@@ -109,7 +109,7 @@ export interface FoxTickResult {
 /** Where to run next: straight for the destination, or over a bridge if the creek is in the way. */
 export function nextLeg(fx: number, fy: number, dx: number, dy: number): { x: number; y: number } {
   const side = (x: number) => (x < 42 ? -1 : 1);
-  if (side(fx) === side(dx)) return { x: dx, y: dy };
+  if (side(fx) === side(dx)) return outdoorWaypoint(fx, fy, dx, dy);
   const bridge = [...BRIDGES].sort((a, b) => Math.abs(a.y + a.h / 2 - fy) - Math.abs(b.y + b.h / 2 - fy))[0];
   const by = bridge.y + bridge.h / 2;
   const onBridge = fx >= bridge.x - 0.5 && fx <= bridge.x + bridge.w + 0.5 && Math.abs(fy - by) < 1.3;
@@ -207,10 +207,13 @@ export function tickFox(state: GameState, ctx: FoxTickContext): FoxTickResult {
       }
       const d = dist(fox.x, fox.y, tx, ty);
       if (d > ARRIVE_DIST) {
-        const step = FOX_SPEED * ctx.dtSeconds;
-        fox.x += ((tx - fox.x) / d) * Math.min(step, d);
-        fox.y += ((ty - fox.y) / d) * Math.min(step, d);
-        if (Math.abs(tx - fox.x) > 0.05) fox.facing = tx > fox.x ? 'right' : 'left';
+        // Round the house, not over it.
+        const wp = outdoorWaypoint(fox.x, fox.y, tx, ty);
+        const wd = Math.max(0.0001, dist(fox.x, fox.y, wp.x, wp.y));
+        const step = Math.min(FOX_SPEED * ctx.dtSeconds, wd);
+        fox.x += ((wp.x - fox.x) / wd) * step;
+        fox.y += ((wp.y - fox.y) / wd) * step;
+        if (Math.abs(wp.x - fox.x) > 0.05) fox.facing = wp.x > fox.x ? 'right' : 'left';
       } else {
         if (fox.behavior === 'leading' && fox.targetDiscoveryId) {
           const spot = ctx.discoveryPoints.find((p) => p.id === fox.targetDiscoveryId);

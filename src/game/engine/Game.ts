@@ -70,10 +70,15 @@ import {
 import { sellItem, buyItem } from '../systems/market';
 import { tickCommissions, fillCommission, openCommission } from '../systems/commissions';
 import { tickBedCuriosities } from '../systems/beds';
+import { checkRegionTiers, eveningStroll, lushestTile, nameRegion, regionLabel, suggestedName } from '../systems/regions';
+import { describeRegion } from '../systems/wild';
+import { catAvoids } from '../systems/cat';
+import { minuteOfDay } from './Clock';
 import { pickUpDecor, nearestDecor, moveDecor, decorFits, isGardenPlanter } from '../systems/decor';
 import { stallRect } from '../systems/yard';
 
 export type InteractableKind =
+  | 'plaque'
   | 'spot'
   | 'wildPlant'
   | 'market'
@@ -127,6 +132,7 @@ export const INTERACT_PRIORITY: Record<InteractableKind, number> = {
   puttingMat: 2,
   foxFind: 3,
   lantern: 3,
+  plaque: 3,
   spot: 4,
   decor: 5,
   rock: 5,
@@ -200,13 +206,14 @@ function spanText(gameMinutes: number): string {
   return hours >= 36 ? `${Math.round(hours / 24)} days` : hours >= 20 ? 'about a day' : hours >= 1.5 ? `${Math.round(hours)} hours` : 'a little while';
 }
 
-/** "the Meadow" — for use mid-sentence. */
-export function zoneLabel(z: ZoneId): string {
+/** "the Meadow", or the name Ellen gave it — for use mid-sentence. */
+export function zoneLabel(z: ZoneId, state?: Pick<GameState, 'regions'>): string {
+  if (state && z !== 'greenhouse' && state.regions[z]) return state.regions[z]!.name;
   return ZONES[z].name.replace(/^The /, 'the ');
 }
 
-function listZones(zones: string[]): string {
-  const names = zones.map((z) => ZONES[z as ZoneId].name.replace(/^The /, 'the '));
+function listZones(zones: string[], state: Pick<GameState, 'regions'>): string {
+  const names = zones.map((z) => zoneLabel(z as ZoneId, state));
   if (names.length <= 1) return names[0] ?? '';
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
@@ -232,6 +239,8 @@ export class Game {
   onOpenPutting: (() => void) | null = null;
   onOpenPlantCard: ((plantId: string) => void) | null = null;
   onOpenGroundCard: ((target: { kind: 'bed' | 'path'; id: string }) => void) | null = null;
+  /** The journal's Regions page: where a region is named. */
+  onOpenRegions: (() => void) | null = null;
   onFrame: (() => void) | null = null;
   tools: ToolController;
   world: LandscapeWorld;
@@ -485,11 +494,11 @@ export class Game {
           this.hint('rooted', 'Rooted plants give cuttings. Grow two of a kind to establish it.', 'important', () => !isEstablished(this.state, plant.defId));
         } else this.pushToast(`Your ${name} is now ${STAGE_LABEL[up.to].toLowerCase()}.`, 'growth');
       } else if (up.to === 'large' && !plant.bornWild) {
-        this.pushToast(`Your ${name} in ${zoneLabel(plant.location.zone)} has grown large — it may start to spread.`, 'growth');
+        this.pushToast(`Your ${name} in ${zoneLabel(plant.location.zone, this.state)} has grown large — it may start to spread.`, 'growth');
         // Now that spreading is about to begin, a bed is worth knowing about.
         if (this.state.gardenBeds.length === 0) this.hint('beds', 'Large plants spread. A garden bed (🌿) keeps them where you put them.', 'important', () => this.outdoors() && this.state.gardenBeds.length === 0);
       } else if (up.to === 'specimen' && !plant.bornWild) {
-        this.pushToast(`Your ${name} in ${zoneLabel(plant.location.zone)} is a magnificent specimen now.`, 'growth', 'important');
+        this.pushToast(`Your ${name} in ${zoneLabel(plant.location.zone, this.state)} is a magnificent specimen now.`, 'growth', 'important');
       }
     }
 
@@ -502,12 +511,12 @@ export class Game {
       if (result.spreads.length > 0) {
         const child = this.state.plants[result.spreads[0].childId];
         if (child?.location.kind === 'wild') {
-          this.hint('spread', `A ${PLANTS[child.defId].name} seedling came up by itself in ${zoneLabel(child.location.zone)}.`, 'major');
+          this.hint('spread', `A ${PLANTS[child.defId].name} seedling came up by itself in ${zoneLabel(child.location.zone, this.state)}.`, 'major');
         }
       }
       for (const s of sports) {
         const child = this.state.plants[s.childId];
-        if (child?.location.kind === 'wild') this.pushToast(`Something unusual has sprouted among your ${PLANTS[child.defId].name} plants in ${zoneLabel(child.location.zone)}…`, 'discovery');
+        if (child?.location.kind === 'wild') this.pushToast(`Something unusual has sprouted among your ${PLANTS[child.defId].name} plants in ${zoneLabel(child.location.zone, this.state)}…`, 'discovery');
       }
     }
 
@@ -515,7 +524,7 @@ export class Game {
       const zones = [...new Set(result.spreads.map((s) => this.state.plants[s.childId]).filter((p) => p?.location.kind === 'wild').map((p) => (p!.location as { zone: string }).zone))];
       const parts: string[] = [];
       if (grew.size > 0) parts.push(grew.size === 1 ? 'one of your plants grew' : `${grew.size} of your plants grew`);
-      if (result.spreads.length > 0) parts.push(`${result.spreads.length} new seedling${result.spreads.length === 1 ? '' : 's'} came up in ${listZones(zones)}`);
+      if (result.spreads.length > 0) parts.push(`${result.spreads.length} new seedling${result.spreads.length === 1 ? '' : 's'} came up in ${listZones(zones, this.state)}`);
       const body = parts.length ? `: ${parts.join(', and ')}` : '';
       this.pushToast(`Welcome back — ${spanText(elapsed)} passed${body}.`, 'info', 'important');
       if (sports.length > 0) this.pushToast(`And something you’ve never seen before is growing among them. Go and look.`, 'discovery');
@@ -539,6 +548,7 @@ export class Game {
       this.lush = computeLushness(this.state);
       this.lushDirty = false;
       this.lushAcc = 0;
+      this.noticeRegions();
     }
 
     // Mid-kiss, she's not going anywhere.
@@ -588,7 +598,7 @@ export class Game {
         const { x, y, reward } = foxResult.trailEnded;
         const z = zoneAt(Math.floor(x), Math.floor(y));
         if (z !== 'greenhouse') {
-          createFoxFinds(
+          const finds = createFoxFinds(
             this.state,
             x,
             y,
@@ -599,6 +609,16 @@ export class Game {
             Math.random,
             (gx, gy) => this.isOpenGround(Math.floor(gx), Math.floor(gy))
           );
+          // The den is wherever the valley has grown thickest: the fox lives in what you made.
+          const den = finds.find((f) => f.curiosityId === 'foxDen');
+          if (den) {
+            const at = lushestTile(this.lush, (tx, ty) => this.isOpenGround(tx, ty) && !this.plantOnTile(tx, ty));
+            if (at && at.lush > 0.4) {
+              den.x = at.x + 0.5;
+              den.y = at.y + 0.5;
+              den.zone = zoneAt(at.x, at.y) as OutdoorZoneId;
+            }
+          }
         }
       }
       this.audio.setZone(zone, this.state.weather.condition === 'rain', dtSeconds);
@@ -635,7 +655,9 @@ export class Game {
       p.facing = this.chase.kiss!.ellenLeft ? 'right' : 'left';
       if (this.tools.active) this.tools.cancel();
     }
-    if (!kissing && !this.chase.kiss) tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset });
+    if (!kissing && !this.chase.kiss) {
+      tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset, extraSpots: eveningStroll(this.state, minuteOfDay(this.state.clock.totalMinutes)) });
+    }
     this.catInterestAcc += dtMs;
     if (this.catInterestAcc >= CAT_INTEREST_MS) {
       this.catInterestAcc = 0;
@@ -650,6 +672,44 @@ export class Game {
       this.autosaveAcc = 0;
       saveGame(this.state);
     }
+  }
+
+  /**
+   * A region that has changed enough under the player's plants is worth a
+   * word, and once, an offer of a name. Each tier is noticed once.
+   */
+  private noticeRegions() {
+    for (const c of checkRegionTiers(this.state, this.lush)) {
+      const label = regionLabel(this.state, c.zone);
+      const what = describeRegion(this.lush.zoneCover[c.zone], this.lush.zoneCount[c.zone], c.character).replace(/\.$/, '').toLowerCase();
+      if (c.tier === 1) {
+        this.pushToast(`${label} is becoming ${what}.`, 'discovery', 'important');
+        if (!Object.keys(this.state.regions).length) this.hint('regionName', 'A place that’s changed this much could have a name: Regions, in the journal.', 'important', () => Object.keys(this.state.regions).length === 0);
+      } else this.pushToast(`${label} is ${what} now.`, 'discovery', 'major');
+    }
+  }
+
+  /** Names a region (or renames it); the plaque goes up where the growth is thickest. */
+  nameRegion(zone: OutdoorZoneId, raw: string): boolean {
+    const r = nameRegion(this.state, zone, raw, this.lush, (tx, ty) => this.isOpenGround(tx, ty) && !this.plantOnTile(tx, ty), this.state.clock.totalMinutes);
+    if (!r) return false;
+    this.audio.playToolChime();
+    this.pushToast(`${r.name}. The plaque is up where the growth is thickest.`, 'discovery', 'important');
+    this.onStateTouched?.();
+    saveGame(this.state);
+    return true;
+  }
+
+  /** What the journal offers to call a region, before the player has. */
+  suggestRegionName(zone: OutdoorZoneId): string {
+    return suggestedName(this.lush.zoneCharacter[zone], this.state.regionTier[zone] ?? 1);
+  }
+
+  private plantOnTile(tx: number, ty: number): boolean {
+    for (const p of Object.values(this.state.plants)) {
+      if (p.location.kind === 'wild' && Math.floor(p.location.x) === tx && Math.floor(p.location.y) === ty) return true;
+    }
+    return false;
   }
 
   /**
@@ -869,6 +929,11 @@ export class Game {
         if (this.state.tools[tp.tool]) continue;
         consider({ kind: 'lantern', id: tp.id, x: tp.x, y: tp.y, label: 'Pick up the old lantern', available: true }, tp.x + 0.5, tp.y + 0.5);
       }
+      for (const [zone, r] of Object.entries(this.state.regions)) {
+        if (!r) continue;
+        const days = Math.floor((now - r.namedAt) / 1440);
+        consider({ kind: 'plaque', id: zone, x: r.x, y: r.y, label: `${r.name} · named ${days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`}`, available: true }, r.x, r.y, 1.6);
+      }
       for (const f of this.state.foxFinds) {
         const label = f.kind === 'curiosity' ? 'Something here… look closer' : 'Something unusual is growing here';
         consider({ kind: 'foxFind', id: f.id, x: f.x, y: f.y, label, available: true }, f.x, f.y, 1.2);
@@ -930,7 +995,7 @@ export class Game {
       const spot = DISCOVERY_SPOTS.find((d) => d.id === n.id)!;
       const result = collectSpot(this.state, spot, now);
       if (result.ok && result.content) {
-        this.actionAnimUntil = now + 1.4;
+        this.actionAnimUntil = now + 0.5;
         this.audio.playDiscoveryChime();
         const { defId, variantId } = result.content;
         const name = specimenName(defId, variantId);
@@ -964,6 +1029,8 @@ export class Game {
       this.exitHouse();
     } else if (n.kind === 'foxFind') {
       this.collectFind(n.id);
+    } else if (n.kind === 'plaque') {
+      this.onOpenRegions?.();
     } else if (n.kind === 'rock') {
       this.haulRock(n.id);
     } else if (n.kind === 'decor') {
@@ -991,7 +1058,7 @@ export class Game {
     if (block === 'recovering') return this.pushToast('It’s still recovering from the last cutting.', 'info');
     const res = takeCutting(this.state, plantId, now);
     if (!res) return;
-    this.actionAnimUntil = now + 1.4;
+    this.actionAnimUntil = now + 0.5;
     this.audio.playDiscoveryChime();
     const name = specimenName(res.item.defId, res.item.variantId);
     if (res.sport) {
@@ -1054,7 +1121,7 @@ export class Game {
     if (block === 'no-partner') return this.pushToast(`You’d need a ${PLANTS[crossOf(plant.defId)!.partner].name} of your own to cross it with.`, 'info');
     const res = crossPollinate(this.state, plantId, now);
     if (!res) return;
-    this.actionAnimUntil = now + 1.4;
+    this.actionAnimUntil = now + 0.5;
     this.audio.playDiscoveryChime();
     const name = specimenName(res.item.defId, res.item.variantId);
     if (res.newSpecies) this.announce(`A cross! ${name}.`, specimenRarity(res.item.defId, res.item.variantId));
@@ -1109,10 +1176,10 @@ export class Game {
     if (!plant) return;
     this.lushDirty = true;
     this.lushAcc = LUSH_REFRESH_MS;
-    this.actionAnimUntil = this.state.clock.totalMinutes + 1.4;
+    this.actionAnimUntil = this.state.clock.totalMinutes + 0.5;
     const native = PLANTS[plant.defId].habitat.includes(where.zone);
     this.pushToast(
-      `Planted ${specimenName(plant.defId, plant.variantId)} in ${zoneLabel(where.zone)}.${native ? ' It’s at home here and will grow fast.' : ''}`,
+      `Planted ${specimenName(plant.defId, plant.variantId)} in ${zoneLabel(where.zone, this.state)}.${native ? ' It’s at home here and will grow fast.' : ''}`,
       'growth'
     );
     this.hint('plantedOut', 'It grows on its own now, and spreads once it’s large.', 'important', this.outdoors);
@@ -1201,11 +1268,11 @@ export class Game {
       if (plant.location.kind !== 'wild') return;
       this.lushDirty = true;
       this.lushAcc = LUSH_REFRESH_MS;
-      this.actionAnimUntil = now + 1.4;
+      this.actionAnimUntil = now + 0.5;
       const zone = plant.location.zone;
       const native = PLANTS[plant.defId].habitat.includes(zone);
       const inBed = plant.location.bedId ? ' in your garden bed' : '';
-      this.pushToast(`Planted ${specimenName(plant.defId, plant.variantId)}${inBed} in ${zoneLabel(zone)}.${native ? ' It’s at home here and will grow fast.' : ''}`, 'growth');
+      this.pushToast(`Planted ${specimenName(plant.defId, plant.variantId)}${inBed} in ${zoneLabel(zone, this.state)}.${native ? ' It’s at home here and will grow fast.' : ''}`, 'growth');
       this.hint('plantedOut', 'It grows on its own now, and spreads once it’s large.', 'important', this.outdoors);
       if (plant.location.bedId) this.hint('liveliness', 'Tap a bed to see how lively it is, and what it’s missing.', 'important', () => this.outdoors() && this.state.gardenBeds.length > 0);
     } else if (res.kind === 'transplanted') {
@@ -1235,7 +1302,7 @@ export class Game {
     if (!res) return;
     this.lushDirty = true;
     this.lushAcc = LUSH_REFRESH_MS;
-    this.actionAnimUntil = this.state.clock.totalMinutes + 1.4;
+    this.actionAnimUntil = this.state.clock.totalMinutes + 0.5;
     let msg = `Composted the ${res.name}: +${res.compost} compost.`;
     if (res.cutting) {
       const r = specimenRarity(res.cutting.defId, res.cutting.variantId);
@@ -1271,7 +1338,7 @@ export class Game {
       return;
     }
     const f = res.find;
-    this.actionAnimUntil = now + 1.4;
+    this.actionAnimUntil = now + 0.5;
     this.audio.playDiscoveryChime();
     if (f.kind === 'curiosity') {
       const c = findCuriosity(f.curiosityId ?? '');
@@ -1338,7 +1405,7 @@ export class Game {
   private computeCatInterests(): CatInterest[] {
     const out: CatInterest[] = [];
     for (const p of Object.values(this.state.plants)) {
-      if (p.location.kind === 'wild') continue;
+      if (p.location.kind === 'wild' || catAvoids(p.defId, p.variantId)) continue;
       const pieceId = p.location.kind === 'nursery' ? p.location.bedId : p.location.slotId;
       const piece = findFurniture(this.state, pieceId);
       if (!piece || FURNITURE_DEFS[piece.kind].layer === 'overhead') continue;

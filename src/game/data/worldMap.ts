@@ -69,6 +69,85 @@ export function isInsideHomeFootprint(x: number, y: number): boolean {
   return isInsideGreenhouseFootprint(x, y);
 }
 
+/** The building with a little clearance round it: nobody walks through, or over, the house. */
+const HOME_KEEPOUT: Rect = { x: GREENHOUSE_FOOTPRINT.x - 0.6, y: GREENHOUSE_FOOTPRINT.y - 0.6, w: GREENHOUSE_FOOTPRINT.w + HOUSE_FOOTPRINT.w + 1.2, h: GREENHOUSE_FOOTPRINT.h + 1.2 };
+
+function inRect(r: Rect, x: number, y: number): boolean {
+  return x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h;
+}
+
+/** Whether the straight line between two points crosses the rectangle. */
+export function segmentHitsRect(r: Rect, ax: number, ay: number, bx: number, by: number): boolean {
+  if (inRect(r, ax, ay) || inRect(r, bx, by)) return true;
+  // Liang–Barsky clipping: any part of the segment inside the box?
+  let t0 = 0;
+  let t1 = 1;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const checks: [number, number][] = [
+    [-dx, ax - r.x],
+    [dx, r.x + r.w - ax],
+    [-dy, ay - r.y],
+    [dy, r.y + r.h - ay],
+  ];
+  for (const [p, q] of checks) {
+    if (p === 0) {
+      if (q < 0) return false;
+      continue;
+    }
+    const t = q / p;
+    if (p < 0) t0 = Math.max(t0, t);
+    else t1 = Math.min(t1, t);
+    if (t0 > t1) return false;
+  }
+  return true;
+}
+
+/**
+ * Where to head next on the way from (fx, fy) to (tx, ty) outdoors: straight
+ * there, unless the house is in the way, in which case the nearest corner
+ * of it to go round. Used by Scott and the fox, who otherwise walk in
+ * straight lines and ended up on the roof.
+ */
+export function outdoorWaypoint(fx: number, fy: number, tx: number, ty: number): { x: number; y: number } {
+  const r = HOME_KEEPOUT;
+  if (!segmentHitsRect(r, fx, fy, tx, ty)) return { x: tx, y: ty };
+  const m = 0.5;
+  const corners = [
+    { x: r.x - m, y: r.y - m },
+    { x: r.x + r.w + m, y: r.y - m },
+    { x: r.x - m, y: r.y + r.h + m },
+    { x: r.x + r.w + m, y: r.y + r.h + m },
+  ];
+  // Shortest route through the corners: from → corner(s) → to, over a tiny graph.
+  const nodes = [{ x: fx, y: fy }, ...corners, { x: tx, y: ty }];
+  const n = nodes.length;
+  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+  const best = new Array(n).fill(Infinity);
+  const prev = new Array<number>(n).fill(-1);
+  const done = new Array(n).fill(false);
+  best[0] = 0;
+  for (let k = 0; k < n; k++) {
+    let u = -1;
+    for (let i = 0; i < n; i++) if (!done[i] && (u === -1 || best[i] < best[u])) u = i;
+    if (u === -1 || best[u] === Infinity) break;
+    done[u] = true;
+    for (let v = 0; v < n; v++) {
+      if (done[v] || segmentHitsRect(r, nodes[u].x, nodes[u].y, nodes[v].x, nodes[v].y)) continue;
+      const d = best[u] + dist(nodes[u], nodes[v]);
+      if (d < best[v]) {
+        best[v] = d;
+        prev[v] = u;
+      }
+    }
+  }
+  // Walk back from the destination to find the first step after the start.
+  let step = n - 1;
+  if (prev[step] === -1) return { x: tx, y: ty };
+  while (prev[step] !== 0 && prev[step] !== -1) step = prev[step];
+  return nodes[step];
+}
+
 export function zoneAt(x: number, y: number): ZoneId {
   if (isInsideGreenhouseFootprint(x, y)) return 'greenhouse';
   if (rectContains(CREEK_BAND, x, y)) return 'creek';

@@ -1,6 +1,7 @@
 import type { Game, ToastEvent } from '../game/engine/Game';
 import { el } from './dom';
 import { ZONES } from '../game/data/zones';
+import { regionLabel } from '../game/systems/regions';
 import { zoneAt } from '../game/data/worldMap';
 import { isNight, minuteOfDay } from '../game/engine/Clock';
 import { ModeBar } from './ModeBar';
@@ -142,7 +143,7 @@ export class HUD {
     const zone = state.player.inGreenhouse ? 'greenhouse' : zoneAt(Math.floor(state.player.x), Math.floor(state.player.y));
     const cover = zone === 'greenhouse' ? 0 : this.game.lush.zoneCover[zone] ?? 0;
     const room = this.game.currentRoom();
-    const place = room === 'living' ? 'Home' : ZONES[zone].name;
+    const place = room === 'living' ? 'Home' : zone === 'greenhouse' ? ZONES.greenhouse.name : regionLabel(state, zone);
     setText(this.zoneChip, cover >= 0.01 ? `${place} · ${Math.round(cover * 100)}% yours` : place);
     setText(this.coinChip, `\u{1FA99} ${state.coins}`);
     setText(this.compostChip, `\u{1F342} ${state.compost}`);
@@ -179,6 +180,7 @@ export class HUD {
       decor: 'MOVE',
       setDown: 'DROP',
       puttingMat: 'PUTT',
+      plaque: 'LOOK',
     };
     setText(this.actionBtn, verbs[n.kind] ?? 'GO');
   }

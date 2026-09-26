@@ -25,6 +25,7 @@ const groundCard = new GroundCard(game);
 const putting = new PuttingPanel(game);
 
 hud.onJournal = () => journal.open();
+game.onOpenRegions = () => journal.open('regions');
 hud.onBasket = () => basket.open();
 game.onOpenGreenhouse = (target) => greenhouse.open(target);
 game.onOpenMarket = () => market.open();

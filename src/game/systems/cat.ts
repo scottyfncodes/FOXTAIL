@@ -2,6 +2,7 @@ import type { CatActivity, CatState } from '../state';
 import { CAT_SPOTS, findCatSpot, spotPosition, type AnchorOffset, type CatSpotKind } from '../data/catSpots';
 import { interiorWaypoint } from '../data/interior';
 import { weightedPick } from '../engine/Random';
+import { plantRoles } from './beds';
 
 // The house cat: ambient, indoor-only, and indifferent to everyone. She has
 // her places — the couch, her bed, the window, the sunny spot among the
@@ -29,6 +30,11 @@ const WHIM_DURATIONS: Partial<Record<CatActivity, [number, number]>> = {
   hiding: [30, 70],
   sleeping: [50, 120],
 };
+
+/** Plants she won't go near: anything with teeth, hairs or a cup of something. */
+export function catAvoids(defId: string, variantId: string): boolean {
+  return plantRoles(defId, variantId).includes('carnivore');
+}
 
 /** Somewhere she might take an interest in: a plant, and whether it's big enough to hide behind. */
 export interface CatInterest {
