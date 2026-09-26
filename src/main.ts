@@ -52,7 +52,17 @@ new StartOverlay(
     game.start();
   },
   () => game.resetToNewGame(),
-  game.isNew
+  game.isNew,
+  () => {
+    const s = game.state;
+    return {
+      day: Math.floor(s.clock.totalMinutes / 1440) + 1,
+      plants: Object.keys(s.plants).length,
+      species: Object.keys(s.collection).length,
+      coins: s.coins,
+      awayMs: Math.max(0, Date.now() - s.clock.lastRealTimestamp),
+    };
+  }
 );
 
 if ('serviceWorker' in navigator) {
