@@ -81,6 +81,11 @@ grow in patches all over it.
   price, and you can walk quickly along the result while its verges creep back in.
   Where your plants have grown thick, the ground is drawn as a carpet of
   their own foliage; large plants, specimens and sports still stand out of it.
+  Everywhere else, nature fills the gaps: meadow grass, clover and
+  wildflowers, fern and ivy in the woods, moss and dock in the damp,
+  sedge and reeds along the water, lichen and tufts on the rock — thick
+  in the open, thicker around what you've planted, thinning out under
+  your own carpet (`src/game/world/VergeArt.ts`).
 - **Name what you made.** Once a region has changed enough under your
   plants, the journal's Regions page offers it a name. A wooden plaque goes
   up where the growth is thickest, the valley calls the place by that name
