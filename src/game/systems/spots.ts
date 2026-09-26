@@ -6,6 +6,7 @@ import { hashString, mulberry32, weightedPick } from '../engine/Random';
 import { isNight } from '../engine/Clock';
 import { addToBasket, basketFull } from './basket';
 import { recordFound } from './collection';
+import { variantAllowed } from './lineage';
 
 /** Relative odds of each species rarity turning up in a patch. */
 export const SPECIES_WEIGHT: Record<Rarity, number> = { common: 100, uncommon: 36, rare: 10, veryRare: 2.5, extremelyRare: 0.7, unheardOf: 0, mythic: 0 };
@@ -54,7 +55,8 @@ export function spotContent(state: GameState, spot: DiscoverySpot): SpotContent 
     def = weightedPick(fallback, (p) => SPECIES_WEIGHT[p.rarity], rand);
   }
   if (!def) return null;
-  const variant = weightedPick(def.variants, (v) => (v.sportOnly ? 0 : v === def!.variants[0] ? 100 : VARIANT_WEIGHT[v.rarity]), rand) ?? def.variants[0];
+  // Only the forms already found, and the next one along the line, ever grow in a patch.
+  const variant = weightedPick(def.variants, (v) => (v.sportOnly || !variantAllowed(state, def!.id, v.id) ? 0 : v === def!.variants[0] ? 100 : VARIANT_WEIGHT[v.rarity]), rand) ?? def.variants[0];
   return { defId: def.id, variantId: variant.id, seed: Math.floor(rand() * 1e9) };
 }
 

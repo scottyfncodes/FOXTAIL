@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { listedSpecies } from '../src/game/systems/lineage';
 import { createNewGame } from '../src/game/state';
 import { spotContent, collectSpot, spotPool } from '../src/game/systems/spots';
 import { DISCOVERY_SPOTS, SPOT_EPOCH_MINUTES } from '../src/game/data/discoveryPoints';
@@ -39,6 +40,8 @@ describe('wild patches', () => {
 
   it('commons are common and rarities are genuinely rare across the valley', () => {
     const state = createNewGame();
+    // Every form in play: a patch only grows the forms found so far plus the next one along each line.
+    for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
     const counts = [0, 0, 0, 0, 0];
     for (let e = 0; e < 300; e++) {
       state.clock.totalMinutes = e * SPOT_EPOCH_MINUTES + 1;

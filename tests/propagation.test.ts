@@ -10,6 +10,8 @@ import {
   creditGrown,
   placementBlockReason,
   CUTTING_COOLDOWN,
+  CUTTING_FAIL,
+  cuttingFailChance,
   rollSport,
 } from '../src/game/systems/propagation';
 import { addToBasket } from '../src/game/systems/basket';
@@ -35,8 +37,13 @@ function nurseryPlant(state: GameState, id: string, growth: number, bedId = 'bed
   return p;
 }
 
-const never = () => 0.99; // no sport
-const always = () => 0.0; // sport every time
+const never = () => 0.99; // takes, no sport
+/** A cutting that takes, then throws a sport. */
+const seq = (...vals: number[]) => {
+  let i = 0;
+  return () => vals[i++] ?? 0.5;
+};
+const always = () => seq(0.5, 0.0);
 
 describe('cuttings', () => {
   it('cannot be taken until the plant has rooted', () => {
@@ -60,18 +67,38 @@ describe('cuttings', () => {
   it('sometimes throws a sport: a different variant of the same species, recorded as a find', () => {
     const state = createNewGame();
     nurseryPlant(state, 'a', STAGE_AT.large);
-    const res = takeCutting(state, 'a', 0, always)!;
+    const res = takeCutting(state, 'a', 0, always())!;
     expect(res.sport).toBe(true);
-    expect(res.item.variantId).not.toBe('deliciosa');
-    expect(state.collection.monstera.variants).toContain(res.item.variantId);
+    expect(res.item!.variantId).not.toBe('deliciosa');
+    expect(state.collection.monstera.variants).toContain(res.item!.variantId);
   });
 
-  it('a sport is always one of the species’ own variants', () => {
+  it('a sport is always the next of the species’ own variants', () => {
     for (let i = 0; i < 50; i++) {
       const v = rollSport('pothos', 'golden', Math.random);
       expect(PLANTS.pothos.variants.map((x) => x.id)).toContain(v);
-      expect(v).not.toBe('golden');
+      expect(v).toBe(PLANTS.pothos.variants[1].id);
     }
+  });
+
+  it('needs a full day between cuttings from the same plant', () => {
+    expect(CUTTING_COOLDOWN).toBe(1440);
+  });
+
+  it('sometimes fails to take — more often the rarer the plant — and the parent still needs its day', () => {
+    const state = createNewGame();
+    const p = nurseryPlant(state, 'a', STAGE_AT.large);
+    const res = takeCutting(state, 'a', 50, () => 0.0)!;
+    expect(res.failed).toBe(true);
+    expect(res.item).toBeNull();
+    expect(state.basket).toHaveLength(0);
+    expect(p.lastCuttingAt).toBe(50);
+    expect(cuttingBlockReason(state, p, 60)).toBe('recovering');
+    const ranks = ['common', 'uncommon', 'rare', 'veryRare', 'extremelyRare', 'unheardOf'] as const;
+    for (let i = 1; i < ranks.length; i++) expect(CUTTING_FAIL[ranks[i]]).toBeGreaterThan(CUTTING_FAIL[ranks[i - 1]]);
+    const kit = createNewGame();
+    kit.owned.push('rootingKit');
+    expect(cuttingFailChance(kit, p)).toBeCloseTo(cuttingFailChance(state, p) / 2);
   });
 
   it('refuses when the basket is full', () => {

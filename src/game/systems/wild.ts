@@ -6,6 +6,7 @@ import { GRID_W, GRID_H, zoneAt, isWater } from '../data/worldMap';
 import { stageFloat, stageIndexOf, tickGrowth, type StageUp } from './growth';
 import { rollSport, crossOf } from './propagation';
 import { hasFound } from './collection';
+import { everythingFound, variantAllowed } from './lineage';
 import { SpatialGrid } from './spatial';
 import { bedContains, onPath } from './landscape';
 import { bedLiveliness, LIVELY_TIER } from './beds';
@@ -102,6 +103,8 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
   // How lively each bed is, worked out once: a varied bed is a livelier ecosystem.
   const bedTier = new Map<string, number>();
   for (const bed of state.gardenBeds) bedTier.set(bed.id, bedLiveliness(state, bed.id).tier);
+  // Nothing nobody planted comes up until every listed plant, in every form, has been found.
+  const gateOpen = everythingFound(state);
 
   for (const parent of wild) {
     if (parent.location.kind !== 'wild') continue;
@@ -150,15 +153,16 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
         defId = cross.child;
         variantId = PLANTS[cross.child].variants[0].id;
         sport = true;
-      } else if (diverse && rand() < VOLUNTEER_CHANCE * (tier >= 4 ? 2 : 1) && PLANTS[VOLUNTEER_SPECIES]) {
+      } else if (diverse && gateOpen && rand() < VOLUNTEER_CHANCE * (tier >= 4 ? 2 : 1) && PLANTS[VOLUNTEER_SPECIES]) {
         // Something nobody planted: a seed carried in by whatever visits a
         // bed this full of life.
         defId = VOLUNTEER_POOL[Math.floor(rand() * VOLUNTEER_POOL.length) % VOLUNTEER_POOL.length];
         variantId = PLANTS[defId].variants[0].id;
         sport = true;
       } else if (rand() < SEEDLING_SPORT_CHANCE * (diverse ? DIVERSE_SPORT_BOOST : 1)) {
+        // The next form along the line — and only once the one before it has been found.
         const v = rollSport(parent.defId, parent.variantId, rand, diverse);
-        if (v) {
+        if (v && variantAllowed(state, parent.defId, v)) {
           variantId = v;
           sport = true;
         }

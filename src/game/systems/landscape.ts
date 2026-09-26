@@ -6,6 +6,7 @@ import { GRID_H, GRID_W, zoneAt } from '../data/worldMap';
 import { MINUTES_PER_DAY } from '../engine/Clock';
 import { addToBasket, basketFull } from './basket';
 import { rollSport } from './propagation';
+import { variantAllowed } from './lineage';
 import { recordFound } from './collection';
 import { stageFloat, stageIndexOf } from './growth';
 import { SpatialGrid } from './spatial';
@@ -471,7 +472,10 @@ export function compostPlant(state: GameState, plantId: string, now: number, ran
   const def = PLANTS[p.defId];
   let variantId = p.variantId;
   const r = rand();
-  if (r < 0.12) variantId = rollSport(p.defId, p.variantId, rand, stageIndexOf(p.growth) >= 3) ?? p.variantId;
+  if (r < 0.12) {
+    const v = rollSport(p.defId, p.variantId, rand, stageIndexOf(p.growth) >= 3);
+    if (v && variantAllowed(state, p.defId, v)) variantId = v;
+  }
   else if (r < 0.5) variantId = def.variants[0].id;
   if (basketFull(state)) {
     result.noRoom = true;

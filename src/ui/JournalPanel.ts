@@ -2,6 +2,7 @@ import type { Game } from '../game/engine/Game';
 import { Panel } from './Panel';
 import { el, clear } from './dom';
 import { PLANT_LIST, PLANTS, rarityRank, findVariant, latinLine } from '../game/data/plants';
+import { variantAllowed } from '../game/systems/lineage';
 import { CURIOSITIES } from '../game/data/curiosities';
 import { ZONES } from '../game/data/zones';
 import type { OutdoorZoneId } from '../game/types';
@@ -142,7 +143,9 @@ export class JournalPanel {
         row.append(portrait(def.id, v.id, 2.8, 7, 44), el('span', 'variant-name', `✓ ${v.name}`), rarityBadge(v.rarity));
         row.title = v.description;
       } else {
-        row.append(portrait(def.id, v.id, 2.8, 7, 44, true), el('span', 'variant-name', rec.variants.includes(v.id) ? '??? · found — grow it to record it' : '???'));
+        const locked = !rec.variants.includes(v.id) && !variantAllowed(state, def.id, v.id);
+        row.append(portrait(def.id, v.id, 2.8, 7, 44, true), el('span', 'variant-name', rec.variants.includes(v.id) ? '??? · found — grow it to record it' : locked ? '??? · after the one above' : '???'));
+        if (locked) row.title = 'Each form comes after the last: find the one above first, or grow it on and see what its cuttings do.';
       }
       vlist.appendChild(row);
     }

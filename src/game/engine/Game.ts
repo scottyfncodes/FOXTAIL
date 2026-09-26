@@ -1060,6 +1060,11 @@ export class Game {
     const res = takeCutting(this.state, plantId, now);
     if (!res) return;
     this.actionAnimUntil = now + 0.5;
+    if (res.failed || !res.item) {
+      this.pushToast(`The cutting didn’t take. Give the ${specimenName(plant.defId, plant.variantId)} a day to recover, then try again.`, 'info');
+      this.onStateTouched?.();
+      return;
+    }
     this.audio.playDiscoveryChime();
     const name = specimenName(res.item.defId, res.item.variantId);
     if (res.sport) {
