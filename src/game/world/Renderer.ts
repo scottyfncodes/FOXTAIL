@@ -22,6 +22,7 @@ import type { LushField } from '../systems/wild';
 import { CHARACTERS } from '../systems/wild';
 import { bedLiveliness } from '../systems/beds';
 import { PlantSpriteCache, type PlantMode } from './PlantArt';
+import { VergeTiles, type VergeLevel } from './VergeArt';
 import type { ToolMode } from '../engine/Tools';
 import type { WorldFlourish } from '../engine/Game';
 import type { PlacedFurniture } from '../state';
@@ -195,6 +196,8 @@ export class Renderer {
   private dpr = 1;
   /** Carpet tiles by look, so a dense region costs one drawImage a tile. */
   private carpets = new Map<string, HTMLCanvasElement>();
+  /** What nature grows in every gap: undergrowth tiles by zone and thickness. */
+  private verges = new VergeTiles(() => this.dpr);
 
   /** A tile's worth of foliage in the colour of what's growing there. Four patterns per look, so it never tiles visibly. */
   private carpetTile(ch: string, hue: number, sat: number, light: number, pale: number, dense: boolean, variant: number, tile: number): HTMLCanvasElement | null {
@@ -470,6 +473,9 @@ export class Renderer {
     const coverLight = new Path2D();
     const petals: Record<string, Path2D> = {};
     const carpetTiles: { sx: number; sy: number; li: number; ch: string; dense: boolean; variant: number; alpha: number }[] = [];
+    // Nature's own undergrowth on every open tile: thick in the gaps between
+    // the player's plants, thinning out under a carpet of their foliage.
+    const vergeTiles: { sx: number; sy: number; zone: ZoneId; level: VergeLevel; variant: number; shore: boolean; alpha: number }[] = [];
     const petalColors: Record<string, string> = {
       flower: 'rgba(250,244,236,0.85)',
       color: 'rgba(236,140,190,0.8)',
@@ -499,6 +505,18 @@ export class Renderer {
         }
         const li = ty * GRID_W + tx;
         const lushHere = lush ? Math.min(1, lush.lush[li] / 0.9) : 0;
+        if (zone !== 'greenhouse') {
+          // Growth clumps: patches of thick and thin, thicker still around what's been planted.
+          const clump = smoothNoise(tx + 91, ty + 37, 4) * 0.8 + 0.2 * hash2(tx * 2.3, ty * 5.1) + lushHere * 0.5;
+          let level: VergeLevel = clump < 0.38 ? 0 : clump < 0.72 ? 1 : 2;
+          if (zone === 'rockyClearing' && level > 1) level = 1;
+          const carpetAlpha = lushHere >= CARPET_FROM ? Math.min(1, (lushHere - CARPET_FROM + 0.12) / 0.3) : 0;
+          const alpha = 1 - carpetAlpha;
+          if (alpha > 0.05) {
+            const shore = NEIGHBORS.some(([dx, dy]) => isWater(tx + dx, ty + dy));
+            vergeTiles.push({ sx, sy, zone, level, variant: Math.floor(hash2(tx * 3.7, ty * 9.1) * 6), shore, alpha });
+          }
+        }
         if (lushHere >= CARPET_FROM && lush) {
           const ch = CHARACTERS[lush.character[li]] ?? 'jungle';
           const target = LUSH_GROUND[ch];
@@ -551,6 +569,18 @@ export class Renderer {
       }
     }
 
+    // The verge goes down first, straight onto the soil; litter and the carpet lie over it.
+    if (vergeTiles.length) {
+      const pad = VergeTiles.pad(tile);
+      const w = Math.round(tile) + pad * 2;
+      for (const t of vergeTiles) {
+        const c = this.verges.get(t.zone, t.level, t.variant, t.shore, tile);
+        if (!c) continue;
+        ctx.globalAlpha = t.alpha;
+        ctx.drawImage(c, t.sx - pad, t.sy - pad, w, w);
+      }
+      ctx.globalAlpha = 1;
+    }
     ctx.lineWidth = Math.max(1, tile * 0.022);
     ctx.lineCap = 'round';
     ctx.strokeStyle = 'rgba(28,52,22,0.32)';
