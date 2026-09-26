@@ -43,10 +43,10 @@ grow in patches all over it.
   the rest shown as silhouettes and "???". Finding one isn't enough: it's
   recorded once you've grown it — once a plant of it roots in your care.
 - **Come home.** The greenhouse is attached to a house. The front door opens
-  into a living room — couch, TV, the cat's bed, a putting mat, doorways to
+  into a living room — couch, TV, Ranger the cat's bed, a putting mat, doorways to
   the rest of the house — and a doorway leads through into the greenhouse,
   whose garden door opens onto the valley. Scott is sometimes home watching
-  the ball game, practising his putting or asleep on the couch; the cat has
+  the ball game, practising his putting or asleep on the couch; Ranger has
   her own places, and her own ideas about your plants. In the greenhouse,
   she and Scout can't leave each other alone: one stalks, pounces and chases,
   then it's the other's turn.
@@ -54,7 +54,7 @@ grow in patches all over it.
   planters, hooks, lamps, rugs — can be dragged anywhere, turned, or put
   away (🪑 button indoors). Plants move with their pots. The living room's
   own furniture (couch, TV, cat bed, cat tree, putting mat…) can be moved
-  too, and the cat and Scott follow their favourite spots wherever they go.
+  too, and Ranger and Scott follow their favourite spots wherever they go.
   Outdoors, the 🌿 garden button's *Arrange the garden* does the same: drag
   any decor — or the Plant Stand & Supply stall itself — somewhere new.
 - **Putt-putt.** Walk up to the putting mat in the living room for nine holes
@@ -72,6 +72,12 @@ grow in patches all over it.
   growth that you can walk quickly along while their verges creep back in.
   Where your plants have grown thick, the ground is drawn as a carpet of
   their own foliage; large plants, specimens and sports still stand out of it.
+- **Name what you made.** Once a region has changed enough under your
+  plants, the journal's Regions page offers it a name. A wooden plaque goes
+  up where the growth is thickest, the valley calls the place by that name
+  from then on, and Scott takes to walking out there in the evening. If
+  the fox ever shows you its den, it's wherever the valley has grown
+  thickest. Ranger, for her part, won't go near a carnivore.
 - **Follow the fox.** Sometimes it runs. Sometimes it's worth following.
 
 Sunny daytime is the garden's resting state: the day lingers and the night
@@ -112,7 +118,7 @@ furniture). Esc also closes whatever panel is open. Progress autosaves to `local
   potting/display/planting out), `spots` (what grows in a patch),
   `wild` (spreading, sports in the wild, the lushness field that repaints the
   ground), `market` (prices, buying/selling), `collection`, `basket`, `decor`,
-  plus the fox, Scout, Scott and the cat.
+  plus the fox, Scout, Scott and Ranger the cat.
 - `src/game/engine/` — game loop, input, camera, clock/weather, save manager
   (with migration from older builds), audio.
 - `src/game/world/` — map, collision, and the Canvas2D renderer. All art is

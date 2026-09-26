@@ -337,6 +337,10 @@ export class Renderer {
       if (state.tools[tp.tool] || !inView(tp.x, tp.y)) continue;
       drawables.push({ y: tp.y + 0.5, draw: () => this.drawLanternPickup(camera, tp.x + 0.5, tp.y + 0.5, now) });
     }
+    for (const r of Object.values(state.regions)) {
+      if (!r || !inView(r.x, r.y)) continue;
+      drawables.push({ y: r.y, draw: () => this.drawPlaque(camera, r.x, r.y, r.name) });
+    }
     if (inView(stall.x, stall.y, 4)) {
       drawables.push({ y: stall.y + 0.8, draw: () => this.drawMarketStall(camera, state, now, stall) });
     }
@@ -846,6 +850,37 @@ export class Renderer {
     if (unseen) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, rank >= 3 ? '#ffe28a' : '#ffffff', 2 + Math.min(3, rank));
   }
 
+  /** A small wooden plaque on a post, with the name Ellen gave the place. */
+  private drawPlaque(camera: Camera, wx: number, wy: number, name: string) {
+    const { ctx } = this;
+    const tile = TILE_SIZE * camera.zoom;
+    const s = camera.worldToScreen(wx * TILE_SIZE, wy * TILE_SIZE);
+    const font = Math.max(7, Math.round(tile * 0.15));
+    ctx.font = `italic ${font}px Georgia`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(name).width;
+    const bw = tw + tile * 0.28;
+    const bh = font * 1.9;
+    const by = s.y - tile * 0.62;
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y + tile * 0.02, tile * 0.16, tile * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#5a3f28';
+    ctx.fillRect(s.x - tile * 0.035, by + bh / 2, tile * 0.07, s.y - by - bh / 2);
+    ctx.fillStyle = '#c9a877';
+    ctx.beginPath();
+    ctx.roundRect(s.x - bw / 2, by - bh / 2, bw, bh, tile * 0.05);
+    ctx.fill();
+    ctx.strokeStyle = '#6a4a2c';
+    ctx.lineWidth = Math.max(1, tile * 0.025);
+    ctx.stroke();
+    ctx.fillStyle = '#3a2816';
+    ctx.fillText(name, s.x, by + font * 0.05);
+    ctx.textBaseline = 'alphabetic';
+  }
+
   private drawLanternPickup(camera: Camera, wx: number, wy: number, now: number) {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
@@ -989,29 +1024,31 @@ export class Renderer {
     // and a pinned note once it's been filled.
     const bx = tl.x + w + tile * 0.1;
     const by = tl.y - tile * 0.35;
+    const bw = tile * 0.56;
     ctx.fillStyle = '#5a3f28';
-    ctx.fillRect(bx + tile * 0.18, by + tile * 0.5, tile * 0.05, tile * 0.55);
+    ctx.fillRect(bx + bw / 2 - tile * 0.025, by + tile * 0.5, tile * 0.05, tile * 0.55);
     ctx.fillStyle = '#2d3a33';
-    ctx.fillRect(bx, by, tile * 0.42, tile * 0.52);
+    ctx.fillRect(bx, by, bw, tile * 0.52);
     ctx.strokeStyle = '#8a6a44';
     ctx.lineWidth = Math.max(1, tile * 0.03);
-    ctx.strokeRect(bx, by, tile * 0.42, tile * 0.52);
+    ctx.strokeRect(bx, by, bw, tile * 0.52);
     const c = state.commission;
     const open = openCommission(state);
-    if (open && !open.seen) this.glowMarker(bx + tile * 0.21, by + tile * 0.26, tile, '#f0d27a', now);
     const pic = open ? commissionPortrait(open) : null;
-    if (pic) this.drawPlantSprite(bx + tile * 0.21, by + tile * 0.42, tile * 0.5, pic.defId, pic.variantId, 2, 5, 'ground', now);
+    if (pic) this.drawPlantSprite(bx + bw / 2, by + tile * 0.44, tile * 0.5, pic.defId, pic.variantId, 2, 5, 'ground', now);
     else {
       // A note card: "anything from…", or the buyer's thanks once it's filled.
       ctx.fillStyle = c && !open ? '#efe6cf' : '#d9d2bb';
-      ctx.fillRect(bx + tile * 0.09, by + tile * 0.2, tile * 0.24, tile * 0.22);
+      ctx.fillRect(bx + bw / 2 - tile * 0.12, by + tile * 0.2, tile * 0.24, tile * 0.22);
       ctx.fillStyle = 'rgba(60,40,20,0.55)';
-      for (let i = 0; i < 3; i++) ctx.fillRect(bx + tile * 0.12, by + tile * (0.25 + i * 0.05), tile * (0.18 - i * 0.04), Math.max(1, tile * 0.015));
+      for (let i = 0; i < 3; i++) ctx.fillRect(bx + bw / 2 - tile * 0.09, by + tile * (0.25 + i * 0.05), tile * (0.18 - i * 0.04), Math.max(1, tile * 0.015));
     }
+    // The word, sized to the board rather than the other way round.
     ctx.fillStyle = '#e8e2c8';
-    ctx.font = `bold ${Math.max(8, Math.round(tile * 0.13))}px Georgia`;
+    ctx.font = `bold ${Math.max(7, Math.round(tile * 0.105))}px Georgia`;
     ctx.textAlign = 'center';
-    ctx.fillText(open ? 'WANTED' : 'THANKS', bx + tile * 0.21, by + tile * 0.12);
+    ctx.fillText(open ? 'WANTED' : 'THANKS', bx + bw / 2, by + tile * 0.13);
+    if (open && !open.seen) this.glowMarker(bx + bw / 2, by + tile * 0.26, tile, '#f0d27a', now);
   }
 
   private drawDecor(camera: Camera, d: PlacedDecor, state: GameState, now: number) {

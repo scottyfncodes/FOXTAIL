@@ -67,7 +67,7 @@ export class PlantCard {
     const next = minutesToNextStage(state, plant);
     const native = def.habitat.includes(loc.zone);
     const bed = loc.bedId ? findBed(state, loc.bedId) : undefined;
-    const where = `${bed ? 'In your garden bed in' : 'Growing in'} ${zoneLabel(loc.zone)}${native ? ', where it’s at home' : ''}.`;
+    const where = `${bed ? 'In your garden bed in' : 'Growing in'} ${zoneLabel(loc.zone, state)}${native ? ', where it’s at home' : ''}.`;
     body.appendChild(note(`${next === null ? `${STAGE_LABEL[STAGES[idx]]} — fully grown.` : `${STAGE_LABEL[STAGES[idx]]}. ${STAGE_LABEL[STAGES[idx + 1]]} in ${realTime(next)}.`} ${where}`, 'growth-note'));
 
     const actions = el('div', 'action-row');

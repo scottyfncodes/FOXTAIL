@@ -139,7 +139,7 @@ export const COURSE: Hole[] = [
   },
   {
     id: 'cat',
-    name: 'Cat Nap',
+    name: 'Ranger’s Nap',
     par: 3,
     tee: { x: 1.8, y: 8.1 },
     cup: { x: 1.8, y: 1.2 },

@@ -5,7 +5,7 @@ import { SHOP_ITEMS } from './data/shop';
 
 // Bump SAVE_VERSION when the state shape changes; SaveManager.migrateSave
 // fills new fields from createNewGame(). The storage key stays fixed.
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 // The storage key keeps the game's working title so existing saves carry over.
 export const SAVE_KEY = 'foxtrot-save-v4';
 
@@ -94,6 +94,14 @@ export interface Commission {
   filledAt?: number;
   filledWith?: string;
   note?: string;
+}
+
+/** A region the player has named: the plaque stands where its growth was thickest. */
+export interface NamedRegion {
+  name: string;
+  x: number;
+  y: number;
+  namedAt: number;
 }
 
 export interface CommissionLog {
@@ -322,6 +330,10 @@ export interface GameState {
   /** The request pinned on the board by the stall, if any. */
   commission: Commission | null;
   commissions: CommissionLog;
+  /** Regions the player has named. */
+  regions: Partial<Record<OutdoorZoneId, NamedRegion>>;
+  /** The highest cover tier each region has reached, so each crossing is noticed once. */
+  regionTier: Partial<Record<OutdoorZoneId, number>>;
 }
 
 let uidCounter = 0;
@@ -394,6 +406,8 @@ export function createNewGame(): GameState {
     market: { day: 0, sold: {} },
     commission: null,
     commissions: { filled: 0, notes: [] },
+    regions: {},
+    regionTier: {},
     cat: {
       x: 21.95,
       y: 3.5,

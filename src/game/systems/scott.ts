@@ -1,7 +1,8 @@
 import type { ScottActivity, ScottState } from '../state';
-import { SCOTT_SPOTS, findScottSpot, type ScottSpotKind } from '../data/scottSpots';
+import { SCOTT_SPOTS, findScottSpot, type ScottSpot, type ScottSpotKind } from '../data/scottSpots';
 import { interiorWaypoint } from '../data/interior';
 import { spotPosition, type AnchorOffset } from '../data/catSpots';
+import { outdoorWaypoint } from '../data/worldMap';
 
 // Ellen's husband, ambient and independent of the player: he potters
 // between fixed spots on his own clock, tinkering, napping, snacking,
@@ -40,6 +41,8 @@ export interface ScottTickContext {
   rand: () => number;
   /** How far the living-room furniture has been moved, so the couch and the mat take him with them. */
   offset?: AnchorOffset;
+  /** Places he might go this evening that aren't on his usual round: the regions Ellen has named. */
+  extraSpots?: ScottSpot[];
 }
 
 export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
@@ -51,7 +54,7 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
       scott.y = at.y;
     }
     if (ctx.now < scott.nextChangeAt) return;
-    const options = SCOTT_SPOTS.filter((s) => s.id !== scott.currentSpotId);
+    const options = [...SCOTT_SPOTS, ...(ctx.extraSpots ?? [])].filter((s) => s.id !== scott.currentSpotId);
     const next = options[Math.floor(ctx.rand() * options.length)] ?? SCOTT_SPOTS[0];
     scott.targetSpotId = next.id;
     scott.activity = 'traveling';
@@ -68,7 +71,7 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
     return;
   }
 
-  const spot = findScottSpot(scott.targetSpotId);
+  const spot = findScottSpot(scott.targetSpotId) ?? ctx.extraSpots?.find((s) => s.id === scott.targetSpotId);
   if (!spot) {
     // Data changed under him (or a save from an older spot list) — settle
     // wherever he is rather than getting stuck chasing a spot that's gone.
@@ -82,7 +85,7 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
   const d = Math.hypot(at.x - scott.x, at.y - scott.y);
   if (d > ARRIVE_DIST) {
     // Indoors, the living room and greenhouse are joined by one doorway.
-    const wp = scott.zone === 'greenhouse' ? interiorWaypoint(scott.x, scott.y, at.x, at.y) : at;
+    const wp = scott.zone === 'greenhouse' ? interiorWaypoint(scott.x, scott.y, at.x, at.y) : outdoorWaypoint(scott.x, scott.y, at.x, at.y);
     const dx = wp.x - scott.x;
     const dy = wp.y - scott.y;
     const wd = Math.hypot(dx, dy) || 1;
