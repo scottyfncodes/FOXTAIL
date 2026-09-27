@@ -62,7 +62,10 @@ grow in patches all over it.
   own furniture (couch, TV, cat bed, cat tree, putting mat…) can be moved
   too, and Ranger and Scott follow their favourite spots wherever they go.
   Outdoors, the 🌿 garden button's *Arrange the garden* does the same: drag
-  any decor — or the Plant Stand & Supply stall itself — somewhere new.
+  any decor — or the Plant Stand & Supply stall itself — somewhere new, and
+  turn anything with a long side (bench, fence, trellis, pergola, pond,
+  raised bed) to face the other way. A bed already dug or set down can be
+  turned from its card, plants and all.
 - **Putt-putt.** Walk up to the putting mat in the living room for nine holes
   laid out with whatever was lying around — mugs, a slipper, books, and the
   cat. Drag back from the ball and let go; a faint line shows where it'll roll. The first hole in one on each hole
@@ -133,7 +136,7 @@ devices) to interact. Pinch with two fingers (or scroll, or press + / −) to
 zoom in and out, outdoors, indoors and while arranging. Tap a plant, bed or path in the world to look at it.
 The basket (🧺) is where you plant things out and place garden decor. While
 placing, drag with a finger (or mouse), then ✓ / ✕ (Enter / Esc; R turns
-furniture). Esc also closes whatever panel is open. Progress autosaves to `localStorage`.
+furniture and garden pieces). Esc also closes whatever panel is open. Progress autosaves to `localStorage`.
 
 ## Architecture
 

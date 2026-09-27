@@ -232,6 +232,39 @@ describe('arranging the garden by touch', () => {
     expect(state.stall).toEqual({ x: 69, y: 42 });
   });
 
+  it('turns a bench in hand and again once it’s down — but not a birdbath, and not the stall', () => {
+    const { state, tools } = setup();
+    state.decorStock = { gardenBench: 1, birdbath: 1 };
+    tools.startYard('gardenBench', { x: 50, y: 20 });
+    expect(tools.rotateSelected()).toBe(true);
+    expect(tools.mode.kind === 'yard' && tools.mode.pending?.rot).toBe(1);
+    expect(tools.confirm().kind).toBe('placed');
+    expect(state.decor[0]).toMatchObject({ decorId: 'gardenBench', rot: 1 });
+    // Placing leaves it selected, so a second turn puts it back the way it was.
+    expect(tools.rotateSelected()).toBe(true);
+    expect(state.decor[0].rot).toBe(0);
+
+    tools.startYard('birdbath', { x: 54, y: 20 });
+    expect(tools.rotateSelected()).toBe(false);
+    expect(tools.confirm().kind).toBe('placed');
+    expect(tools.rotateSelected()).toBe(false);
+    expect(state.decor[1].rot).toBeUndefined();
+
+    tools.select(STALL_ID);
+    expect(tools.rotateSelected()).toBe(false);
+  });
+
+  it('sets a raised bed down end-on once it’s been turned in hand', () => {
+    const { state, tools } = setup();
+    state.decorStock = { raisedBed: 1 };
+    tools.startYard('raisedBed', { x: 50, y: 20 });
+    expect(tools.rotateSelected()).toBe(true);
+    expect(tools.canConfirm()).toBe(true);
+    expect(tools.confirm().kind).toBe('bed');
+    expect(state.gardenBeds[0]).toMatchObject({ w: 1.5, h: 2.5, raised: true });
+    expect(state.decorStock.raisedBed).toBe(0);
+  });
+
   it('won’t set decor down in the water', () => {
     const { state, tools } = setup();
     state.decorStock = { gardenLantern: 1 };

@@ -201,7 +201,14 @@ function tilesUnder(r: { x: number; y: number; w: number; h: number }): [number,
   return out;
 }
 
-export function bedBlockReason(state: GameState, bed: Omit<GardenBed, 'id' | 'createdAt'>, world: LandscapeWorld): BedBlock | null {
+export interface BedCheckOptions {
+  /** A bed being turned or moved: it doesn't overlap itself. */
+  ignoreId?: string;
+  /** No coins change hands (turning a bed already dug). */
+  free?: boolean;
+}
+
+export function bedBlockReason(state: GameState, bed: Omit<GardenBed, 'id' | 'createdAt'>, world: LandscapeWorld, opts: BedCheckOptions = {}): BedBlock | null {
   if (bed.w < BED_MIN || bed.h < BED_MIN) return 'too-small';
   if (bed.w > BED_MAX || bed.h > BED_MAX) return 'too-big';
   for (const [tx, ty] of tilesUnder(bed)) {
@@ -211,9 +218,24 @@ export function bedBlockReason(state: GameState, bed: Omit<GardenBed, 'id' | 'cr
     if (world.isBuiltOrWater(tx, ty) || isHardObstacle(world.obstacleAt(tx, ty))) return 'blocked';
     if (world.isSpot(tx, ty)) return 'patch';
   }
-  if (state.gardenBeds.some((b) => rectsTouch(b, bed, 0.2))) return 'overlap';
-  if (!bed.raised && state.coins < bedCost(state, bed.w, bed.h)) return 'coins';
+  if (state.gardenBeds.some((b) => b.id !== opts.ignoreId && rectsTouch(b, bed, 0.2))) return 'overlap';
+  if (!opts.free && !bed.raised && state.coins < bedCost(state, bed.w, bed.h)) return 'coins';
   return null;
+}
+
+/** Clears the scrub (bushes, flowers, reeds) inside a bed; trees and rocks would have blocked it. */
+function clearScrubUnder(state: GameState, bed: GardenBed, world: LandscapeWorld): number {
+  let cleared = 0;
+  for (const [tx, ty] of tilesUnder(bed)) {
+    if (!bedContains(bed, tx + 0.5, ty + 0.5, -0.2)) continue;
+    const key = `${tx},${ty}`;
+    const kind = world.obstacleAt(tx, ty);
+    if (kind && !isHardObstacle(kind) && !state.clearedObstacles.includes(key)) {
+      state.clearedObstacles.push(key);
+      cleared++;
+    }
+  }
+  return cleared;
 }
 
 export interface BedResult {
@@ -233,15 +255,7 @@ export function createBed(state: GameState, spec: Omit<GardenBed, 'id' | 'create
   }
   const bed: GardenBed = { id: makeUid('bed'), ...spec, createdAt: now, paid };
   state.gardenBeds.push(bed);
-  let cleared = 0;
-  for (const [tx, ty] of tilesUnder(bed)) {
-    if (!bedContains(bed, tx + 0.5, ty + 0.5, -0.2)) continue;
-    const kind = world.obstacleAt(tx, ty);
-    if (kind && !isHardObstacle(kind)) {
-      state.clearedObstacles.push(`${tx},${ty}`);
-      cleared++;
-    }
-  }
+  const cleared = clearScrubUnder(state, bed, world);
   let adopted = 0;
   for (const p of Object.values(state.plants)) {
     if (p.location.kind !== 'wild' || p.location.bedId) continue;
@@ -265,6 +279,54 @@ export function placeRaisedBed(state: GameState, x: number, y: number, world: La
   const res = createBed(state, spec, world, now);
   if (res) state.decorStock.raisedBed = (state.decorStock.raisedBed ?? 0) - 1;
   return res;
+}
+
+/** The bed turned a quarter-turn about its centre (a raised bed keeps to quarter tiles). */
+export function turnedBedSpec(bed: GardenBed): Omit<GardenBed, 'id' | 'createdAt'> {
+  const cx = bed.x + bed.w / 2;
+  const cy = bed.y + bed.h / 2;
+  let x = cx - bed.h / 2;
+  let y = cy - bed.w / 2;
+  if (bed.raised) {
+    x = Math.round(x * 4) / 4;
+    y = Math.round(y * 4) / 4;
+  }
+  const { id: _id, createdAt: _at, ...rest } = bed;
+  return { ...rest, x, y, w: bed.h, h: bed.w };
+}
+
+/** Why a bed can't be turned where it is; null means it can. A square bed has nothing to turn. */
+export function bedTurnBlock(state: GameState, id: string, world: LandscapeWorld): BedBlock | 'square' | null {
+  const bed = findBed(state, id);
+  if (!bed) return 'blocked';
+  if (Math.abs(bed.w - bed.h) < 0.01) return 'square';
+  return bedBlockReason(state, turnedBedSpec(bed), world, { ignoreId: id, free: true });
+}
+
+/**
+ * Turns a bed a quarter-turn about its centre. Whatever grows in it turns
+ * with it, so every plant ends up where it was relative to the edges; scrub
+ * under the newly covered ground is cleared, as when the bed was dug.
+ */
+export function rotateBed(state: GameState, id: string, world: LandscapeWorld): boolean {
+  const bed = findBed(state, id);
+  if (!bed || bedTurnBlock(state, id, world)) return false;
+  const cx = bed.x + bed.w / 2;
+  const cy = bed.y + bed.h / 2;
+  const spec = turnedBedSpec(bed);
+  const ncx = spec.x + spec.w / 2;
+  const ncy = spec.y + spec.h / 2;
+  for (const p of Object.values(state.plants)) {
+    if (p.location.kind !== 'wild' || p.location.bedId !== id) continue;
+    // A quarter-turn clockwise about the centre: (dx, dy) becomes (-dy, dx).
+    const dx = p.location.x - cx;
+    const dy = p.location.y - cy;
+    p.location.x = Math.round((ncx - dy) * 100) / 100;
+    p.location.y = Math.round((ncy + dx) * 100) / 100;
+  }
+  Object.assign(bed, spec);
+  clearScrubUnder(state, bed, world);
+  return true;
 }
 
 /** Fills a bed back in: its plants stay where they are, now free to roam. Half the coins come back; a raised bed goes back in stock. */

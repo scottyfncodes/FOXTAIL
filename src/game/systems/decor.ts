@@ -1,6 +1,7 @@
 import type { GameState, PlacedDecor } from '../state';
 import { makeUid } from '../state';
 import type { DecorId } from '../data/shop';
+import { decorRotatable } from '../data/decor';
 import { occupantOf } from './propagation';
 
 /**
@@ -17,12 +18,13 @@ export function gardenPlanter(state: Pick<GameState, 'decor'>, id: string): Plac
   return state.decor.find((d) => d.id === id && isGardenPlanter(d.decorId));
 }
 
-/** Puts a piece of stocked garden decor down at (x, y). */
-export function placeDecor(state: GameState, decorId: DecorId, x: number, y: number): PlacedDecor | null {
+/** Puts a piece of stocked garden decor down at (x, y), turned `rot` quarter-turns if it can be. */
+export function placeDecor(state: GameState, decorId: DecorId, x: number, y: number, rot = 0): PlacedDecor | null {
   if ((state.decorStock[decorId] ?? 0) <= 0) return null;
   if (state.decor.some((d) => Math.hypot(d.x - x, d.y - y) < 0.7)) return null;
   state.decorStock[decorId] = (state.decorStock[decorId] ?? 0) - 1;
   const placed: PlacedDecor = { id: makeUid('decor'), decorId, x, y };
+  if (rot % 2 === 1 && decorRotatable(decorId)) placed.rot = 1;
   state.decor.push(placed);
   return placed;
 }
@@ -51,6 +53,14 @@ export function moveDecor(state: GameState, id: string, x: number, y: number): b
   if (!piece || !decorFits(state, x, y, id)) return false;
   piece.x = x;
   piece.y = y;
+  return true;
+}
+
+/** A quarter-turn in place, for pieces that have a long side. Decor keeps clear of other decor by distance, so a turn always fits. */
+export function rotateDecor(state: GameState, id: string): boolean {
+  const piece = state.decor.find((d) => d.id === id);
+  if (!piece || !decorRotatable(piece.decorId)) return false;
+  piece.rot = ((piece.rot ?? 0) + 1) % 2;
   return true;
 }
 

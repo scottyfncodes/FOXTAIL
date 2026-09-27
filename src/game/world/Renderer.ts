@@ -328,7 +328,7 @@ export class Renderer {
     // While arranging outdoors, a piece being dragged is drawn where the finger has it.
     const yard = extras.tools.kind === 'yard' ? extras.tools : null;
     const decor: PlacedDecor[] = state.decor.map((d) => (yard?.drag?.id === d.id ? { ...d, x: yard.drag.x, y: yard.drag.y } : d));
-    if (yard?.pending) decor.push({ id: '__pending', decorId: yard.pending.decorId, x: yard.pending.x, y: yard.pending.y });
+    if (yard?.pending) decor.push({ id: '__pending', decorId: yard.pending.decorId, x: yard.pending.x, y: yard.pending.y, rot: yard.pending.rot });
     const stall = yard?.drag?.id === STALL_ID ? { ...stallRect(state), x: yard.drag.x, y: yard.drag.y } : stallRect(state);
     for (const d of decor) {
       if (!inView(d.x, d.y)) continue;
@@ -433,7 +433,7 @@ export class Renderer {
       if (tools.points.length >= 2) drawPathPreview(this.ctx, camera, tools.points, tools.preview, PATH_WIDTH);
     }
     if (yard) {
-      const pieces: YardPiece[] = [{ id: STALL_ID, kind: 'stall', x: stall.x, y: stall.y }, ...decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y }))];
+      const pieces: YardPiece[] = [{ id: STALL_ID, kind: 'stall', x: stall.x, y: stall.y }, ...decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y, rot: d.rot ?? 0 }))];
       this.drawYardOverlay(camera, yard, pieces);
     }
     const nowMs = performance.now();
@@ -1116,11 +1116,13 @@ export class Renderer {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
     const s = camera.worldToScreen(d.x * TILE_SIZE, d.y * TILE_SIZE);
+    // Pieces with a long side can be turned a quarter-turn: drawn end-on, or running up the screen instead of across.
+    const turned = (d.rot ?? 0) % 2 === 1;
     switch (d.decorId) {
       case 'raisedBed': {
         // Only ever drawn while it's being set down: once placed it's a garden bed.
-        const w = RAISED_BED.w * tile;
-        const h = RAISED_BED.h * tile;
+        const w = (turned ? RAISED_BED.h : RAISED_BED.w) * tile;
+        const h = (turned ? RAISED_BED.w : RAISED_BED.h) * tile;
         const x0 = s.x - w / 2;
         const y0 = s.y - h / 2;
         ctx.fillStyle = 'rgba(74,54,36,0.7)';
@@ -1137,12 +1139,33 @@ export class Renderer {
         for (let i = 0; i < 3; i++) {
           ctx.fillStyle = lerpColor('#9a9484', '#b8b09c', hash2(d.x * 3 + i, d.y));
           ctx.beginPath();
-          ctx.ellipse(s.x + (i - 1) * tile * 0.26, s.y + (i % 2) * tile * 0.12 - tile * 0.05, tile * 0.13, tile * 0.08, 0.2 * i, 0, Math.PI * 2);
+          if (turned) ctx.ellipse(s.x + (i % 2) * tile * 0.12 - tile * 0.06, s.y + (i - 1) * tile * 0.22, tile * 0.13, tile * 0.08, 0.2 * i - 0.3, 0, Math.PI * 2);
+          else ctx.ellipse(s.x + (i - 1) * tile * 0.26, s.y + (i % 2) * tile * 0.12 - tile * 0.05, tile * 0.13, tile * 0.08, 0.2 * i, 0, Math.PI * 2);
           ctx.fill();
         }
         break;
       case 'picketFence': {
         ctx.fillStyle = '#efe9da';
+        if (turned) {
+          // Running up the screen: a rail seen along its length, pickets one behind the other, each edged so they read apart.
+          ctx.fillRect(s.x - tile * 0.02, s.y - tile * 0.74, tile * 0.04, tile * 0.94);
+          ctx.strokeStyle = 'rgba(90,75,55,0.55)';
+          ctx.lineWidth = Math.max(0.8, tile * 0.015);
+          for (let i = 0; i < 5; i++) {
+            const py = s.y - tile * 0.5 + i * tile * 0.24;
+            const px = s.x - tile * 0.05;
+            ctx.beginPath();
+            ctx.moveTo(px, py + tile * 0.05);
+            ctx.lineTo(px, py - tile * 0.3);
+            ctx.lineTo(px + tile * 0.05, py - tile * 0.36);
+            ctx.lineTo(px + tile * 0.1, py - tile * 0.3);
+            ctx.lineTo(px + tile * 0.1, py + tile * 0.05);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
+          break;
+        }
         ctx.fillRect(s.x - tile * 0.5, s.y - tile * 0.2, tile, tile * 0.05);
         ctx.fillRect(s.x - tile * 0.5, s.y - tile * 0.06, tile, tile * 0.05);
         for (let i = 0; i < 5; i++) {
@@ -1183,13 +1206,49 @@ export class Renderer {
       case 'gardenTrellis': {
         // A planter, like the wall trellis indoors: a pot at its foot, vines climbing the lattice.
         const slot: DisplaySlot = { id: d.id, x: d.x - 0.5, y: d.y - 0.8, kind: 'trellis' };
-        this.drawDisplaySlot(camera, slot, occupantOf(state, { slotId: d.id }), now);
+        this.drawDisplaySlot(camera, slot, occupantOf(state, { slotId: d.id }), now, d.rot ?? 0);
         break;
       }
       case 'pergola': {
         // Four cedar posts, a beam roof, and a vine over the top.
-        const w = tile * 1.6;
         const hgt = tile * 1.1;
+        if (turned) {
+          // Beams running away from us: a near pair of posts, a far pair up the screen, slats across between them.
+          const w = tile * 1.0;
+          const depth = tile * 0.62;
+          const x0 = s.x - w / 2;
+          ctx.fillStyle = 'rgba(0,0,0,0.14)';
+          ctx.fillRect(x0 - tile * 0.05, s.y - depth - tile * 0.06, w + tile * 0.1, depth + tile * 0.14);
+          ctx.fillStyle = '#6b4a2e';
+          for (const px of [x0, x0 + w - tile * 0.08]) ctx.fillRect(px, s.y - depth - hgt, tile * 0.08, hgt);
+          ctx.fillStyle = '#5a3f26';
+          for (const px of [x0 - tile * 0.02, x0 + w - tile * 0.1]) ctx.fillRect(px, s.y - depth - hgt - tile * 0.5, tile * 0.12, depth + tile * 0.12);
+          ctx.fillStyle = '#6b4a2e';
+          for (let i = 0; i < 5; i++) ctx.fillRect(x0 - tile * 0.1, s.y - depth - hgt - tile * 0.46 + (i * depth) / 4.4, w + tile * 0.2, tile * 0.06);
+          ctx.fillStyle = '#7a5836';
+          for (const px of [x0, x0 + w - tile * 0.08]) {
+            ctx.fillRect(px, s.y - hgt, tile * 0.08, hgt);
+            ctx.fillRect(px, s.y - hgt - tile * 0.45, tile * 0.08, tile * 0.45);
+          }
+          // Vine along the near beam and over the slats.
+          ctx.fillStyle = '#3f7a45';
+          for (let i = 0; i < 7; i++) {
+            const vx = x0 - tile * 0.05 + ((i + 0.5) * (w + tile * 0.1)) / 7;
+            const vy = s.y - hgt - tile * 0.5 + Math.sin(i * 1.7 + d.x) * tile * 0.06;
+            ctx.beginPath();
+            ctx.ellipse(vx, vy, tile * 0.09, tile * 0.06, i * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = '#5aa35a';
+          for (let i = 0; i < 4; i++) {
+            const vy = s.y - depth - hgt - tile * 0.4 + ((i + 0.5) * depth) / 4;
+            ctx.beginPath();
+            ctx.ellipse(s.x + (i % 2 ? 1 : -1) * tile * 0.22, vy, tile * 0.07, tile * 0.05, 0.4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+        const w = tile * 1.6;
         const x0 = s.x - w / 2;
         ctx.fillStyle = 'rgba(0,0,0,0.16)';
         ctx.fillRect(x0 - tile * 0.05, s.y - tile * 0.08, w + tile * 0.1, tile * 0.16);
@@ -1223,8 +1282,8 @@ export class Renderer {
       }
       case 'gardenPond': {
         // Stone rim, still water with a slow shimmer, lily pads and the odd dragonfly.
-        const rx = tile * 0.95;
-        const ry = tile * 0.6;
+        const rx = tile * (turned ? 0.6 : 0.95);
+        const ry = tile * (turned ? 0.95 : 0.6);
         ctx.fillStyle = '#8f8a7a';
         ctx.beginPath();
         ctx.ellipse(s.x, s.y, rx + tile * 0.12, ry + tile * 0.1, 0, 0, Math.PI * 2);
@@ -1277,6 +1336,27 @@ export class Renderer {
         break;
       }
       case 'gardenBench': {
+        if (turned) {
+          // End-on: the seat runs up the screen, the back along its left side.
+          const hw = tile * 0.2;
+          const depth = tile * 0.55;
+          ctx.fillStyle = 'rgba(0,0,0,0.2)';
+          ctx.fillRect(s.x - hw - tile * 0.04, s.y - depth - tile * 0.02, hw * 2 + tile * 0.08, depth + tile * 0.08);
+          ctx.fillStyle = '#6b4a2e';
+          ctx.fillRect(s.x - hw + tile * 0.02, s.y - depth - tile * 0.2, tile * 0.05, tile * 0.2);
+          ctx.fillRect(s.x + hw - tile * 0.07, s.y - depth - tile * 0.2, tile * 0.05, tile * 0.2);
+          ctx.fillRect(s.x - hw + tile * 0.02, s.y - tile * 0.2, tile * 0.05, tile * 0.2);
+          ctx.fillRect(s.x + hw - tile * 0.07, s.y - tile * 0.2, tile * 0.05, tile * 0.2);
+          ctx.fillStyle = '#8f6540';
+          ctx.fillRect(s.x - hw, s.y - depth - tile * 0.26, hw * 2, depth + tile * 0.08);
+          ctx.fillStyle = 'rgba(80,56,30,0.35)';
+          for (let i = 1; i < 4; i++) ctx.fillRect(s.x - hw, s.y - depth - tile * 0.26 + ((depth + tile * 0.08) * i) / 4, hw * 2, Math.max(1, tile * 0.02));
+          ctx.fillStyle = '#7d5636';
+          ctx.fillRect(s.x - hw - tile * 0.04, s.y - depth - tile * 0.48, tile * 0.07, depth + tile * 0.3);
+          ctx.fillStyle = '#8f6540';
+          ctx.fillRect(s.x - hw - tile * 0.04, s.y - depth - tile * 0.48, tile * 0.07, tile * 0.07);
+          break;
+        }
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.fillRect(s.x - tile * 0.45, s.y - tile * 0.02, tile * 0.9, tile * 0.08);
         ctx.fillStyle = '#6b4a2e';
@@ -3350,7 +3430,7 @@ export class Renderer {
     const tile = TILE_SIZE * camera.zoom;
     const now = performance.now();
     for (const p of pieces) {
-      const fp = yardFootprint(p.kind, p.x, p.y);
+      const fp = yardFootprint(p.kind, p.x, p.y, p.rot ?? 0);
       const a = camera.worldToScreen(fp.x * TILE_SIZE, fp.y * TILE_SIZE);
       const isPending = p.id === '__pending';
       const dragging = m.drag?.id === p.id;
@@ -3635,9 +3715,10 @@ export class Renderer {
         break;
       }
       case 'trellis': {
-        // a cedar lattice panel standing on the floor, rising up the wall behind
-        const left = s.x - tile * 0.42;
-        const right = s.x + tile * 0.42;
+        // a cedar lattice panel standing on the floor, rising up the wall behind — or turned edge-on, a narrow slat of it
+        const half = rot % 2 === 1 ? 0.15 : 0.42;
+        const left = s.x - tile * half;
+        const right = s.x + tile * half;
         const top = s.y - tile * 1.75;
         const floor = s.y + tile * 0.3;
         ctx.fillStyle = 'rgba(0,0,0,0.18)';

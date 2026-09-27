@@ -211,6 +211,8 @@ export interface PlacedDecor {
   decorId: DecorId;
   x: number;
   y: number;
+  /** Quarter-turns, for pieces that can be turned (0 or 1). */
+  rot?: number;
 }
 
 export type FoxBehavior = 'idle' | 'wandering' | 'leading' | 'paused' | 'gone' | 'fleeing' | 'lookingBack' | 'vanishing';

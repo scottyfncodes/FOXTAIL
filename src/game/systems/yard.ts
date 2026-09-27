@@ -2,6 +2,7 @@ import type { GameState } from '../state';
 import type { DecorId } from '../data/shop';
 import { MARKET_STALL, rectContains, type Rect } from '../data/worldMap';
 import { decorFits, moveDecor, placeDecor } from './decor';
+import { DECOR_DEFS, decorSize } from '../data/decor';
 import type { LandscapeWorld } from './landscape';
 
 // Outdoor arranging: the garden's movable pieces — every bit of decor, and
@@ -19,6 +20,8 @@ export interface YardPiece {
   /** Decor: its base point. The stall: its top-left tile. */
   x: number;
   y: number;
+  /** Decor: quarter-turns (0 or 1). */
+  rot?: number;
 }
 
 export type YardBlock = 'none-left' | 'ground' | 'occupied';
@@ -37,17 +40,19 @@ export function stallRect(state: Pick<GameState, 'stall'>): Rect {
 /** Every movable piece outdoors. */
 export function yardPieces(state: GameState): YardPiece[] {
   const s = stallPos(state);
-  return [{ id: STALL_ID, kind: 'stall', x: s.x, y: s.y }, ...state.decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y }))];
+  return [{ id: STALL_ID, kind: 'stall', x: s.x, y: s.y }, ...state.decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y, rot: d.rot ?? 0 }))];
 }
 
 export function findYardPiece(state: GameState, id: string): YardPiece | undefined {
   return yardPieces(state).find((p) => p.id === id);
 }
 
-/** The ground a piece stands on (for grabbing and outlines). */
-export function yardFootprint(kind: YardPiece['kind'], x: number, y: number): Rect {
+/** The ground a piece stands on (for grabbing and outlines), turned `rot` quarter-turns. */
+export function yardFootprint(kind: YardPiece['kind'], x: number, y: number, rot = 0): Rect {
   if (kind === 'stall') return { x, y, w: MARKET_STALL.w, h: MARKET_STALL.h };
-  return { x: x - 0.4, y: y - 0.3, w: 0.8, h: 0.5 };
+  const { w, h } = decorSize(kind, rot);
+  const centred = DECOR_DEFS[kind].anchor === 'centre';
+  return { x: x - w / 2, y: centred ? y - h / 2 : y - h * 0.6, w, h };
 }
 
 /** Whether a tile is open ground a garden piece could stand on. */
@@ -110,11 +115,11 @@ export function moveYardPiece(state: GameState, open: OpenGround, id: string, x:
   return moveDecor(state, id, x, y);
 }
 
-/** Sets a piece of stocked decor down at (x, y). */
-export function placeYardDecor(state: GameState, open: OpenGround, decorId: DecorId, x: number, y: number): string | null {
+/** Sets a piece of stocked decor down at (x, y), turned `rot` quarter-turns. */
+export function placeYardDecor(state: GameState, open: OpenGround, decorId: DecorId, x: number, y: number, rot = 0): string | null {
   if ((state.decorStock[decorId] ?? 0) <= 0) return null;
   if (decorBlockReason(state, open, x, y)) return null;
-  return placeDecor(state, decorId, x, y)?.id ?? null;
+  return placeDecor(state, decorId, x, y, rot)?.id ?? null;
 }
 
 /** Stall positions snap to whole tiles; decor to an eighth of a tile. */

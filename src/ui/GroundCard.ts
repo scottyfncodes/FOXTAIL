@@ -1,7 +1,7 @@
 import type { Game } from '../game/engine/Game';
 import { Panel } from './Panel';
 import { el } from './dom';
-import { findBed, plantsInBed, bedRefund, routeLength } from '../game/systems/landscape';
+import { findBed, plantsInBed, bedRefund, routeLength, bedTurnBlock } from '../game/systems/landscape';
 import { bedLiveliness, ROLE_WANT, ROLE_HAS, LIVELY_TIER } from '../game/systems/beds';
 import { MINUTES_PER_DAY } from '../game/engine/Clock';
 import { button, note } from './common';
@@ -64,10 +64,19 @@ export class GroundCard {
       );
       body.appendChild(note('Whatever grows here spreads only within the bed.', 'row-note'));
       if (!this.confirm) {
-        body.appendChild(button(bed.raised ? 'Take it up…' : 'Fill it in…', () => {
+        const row = el('div', 'action-row');
+        // A bed with a long side can be turned where it lies; its plants turn with it.
+        const turnBlock = bedTurnBlock(state, bed.id, this.game.world);
+        if (turnBlock !== 'square') {
+          row.appendChild(button('↻ Turn it', () => {
+            if (this.game.turnBed(bed.id)) this.render();
+          }, 'secondary-btn', !!turnBlock));
+        }
+        row.appendChild(button(bed.raised ? 'Take it up…' : 'Fill it in…', () => {
           this.confirm = true;
           this.render();
         }, 'secondary-btn'));
+        body.appendChild(row);
       } else {
         body.appendChild(note(bed.raised ? 'The plants stay where they are, free to wander. The bed goes back in your basket to set down somewhere else.' : `The plants stay where they are, free to wander. You’ll get ${bedRefund(bed)} coins back.`, 'row-note'));
         const row = el('div', 'action-row');
