@@ -18,6 +18,8 @@ import {
   previewPath,
   removeBed,
   removePath,
+  rotateBed,
+  bedTurnBlock,
   simplifyRoute,
   transplant,
   type LandscapeWorld,
@@ -254,6 +256,58 @@ describe('garden beds', () => {
     expect((state.plants.p.location as { bedId?: string }).bedId).toBeUndefined();
     expect(state.coins).toBe(left + bedRefund(res.bed));
     expect(bedRefund(res.bed)).toBe(Math.floor(res.bed.paid! / 2));
+  });
+});
+
+describe('turning garden beds', () => {
+  it('turns a bed a quarter-turn about its centre, and its plants turn with it', () => {
+    const state = createNewGame();
+    state.coins = 1000;
+    const res = createBed(state, { x: 50, y: 20, w: 4, h: 2, shape: 'rect' }, world(), 0)!;
+    const p = wild(state, 'p', 51, 20.5, 300);
+    p.location = { ...p.location, kind: 'wild', bedId: res.bed.id } as OwnedPlant['location'];
+    expect(bedTurnBlock(state, res.bed.id, world())).toBeNull();
+    const coins = state.coins;
+    expect(rotateBed(state, res.bed.id, world())).toBe(true);
+    expect(res.bed).toMatchObject({ x: 51, y: 19, w: 2, h: 4 });
+    expect(state.coins).toBe(coins);
+    // (51, 20.5) sat a tile left of centre and a little above; a quarter-turn clockwise puts it a little right and a tile up.
+    expect(p.location).toMatchObject({ x: 52.5, y: 20, bedId: res.bed.id });
+    expect(bedContains(res.bed, 52.5, 20)).toBe(true);
+    expect(plantsInBed(state, res.bed.id)).toHaveLength(1);
+  });
+
+  it('won’t turn into a tree, another bed, or a wild patch — and a square bed has nothing to turn', () => {
+    const state = createNewGame();
+    state.coins = 100000;
+    // Stood on end this bed would cover the tree at (60,30).
+    const byTree = createBed(state, { x: 58, y: 28, w: 4, h: 2, shape: 'rect' }, world(), 0)!;
+    expect(bedTurnBlock(state, byTree.bed.id, world())).toBe('blocked');
+    expect(rotateBed(state, byTree.bed.id, world())).toBe(false);
+    expect(byTree.bed).toMatchObject({ x: 58, y: 28, w: 4, h: 2 });
+    // Turned, this one would run into its neighbour below.
+    const upper = createBed(state, { x: 50, y: 20, w: 4, h: 2, shape: 'rect' }, world(), 0)!;
+    createBed(state, { x: 50, y: 23, w: 4, h: 2, shape: 'rect' }, world(), 0);
+    expect(bedTurnBlock(state, upper.bed.id, world())).toBe('overlap');
+    // Turned, this one would reach the wild patch at (70,26).
+    const byPatch = createBed(state, { x: 68, y: 24, w: 4, h: 2, shape: 'rect' }, world(), 0)!;
+    expect(bedTurnBlock(state, byPatch.bed.id, world())).toBe('patch');
+    const square = createBed(state, { x: 75, y: 40, w: 3, h: 3, shape: 'oval' }, world(), 0)!;
+    expect(bedTurnBlock(state, square.bed.id, world())).toBe('square');
+    expect(rotateBed(state, square.bed.id, world())).toBe(false);
+  });
+
+  it('keeps a raised bed on quarter tiles when it turns, and clears the scrub it now covers', () => {
+    const state = createNewGame();
+    state.decorStock.raisedBed = 1;
+    const w = world();
+    const res = placeRaisedBed(state, 62, 29.25, w, 0, RAISED_BED)!;
+    expect(res.bed).toMatchObject({ x: 60.75, y: 28.5, w: 2.5, h: 1.5 });
+    // Lying flat it stops short of the bush at (62,30); stood on end it covers it, and the bush is cleared like any bed's scrub.
+    expect(state.clearedObstacles).not.toContain('62,30');
+    expect(rotateBed(state, res.bed.id, w)).toBe(true);
+    expect(res.bed).toMatchObject({ x: 61.25, y: 28, w: 1.5, h: 2.5, raised: true });
+    expect(state.clearedObstacles).toContain('62,30');
   });
 });
 

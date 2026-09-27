@@ -33,6 +33,8 @@ import {
   clearBlock,
   clearObstacle,
   CLEAR_VERB,
+  bedTurnBlock,
+  rotateBed,
 } from '../systems/landscape';
 import { createFoxFinds, collectFoxFind, expireFoxFinds } from '../systems/foxFinds';
 import { findCuriosity } from '../data/curiosities';
@@ -1359,6 +1361,20 @@ export class Game {
     this.onStateTouched?.();
   }
 
+  /** Turns a bed a quarter-turn where it lies, plants and all. */
+  turnBed(id: string): boolean {
+    const block = bedTurnBlock(this.state, id, this.world);
+    if (block === 'square') return false;
+    if (block) {
+      this.pushToast(block === 'overlap' ? 'Turned that way it would run into another bed.' : block === 'patch' ? 'Turned that way it would cover a wild patch.' : 'No room to turn it that way.', 'info');
+      return false;
+    }
+    if (!rotateBed(this.state, id, this.world)) return false;
+    this.refreshCleared();
+    this.onStateTouched?.();
+    return true;
+  }
+
   fillInBed(id: string) {
     const bed = findBed(this.state, id);
     if (bed && removeBed(this.state, id)) {
@@ -1711,7 +1727,7 @@ export class Game {
     if (!this.tools.active) return;
     if (e.key === 'Escape') this.cancelTool();
     else if (e.key === 'Enter' && this.tools.canConfirm()) this.confirmTool();
-    else if ((e.key === 'r' || e.key === 'R') && this.tools.mode.kind === 'arrange') this.tools.rotateSelected();
+    else if ((e.key === 'r' || e.key === 'R') && (this.tools.mode.kind === 'arrange' || this.tools.mode.kind === 'yard')) this.tools.rotateSelected();
   };
 
   /** A tap on the world: look at the plant, bed or path under the finger. */

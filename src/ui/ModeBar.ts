@@ -1,4 +1,5 @@
 import type { Game } from '../game/engine/Game';
+import { decorRotatable } from '../game/data/decor';
 import { el, clear } from './dom';
 import { SHOP_ITEMS, FURNITURE_IDS, DECOR_IDS } from '../game/data/shop';
 import { STALL_ID } from '../game/systems/yard';
@@ -106,6 +107,7 @@ export class ModeBar {
     if (m.pending) {
       const name = nameOf(m.pending.decorId).toLowerCase();
       status.textContent = m.pending.block ? `Not there — drag the ${name} onto open ground` : `Set the ${name} down here?`;
+      if (decorRotatable(m.pending.decorId)) row.append(bigButton('↻', 'shape', () => this.game.tools.rotateSelected()));
       row.append(bigButton('✕', 'cancel', () => this.game.tools.storeSelected()), bigButton('✓ Place', 'confirm', () => this.game.confirmTool(), !!m.pending.block));
       this.root.append(status, row);
       return;
@@ -120,6 +122,7 @@ export class ModeBar {
     if (sel) {
       const occupied = occupantOf(state, { slotId: sel.id });
       status.textContent = occupied ? `${nameOf(sel.decorId)} · with its ${specimenName(occupied.defId, occupied.variantId)} — drag to move them together` : `${nameOf(sel.decorId)} · drag to move`;
+      if (decorRotatable(sel.decorId)) row.append(bigButton('↻', 'shape', () => this.game.tools.rotateSelected()));
       row.append(bigButton('Put away', 'secondary', () => this.game.tools.storeSelected(), !!occupied), done);
       this.root.append(status, row);
       return;
