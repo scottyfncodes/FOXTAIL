@@ -111,24 +111,29 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
 
 // ---------------------------------------------------------------- the chase
 // He takes no notice of Ellen — until she chases him. Keep after him long
-// enough and he gives in: turns, dips her, and kisses her.
+// enough and he gives in: turns and does one of a few cute things, then
+// smiles at her a while before he's off.
+
+/** The cute things he might do once she's caught him. */
+export type ChaseReaction = 'kiss' | 'spin' | 'boop';
+const REACTIONS: ChaseReaction[] = ['kiss', 'spin', 'boop'];
 
 /** How close counts as on his heels, in tiles. */
 export const CHASE_RANGE = 1.6;
 /** Real seconds of chasing before he stops and turns round. */
 export const CHASE_SECONDS = 4;
-/** The whole moment, in real seconds: the dip and kiss, then a smile before he's off. */
+/** The whole moment, in real seconds: whatever he does, then a smile before he's off. */
 export const KISS_SECONDS = 6.4;
-/** Where in the moment (0 → 1) the dip is over and they're standing, smiling at each other. */
+/** Where in the moment (0 → 1) the main move is over and they're standing, smiling at each other. */
 export const DIP_END = 0.56;
-/** Real seconds after a kiss before another chase can count. */
+/** Real seconds after a moment like this before another chase can count. */
 export const KISS_COOLDOWN = 30;
 
 export interface ChaseState {
   /** Seconds spent chasing so far; drains away when she stops. */
   chase: number;
-  /** The kiss under way, 0 → 1, or null. */
-  kiss: { t: number; ellenLeft: boolean } | null;
+  /** The moment under way, 0 → 1, or null. */
+  kiss: { t: number; ellenLeft: boolean; reaction: ChaseReaction } | null;
   cooldown: number;
 }
 
@@ -147,6 +152,8 @@ export interface ChaseContext {
   ellenIndoors: boolean;
   ellenMoving: boolean;
   dtSeconds: number;
+  /** Picks which cute thing he does when caught; defaults to Math.random. */
+  rand?: () => number;
 }
 
 /**
@@ -172,7 +179,9 @@ export function tickChase(ch: ChaseState, scott: ScottState, ctx: ChaseContext):
   if (ch.chase < CHASE_SECONDS) return false;
   ch.chase = 0;
   const ellenLeft = ctx.ellenX <= scott.x;
-  ch.kiss = { t: 0, ellenLeft };
+  const rand = ctx.rand ?? Math.random;
+  const reaction = REACTIONS[Math.floor(rand() * REACTIONS.length)];
+  ch.kiss = { t: 0, ellenLeft, reaction };
   // He steps in beside her, and they face each other.
   scott.x = ctx.ellenX + (ellenLeft ? 0.5 : -0.5);
   scott.y = ctx.ellenY;

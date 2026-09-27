@@ -17,7 +17,6 @@ import { daylightFactor, isNight } from '../engine/Clock';
 import { spotContent } from '../systems/spots';
 import { hasFound } from '../systems/collection';
 import { stageFloat, stageIndexOf } from '../systems/growth';
-import { commissionPortrait, openCommission } from '../systems/commissions';
 import type { LushField } from '../systems/wild';
 import { CHARACTERS } from '../systems/wild';
 import { bedLiveliness } from '../systems/beds';
@@ -47,7 +46,7 @@ import { catLift } from '../systems/cat';
 import { foxFade } from '../systems/fox';
 import { isCouchNap, isCouchSpot } from '../data/scottSpots';
 import { PATH_WIDTH, bedCost } from '../systems/landscape';
-import { dipAmount, smiling, DIP_END } from '../systems/scott';
+import { dipAmount, smiling, DIP_END, type ChaseReaction } from '../systems/scott';
 
 /** Everything the scene needs beyond the game state: what the player is doing with their hands, and passing effects. */
 export interface SceneExtras {
@@ -56,8 +55,8 @@ export interface SceneExtras {
   cleared: Set<string>;
   /** 1 just after stepping through a door, falling to 0. */
   fade: number;
-  /** Scott dipping Ellen into a kiss, if he's been caught. */
-  kiss?: { t: number; ellenLeft: boolean } | null;
+  /** The cute thing Scott's doing, if Ellen's caught him. */
+  kiss?: { t: number; ellenLeft: boolean; reaction: ChaseReaction } | null;
 }
 
 const NO_EXTRAS: SceneExtras = { tools: { kind: 'play' }, flourishes: [], cleared: new Set(), fade: 0 };
@@ -1111,36 +1110,6 @@ export class Renderer {
       ctx.fillRect(tl.x - tile * 0.35, ground - tile * 0.35, tile * 0.4, tile * 0.35);
       ctx.fillRect(tl.x + w - tile * 0.05, ground - tile * 0.35, tile * 0.4, tile * 0.35);
     }
-    // The board: the request pinned up, shown as a picture of the plant
-    // (or a blank card for "anything from…"); a glint while it's unread,
-    // and a pinned note once it's been filled.
-    const bx = tl.x + w + tile * 0.1;
-    const by = tl.y - tile * 0.35;
-    const bw = tile * 0.56;
-    ctx.fillStyle = '#5a3f28';
-    ctx.fillRect(bx + bw / 2 - tile * 0.025, by + tile * 0.5, tile * 0.05, tile * 0.55);
-    ctx.fillStyle = '#2d3a33';
-    ctx.fillRect(bx, by, bw, tile * 0.52);
-    ctx.strokeStyle = '#8a6a44';
-    ctx.lineWidth = Math.max(1, tile * 0.03);
-    ctx.strokeRect(bx, by, bw, tile * 0.52);
-    const c = state.commission;
-    const open = openCommission(state);
-    const pic = open ? commissionPortrait(open) : null;
-    if (pic) this.drawPlantSprite(bx + bw / 2, by + tile * 0.44, tile * 0.5, pic.defId, pic.variantId, 2, 5, 'ground', now);
-    else {
-      // A note card: "anything from…", or the buyer's thanks once it's filled.
-      ctx.fillStyle = c && !open ? '#efe6cf' : '#d9d2bb';
-      ctx.fillRect(bx + bw / 2 - tile * 0.12, by + tile * 0.2, tile * 0.24, tile * 0.22);
-      ctx.fillStyle = 'rgba(60,40,20,0.55)';
-      for (let i = 0; i < 3; i++) ctx.fillRect(bx + bw / 2 - tile * 0.09, by + tile * (0.25 + i * 0.05), tile * (0.18 - i * 0.04), Math.max(1, tile * 0.015));
-    }
-    // The word, sized to the board rather than the other way round.
-    ctx.fillStyle = '#e8e2c8';
-    ctx.font = `bold ${Math.max(7, Math.round(tile * 0.105))}px Georgia`;
-    ctx.textAlign = 'center';
-    ctx.fillText(open ? 'WANTED' : 'THANKS', bx + bw / 2, by + tile * 0.13);
-    if (open && !open.seen) this.glowMarker(bx + bw / 2, by + tile * 0.26, tile, '#f0d27a', now);
   }
 
   private drawDecor(camera: Camera, d: PlacedDecor, state: GameState, now: number) {
@@ -1438,43 +1407,70 @@ export class Renderer {
   }
 
   /**
-   * Caught: Scott turns, sweeps Ellen back into a dip and kisses her. Both
-   * are drawn side-on facing each other; he leans in over her as she tips
-   * back, each pivoting on their feet, and a heart drifts up between them.
+   * Caught: Scott turns and does one of a few cute things — dips her into a
+   * kiss, spins her round, or bonks noses — then they stand smiling at each
+   * other a while. Both are drawn side-on facing each other, each pivoting
+   * on their feet, with a little flourish drifting up between them.
    */
-  private drawKiss(camera: Camera, state: GameState, kiss: { t: number; ellenLeft: boolean }, now: number) {
+  private drawKiss(camera: Camera, state: GameState, kiss: { t: number; ellenLeft: boolean; reaction: ChaseReaction }, now: number) {
     const tile = TILE_SIZE * camera.zoom;
-    const dip = dipAmount(kiss.t);
     // Toward Scott is +1 when Ellen stands on the left.
     const toward = kiss.ellenLeft ? 1 : -1;
     const p = state.player;
     const ellenFacing: Facing = kiss.ellenLeft ? 'right' : 'left';
     const scott = { ...state.scott, activity: 'traveling' as const, facing: (kiss.ellenLeft ? 'left' : 'right') as Facing };
-    // She tips back, away from him; he leans in over her. Angles and the
-    // slide of her feet in under him are set so their faces meet at the
-    // bottom of the dip (he's the taller by a head). Up again, they sway a
-    // little, smiling at each other.
+    // Up from the move, they sway a little, smiling at each other.
     const sway = smiling(kiss.t) ? Math.sin(now * 0.006) * 0.035 : 0;
-    const ellenTilt = -toward * 0.45 * dip + sway;
-    const scottTilt = -toward * 0.6 * dip + sway;
-    const ex = p.x + toward * 0.15 * dip;
+    let ellenTilt = sway;
+    let scottTilt = sway;
+    let ex = p.x;
+    if (kiss.reaction === 'spin') {
+      // They join hands and spin round together, easing into one full turn.
+      const u = Math.min(1, kiss.t / DIP_END);
+      const turn = (1 - (1 - u) * (1 - u)) * Math.PI * 2;
+      ellenTilt = toward * turn + sway;
+      scottTilt = toward * turn + sway;
+      ex = p.x + toward * 0.05 * Math.sin(turn);
+    } else if (kiss.reaction === 'boop') {
+      // A quick, playful bonk on the nose — a small, fast lean in and back.
+      const dip = dipAmount(kiss.t) * 0.4;
+      ellenTilt = -toward * 0.2 * dip + sway;
+      scottTilt = -toward * 0.35 * dip + sway;
+      ex = p.x + toward * 0.1 * dip;
+    } else {
+      // She tips back, away from him; he leans in over her. Angles and the
+      // slide of her feet in under him are set so their faces meet at the
+      // bottom of the dip (he's the taller by a head).
+      const dip = dipAmount(kiss.t);
+      ellenTilt = -toward * 0.45 * dip + sway;
+      scottTilt = -toward * 0.6 * dip + sway;
+      ex = p.x + toward * 0.15 * dip;
+    }
     this.happyFaces = true;
     this.atScale(camera, scott.x, scott.y, CHARACTER_SCALE.scott, () => this.drawScott(camera, scott, 0), scottTilt);
     this.atScale(camera, ex, p.y, CHARACTER_SCALE.ellen, () => this.drawEllen(camera, ex, p.y, ellenFacing, 0, false, false), ellenTilt);
     this.happyFaces = false;
 
     const mid = camera.worldToScreen(((ex + scott.x) / 2) * TILE_SIZE, p.y * TILE_SIZE);
-    if (dip > 0.6) {
-      const rise = (kiss.t / DIP_END) * tile * 0.6;
-      this.drawHeart(mid.x + Math.sin(now * 0.004) * tile * 0.05, mid.y - tile * 1.1 - rise, tile * 0.09, Math.min(1, (dip - 0.6) * 2.5));
+    const flourish = kiss.reaction === 'kiss' ? (x: number, y: number, r: number, a: number) => this.drawHeart(x, y, r, a) : (x: number, y: number, r: number, a: number) => this.drawTwinkle(x, y, r, a);
+    if (kiss.reaction === 'kiss') {
+      const dip = dipAmount(kiss.t);
+      if (dip > 0.6) {
+        const rise = (kiss.t / DIP_END) * tile * 0.6;
+        flourish(mid.x + Math.sin(now * 0.004) * tile * 0.05, mid.y - tile * 1.1 - rise, tile * 0.09, Math.min(1, (dip - 0.6) * 2.5));
+      }
+    } else if (kiss.t < DIP_END) {
+      // A twinkle at the height of the spin, or right as noses meet.
+      const u = kiss.t / DIP_END;
+      flourish(mid.x, mid.y - tile * 0.95, tile * 0.09, Math.sin(u * Math.PI));
     }
     if (smiling(kiss.t)) {
-      // A couple of small hearts drifting up while they smile.
+      // A couple of small hearts or sparkles drifting up while they smile.
       const u = (kiss.t - DIP_END) / (1 - DIP_END);
       for (let i = 0; i < 2; i++) {
         const k = (u * 1.6 + i * 0.5) % 1;
         const alpha = Math.sin(k * Math.PI);
-        this.drawHeart(mid.x + (i ? 1 : -1) * tile * 0.18 + Math.sin(now * 0.005 + i) * tile * 0.04, mid.y - tile * 1.2 - k * tile * 0.7, tile * 0.06, alpha);
+        flourish(mid.x + (i ? 1 : -1) * tile * 0.18 + Math.sin(now * 0.005 + i) * tile * 0.04, mid.y - tile * 1.2 - k * tile * 0.7, tile * 0.06, alpha);
       }
     }
   }
@@ -1487,6 +1483,21 @@ export class Renderer {
     ctx.moveTo(hx, hy + r * 1.1);
     ctx.bezierCurveTo(hx - r * 1.6, hy - r * 0.2, hx - r * 0.7, hy - r * 1.4, hx, hy - r * 0.5);
     ctx.bezierCurveTo(hx + r * 0.7, hy - r * 1.4, hx + r * 1.6, hy - r * 0.2, hx, hy + r * 1.1);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  /** A little four-point twinkle, for the spin and the boop. */
+  private drawTwinkle(hx: number, hy: number, r: number, alpha: number) {
+    const { ctx } = this;
+    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    ctx.fillStyle = '#f6d860';
+    ctx.beginPath();
+    ctx.moveTo(hx, hy - r);
+    ctx.quadraticCurveTo(hx + r * 0.15, hy - r * 0.15, hx + r, hy);
+    ctx.quadraticCurveTo(hx + r * 0.15, hy + r * 0.15, hx, hy + r);
+    ctx.quadraticCurveTo(hx - r * 0.15, hy + r * 0.15, hx - r, hy);
+    ctx.quadraticCurveTo(hx - r * 0.15, hy - r * 0.15, hx, hy - r);
     ctx.fill();
     ctx.globalAlpha = 1;
   }
@@ -2749,19 +2760,16 @@ export class Renderer {
         }
         ctx.closePath();
         ctx.fill();
-        // mouth: a skin-coloured gap in the beard
+        // mouth: a skin-coloured gap in the beard, curving up at the corners —
+        // a easy, everyday smile, wider still in a happy moment
         ctx.fillStyle = 'rgba(120,70,50,0.7)';
         ctx.beginPath();
-        if (this.happyFaces) {
-          // a grin: the gap curves up at the corners
-          const mx = isSide ? cx + s * headR * 0.55 : cx;
-          const mw = headR * (isSide ? 0.18 : 0.26);
-          ctx.moveTo(mx - mw, headY + headR * 0.6);
-          ctx.quadraticCurveTo(mx, headY + headR * 0.82, mx + mw, headY + headR * 0.6);
-          ctx.quadraticCurveTo(mx, headY + headR * 0.7, mx - mw, headY + headR * 0.6);
-        } else {
-          ctx.ellipse(isSide ? cx + s * headR * 0.55 : cx, headY + headR * 0.66, headR * (isSide ? 0.14 : 0.2), headR * 0.07, 0, 0, Math.PI * 2);
-        }
+        const mx = isSide ? cx + s * headR * 0.55 : cx;
+        const mw = headR * (this.happyFaces ? (isSide ? 0.18 : 0.26) : isSide ? 0.13 : 0.19);
+        const dip = this.happyFaces ? 0.22 : 0.1;
+        ctx.moveTo(mx - mw, headY + headR * 0.6);
+        ctx.quadraticCurveTo(mx, headY + headR * (0.6 + dip), mx + mw, headY + headR * 0.6);
+        ctx.quadraticCurveTo(mx, headY + headR * (0.6 + dip * 0.45), mx - mw, headY + headR * 0.6);
         ctx.fill();
       }
 
