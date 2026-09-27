@@ -606,6 +606,10 @@ export class Game {
         this.pushToast('The fox lingers here, watching something growing in the shadows.', 'discovery');
         this.audio.playToolChime();
       }
+      if (foxResult.hunchDiscoveryId) {
+        this.pushToast('The fox stops, nose low to something in the undergrowth, and looks back at you.', 'discovery');
+        this.audio.playToolChime();
+      }
       if (foxResult.trailEnded && foxResult.trailEnded.reward !== 'nothing') {
         const { x, y, reward } = foxResult.trailEnded;
         const z = zoneAt(Math.floor(x), Math.floor(y));

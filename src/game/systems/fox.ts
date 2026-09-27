@@ -1,8 +1,9 @@
 import type { DiscoverySpot, ZoneId } from '../types';
 import type { FoxFindKind, GameState } from '../state';
-import { spotContent } from './spots';
+import { hunchTargets, spotContent, spotEpoch } from './spots';
 import { hasFound } from './collection';
 import { BRIDGES, outdoorWaypoint } from '../data/worldMap';
+import { weightedPick } from '../engine/Random';
 
 // The fox. It turns up now and then, never for long, and it always seems to
 // be doing something. Sometimes it trots over to a patch it knows (its
@@ -41,6 +42,12 @@ export const ARRIVE_WITH_PLAYER = 7.5;
 /** Real seconds before a trail simply peters out. */
 export const TRAIL_MAX_SECONDS = 150;
 const VANISH_SECONDS = 1.6;
+/**
+ * Odds the fox has a hunch about a rare find you're missing, when one is in
+ * season nearby. Each time it could have and didn't, the odds grow by this
+ * much again — so it's never quick, but it always comes in the end.
+ */
+export const HUNCH_CHANCE = 0.2;
 
 function dist(ax: number, ay: number, bx: number, by: number): number {
   return Math.hypot(ax - bx, ay - by);
@@ -56,8 +63,30 @@ function pickCandidate(state: GameState, zone: ZoneId, points: DiscoverySpot[], 
     const c = spotContent(state, p);
     return !!c && !hasFound(state, c.defId, c.variantId);
   });
-  if (unseen.length === 0) return null;
-  return unseen[Math.floor(rand() * unseen.length)];
+  if (unseen.length > 0) return unseen[Math.floor(rand() * unseen.length)];
+  return followHunch(state, inZone, rand);
+}
+
+// Nothing new growing nearby by chance — but the fox may know where
+// something rare is, if the weather's right for it. It keeps it there, for
+// you, until the patch turns over or the weather does.
+function followHunch(state: GameState, inZone: DiscoverySpot[], rand: () => number): DiscoverySpot | null {
+  if (inZone.length === 0) return null;
+  const targets = hunchTargets(state, inZone[0].zone);
+  if (targets.length === 0) return null;
+  const epoch = spotEpoch(state.clock.totalMinutes);
+  const hosts = inZone.filter((p) => !p.foxLed && !p.pool && (state.spots[p.id]?.collectedEpoch ?? -1) < epoch);
+  if (hosts.length === 0) return null;
+  const misses = state.foxLog.hunchMisses;
+  if (rand() >= HUNCH_CHANCE * (1 + misses)) {
+    state.foxLog.hunchMisses = misses + 1;
+    return null;
+  }
+  const target = weightedPick(targets, (t) => 1 / (1 + t.rank), rand)!;
+  const spot = hosts[Math.floor(rand() * hosts.length) % hosts.length];
+  state.spots[spot.id] = { ...(state.spots[spot.id] ?? {}), hunch: { defId: target.defId, variantId: target.variantId, epoch } };
+  state.foxLog.hunchMisses = 0;
+  return spot;
 }
 
 /** What's waiting at the end of a trail. Often nothing much. */
@@ -98,6 +127,8 @@ function placeNear(ctx: FoxTickContext, x: number, y: number, dist: number, angl
 
 export interface FoxTickResult {
   revealedDiscoveryId?: string;
+  /** It has stopped at a patch it had a hunch about, with you close enough to see. */
+  hunchDiscoveryId?: string;
   /** It just noticed you and ran. */
   trailStarted?: boolean;
   /** You lost it. */
@@ -220,6 +251,8 @@ export function tickFox(state: GameState, ctx: FoxTickContext): FoxTickResult {
           if (spot && spot.foxLed && !state.spots[spot.id]?.revealed) {
             state.spots[spot.id] = { ...(state.spots[spot.id] ?? {}), revealed: true };
             result.revealedDiscoveryId = spot.id;
+          } else if (spot && state.spots[spot.id]?.hunch?.epoch === spotEpoch(state.clock.totalMinutes) && dp <= LOSE_DIST) {
+            result.hunchDiscoveryId = spot.id;
           }
         }
         fox.behavior = 'paused';

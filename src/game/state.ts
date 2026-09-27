@@ -137,6 +137,8 @@ export interface SpeciesRecord {
 export interface SpotState {
   collectedEpoch?: number;
   revealed?: boolean;
+  /** A rare find the fox led you to: it grows here for this epoch, while its weather holds. */
+  hunch?: { defId: string; variantId: string; epoch: number };
 }
 
 export interface PlacedFurniture {
@@ -200,6 +202,8 @@ export interface FoxLog {
   trailsLost: number;
   finds: number;
   lastTrailAt: number | null;
+  /** Times the fox could have led you to a rare find and didn't; each one makes the next likelier. */
+  hunchMisses: number;
 }
 
 export interface PlacedDecor {
@@ -381,7 +385,7 @@ export function createNewGame(): GameState {
     paths: [],
     clearedObstacles: [],
     foxFinds: [],
-    foxLog: { sightings: 0, trailsStarted: 0, trailsFollowed: 0, trailsLost: 0, finds: 0, lastTrailAt: null },
+    foxLog: { sightings: 0, trailsStarted: 0, trailsFollowed: 0, trailsLost: 0, finds: 0, lastTrailAt: null, hunchMisses: 0 },
     putting: { rounds: 0, best: null, aces: [] },
     curiosities: {},
     tools: { lantern: 0 },
