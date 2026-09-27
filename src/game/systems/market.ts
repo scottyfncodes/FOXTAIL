@@ -5,6 +5,7 @@ import { findShopItem, type DecorId, DECOR_IDS, type FurnitureId, FURNITURE_IDS 
 import { MINUTES_PER_DAY } from '../engine/Clock';
 import { hashString } from '../engine/Random';
 import { takeFromBasket } from './basket';
+import { findCarried } from './truck';
 import { ensureRecord } from './collection';
 import { stageIndexOf } from './growth';
 
@@ -82,9 +83,9 @@ export function priceOf(state: GameState, item: Pick<BasketItem, 'defId' | 'vari
  * What each basket item would fetch if sold top to bottom, in basket order:
  * a second plant of the same species is priced as the second sale.
  */
-export function basketPrices(state: GameState): number[] {
+export function basketPrices(state: GameState, items: BasketItem[] = state.basket): number[] {
   const ahead: Record<string, number> = {};
-  return state.basket.map((item) => {
+  return items.map((item) => {
     const n = ahead[item.defId] ?? 0;
     ahead[item.defId] = n + 1;
     return priceOf(state, item, n);
@@ -98,7 +99,7 @@ export function canSell(defId: string): boolean {
 }
 
 export function sellItem(state: GameState, uid: string, now: number): number | null {
-  const item = state.basket.find((i) => i.uid === uid);
+  const item = findCarried(state, uid);
   if (!item || !canSell(item.defId)) return null;
   const price = priceOf(state, item);
   takeFromBasket(state, uid);

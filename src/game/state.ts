@@ -5,7 +5,7 @@ import { SHOP_ITEMS } from './data/shop';
 
 // Bump SAVE_VERSION when the state shape changes; SaveManager.migrateSave
 // fills new fields from createNewGame(). The storage key stays fixed.
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 // The storage key keeps the game's working title so existing saves carry over.
 export const SAVE_KEY = 'foxtrot-save-v4';
 
@@ -16,6 +16,16 @@ export interface PlayerState {
   y: number;
   facing: Facing;
   inGreenhouse: boolean;
+  /** Behind the wheel of the mini truck. */
+  riding?: boolean;
+}
+
+/** The mini truck: where it's parked, which way it faces, and what's riding in the back. */
+export interface TruckState {
+  x: number;
+  y: number;
+  facing: Facing;
+  bed: BasketItem[];
 }
 
 export interface ClockState {
@@ -281,6 +291,8 @@ export interface GameState {
   version: number;
   createdAt: number;
   player: PlayerState;
+  /** The mini truck, once bought. */
+  truck: TruckState | null;
   clock: ClockState;
   weather: WeatherState;
   coins: number;
@@ -349,7 +361,8 @@ export function createNewGame(): GameState {
   return {
     version: SAVE_VERSION,
     createdAt: now,
-    player: { x: PLAYER_START.x, y: PLAYER_START.y, facing: 'down', inGreenhouse: false },
+    player: { x: PLAYER_START.x, y: PLAYER_START.y, facing: 'down', inGreenhouse: false, riding: false },
+    truck: null,
     clock: { totalMinutes: 8 * 60, lastRealTimestamp: now },
     weather: { condition: 'clear', nextChangeAt: 8 * 60 + 360 },
     coins: 20,

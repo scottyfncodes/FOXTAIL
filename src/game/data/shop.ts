@@ -98,6 +98,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'basketMedium', name: 'Collector’s Satchel', category: 'equipment', price: 80, description: 'Carry up to 10 plants.' },
   { id: 'basketLarge', name: 'Field Pack', category: 'equipment', price: 340, after: 'basketMedium', description: 'Carry up to 16 plants.' },
   { id: 'rootingKit', name: 'Rooting Kit', category: 'equipment', price: 260, description: 'Hormone powder and sharp snips. Plants recover twice as fast after you take a cutting, and cuttings throw sports (mutations) more often.' },
+  { id: 'miniTruck', name: 'Mini Truck', category: 'equipment', price: 2800, description: 'A little flatbed truck, delivered to the lane by the house. Drive it anywhere the ground is open — twice as fast as walking, and thickets don’t slow it — and carry a dozen more plants in the back. Park it by the stall to sell the whole load, or by the greenhouse door to pot straight from the bed.' },
 
   // Market stall
   { id: 'stallAwning', name: 'Striped Awning', category: 'stall', price: 120, description: 'Draws a crowd. Everything sells for 10% more.' },

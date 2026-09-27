@@ -86,6 +86,12 @@ grow in patches all over it.
   sedge and reeds along the water, lichen and tufts on the rock — thick
   in the open, thicker around what you've planted, thinning out under
   your own carpet (`src/game/world/VergeArt.ts`).
+- **Drive.** The stall's dearest item is a mini truck, delivered to the lane
+  by the house. Walk up and get in: it goes twice as fast as walking, thickets
+  don't slow it, and a dozen more plants ride in the back once your basket is
+  full. Park beside the stall to sell the whole load, or by the greenhouse
+  door to pot straight from the bed. Press E with nothing else in reach, or
+  tap 🚚, to get out.
 - **Name what you made.** Once a region has changed enough under your
   plants, the journal's Regions page offers it a name. A wooden plaque goes
   up where the growth is thickest, the valley calls the place by that name

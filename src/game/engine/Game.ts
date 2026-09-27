@@ -77,6 +77,8 @@ import { catAvoids } from '../systems/cat';
 import { minuteOfDay } from './Clock';
 import { pickUpDecor, nearestDecor, moveDecor, decorFits, isGardenPlanter } from '../systems/decor';
 import { stallRect } from '../systems/yard';
+import { boardTruck, parkTruck, deliverTruck, truckCovers, loadTruck, unloadTruck, takeOut, TRUCK_SPEED, TRUCK_BED_CAP } from '../systems/truck';
+import { basketCapacity } from '../systems/basket';
 
 export type InteractableKind =
   | 'plaque'
@@ -94,7 +96,8 @@ export type InteractableKind =
   | 'puttingMat'
   | 'rock'
   | 'decor'
-  | 'setDown';
+  | 'setDown'
+  | 'truck';
 
 export interface Interactable {
   kind: InteractableKind;
@@ -138,6 +141,7 @@ export const INTERACT_PRIORITY: Record<InteractableKind, number> = {
   decor: 5,
   rock: 5,
   wildPlant: 6,
+  truck: 1,
 };
 
 /** Picks what a press of the button should act on: the highest priority within reach, nearest among equals. */
@@ -554,13 +558,13 @@ export class Game {
 
     // Mid-kiss, she's not going anywhere.
     const move = this.chase.kiss ? { x: 0, y: 0 } : this.input.getMoveVector();
+    const riding = this.riding();
     if (move.x !== 0 || move.y !== 0) {
-      const speed = MOVE_SPEED * this.groundSpeed();
+      // The truck doesn't care how thick the growth is.
+      const speed = MOVE_SPEED * (riding ? TRUCK_SPEED : this.groundSpeed());
       const dx = move.x * speed * dtSeconds;
       const dy = move.y * speed * dtSeconds;
-      const blocked = this.state.player.inGreenhouse
-        ? (x: number, y: number) => isBlockedIndoor(x, y, this.indoorSolid)
-        : (x: number, y: number) => isBlockedOutdoor(x, y, this.blockingSet, stallRect(this.state));
+      const blocked = this.state.player.inGreenhouse ? (x: number, y: number) => isBlockedIndoor(x, y, this.indoorSolid) : (x: number, y: number) => this.blockedOutdoor(x, y);
       const next = tryMove(this.state.player.x, this.state.player.y, dx, dy, blocked);
       this.state.player.x = next.x;
       this.state.player.y = next.y;
@@ -569,9 +573,15 @@ export class Game {
       } else if (move.y !== 0) {
         this.state.player.facing = move.y > 0 ? 'down' : 'up';
       }
+      if (riding && this.state.truck) {
+        this.state.truck.x = this.state.player.x;
+        this.state.truck.y = this.state.player.y;
+        this.state.truck.facing = this.state.player.facing;
+      }
     }
 
-    this.handleDoorTransitions();
+    // Doors are for walking through: the truck stays outside.
+    if (!riding) this.handleDoorTransitions();
     this.updateNearestInteractable();
     if (expireFoxFinds(this.state, this.state.clock.totalMinutes) > 0) this.onStateTouched?.();
     this.noticeGoing(move.x !== 0 || move.y !== 0, dtSeconds);
@@ -721,7 +731,7 @@ export class Game {
   private noticeGoing(moving: boolean, dtSeconds: number) {
     const p = this.state.player;
     if (p.inGreenhouse) return;
-    if (moving && this.state.paths.length === 0 && this.groundSpeed() < 0.75) {
+    if (moving && !this.riding() && this.state.paths.length === 0 && this.groundSpeed() < 0.75) {
       this.thicketSeconds += dtSeconds;
       if (this.thicketSeconds > 4) this.hint('paths', 'Thick going. Carve a path (🌿) and the way stays clear.', 'important', () => this.outdoors() && this.state.paths.length === 0);
     }
@@ -953,11 +963,18 @@ export class Game {
       const stall = stallRect(this.state);
       const mx = stall.x + stall.w / 2;
       const my = stall.y + 1.1;
-      consider({ kind: 'market', id: 'market', x: mx, y: my, label: 'Plant Stand & Supply', available: true }, mx, my, 1.6);
-      for (const d of GREENHOUSE_DOORS) {
-        consider({ kind: 'greenhouseDoor', id: d.id, x: d.outside.x, y: d.outside.y, label: 'Into the Greenhouse', available: true }, d.outside.x + 0.5, d.outside.y + 0.5);
+      consider({ kind: 'market', id: 'market', x: mx, y: my, label: 'Plant Stand & Supply', available: true }, mx, my, this.riding() ? 2.4 : 1.6);
+      if (!this.riding()) {
+        for (const d of GREENHOUSE_DOORS) {
+          consider({ kind: 'greenhouseDoor', id: d.id, x: d.outside.x, y: d.outside.y, label: 'Into the Greenhouse', available: true }, d.outside.x + 0.5, d.outside.y + 0.5);
+        }
+        consider({ kind: 'houseDoor', id: 'house', x: HOUSE_DOOR.x, y: HOUSE_DOOR.y, label: 'Go inside — home', available: true }, HOUSE_DOOR.x + 0.5, HOUSE_DOOR.y + 0.5);
       }
-      consider({ kind: 'houseDoor', id: 'house', x: HOUSE_DOOR.x, y: HOUSE_DOOR.y, label: 'Go inside — home', available: true }, HOUSE_DOOR.x + 0.5, HOUSE_DOOR.y + 0.5);
+      const truck = this.state.truck;
+      if (truck && !this.riding()) {
+        const n = truck.bed.length;
+        consider({ kind: 'truck', id: 'truck', x: truck.x, y: truck.y, label: `Get in the truck${n ? ` · ${n} in the back` : ''}`, available: true }, truck.x, truck.y - 0.3, 1.7);
+      }
     } else {
       for (const bed of nurserySpots(this.state)) {
         const plant = occupantOf(this.state, { bedId: bed.id });
@@ -990,9 +1007,15 @@ export class Game {
   interactWithNearest() {
     this.audio.init();
     const n = this.nearest;
-    if (!n) return;
+    if (!n) {
+      // Nothing in reach: behind the wheel, that means stop here.
+      if (this.riding()) this.parkTruck();
+      return;
+    }
     const now = this.state.clock.totalMinutes;
-    if (n.kind === 'spot') {
+    if (n.kind === 'truck') {
+      this.boardTruck();
+    } else if (n.kind === 'spot') {
       const spot = DISCOVERY_SPOTS.find((d) => d.id === n.id)!;
       const result = collectSpot(this.state, spot, now);
       if (result.ok && result.content) {
@@ -1004,7 +1027,7 @@ export class Game {
         const rare = rarityRank(rarity) >= 2 ? ` ${RARITY_LABEL[rarity]}!` : '';
         if (result.newSpecies) this.announce(`New discovery: ${name}.${rare}`, rarity);
         else if (result.newVariant) this.announce(`New variant: ${fullName(defId, variantId)}.${rare}`, rarity);
-        else this.pushToast(`Took a cutting of ${name}.`, 'info');
+        else this.pushToast(`Took a cutting of ${name}.${this.stowedNote()}`, 'info');
         this.flourish(spot.x + 0.5, spot.y + 0.5, rarity, !!(result.newSpecies || result.newVariant));
         this.hint('firstCutting', 'Take it home and pot it in a nursery bed in the greenhouse.', 'important', () => this.carryingCutting());
         if (this.state.basket.length >= 3) this.hint('market', 'The Plant Stand & Supply by the house buys plants and sells kit.', 'important', () => this.state.basket.length > 0);
@@ -1072,7 +1095,7 @@ export class Game {
       this.announce(`${res.newVariant ? 'New variant! ' : ''}This cutting came out different — a ${fullName(res.item.defId, res.item.variantId)} (${RARITY_LABEL[r]}).`, r);
       if (plant.location.kind === 'wild') this.flourish(plant.location.x, plant.location.y, r, res.newVariant);
     } else {
-      this.pushToast(`Took a cutting of ${name}.`, 'info');
+      this.pushToast(`Took a cutting of ${name}.${this.stowedNote()}`, 'info');
     }
     this.onStateTouched?.();
   }
@@ -1429,6 +1452,70 @@ export class Game {
   }
 
   /** How easily Ellen moves over the ground she's on. */
+  /** Behind the wheel of the truck. */
+  riding(): boolean {
+    return !!this.state.truck && !!this.state.player.riding;
+  }
+
+  /** What stops her outdoors: the land, the stall, and the parked truck. */
+  private blockedOutdoor(x: number, y: number): boolean {
+    if (isBlockedOutdoor(x, y, this.blockingSet, stallRect(this.state))) return true;
+    const t = this.state.truck;
+    return !!t && !this.state.player.riding && truckCovers(t, x, y);
+  }
+
+  /** Whether she could stand here: open ground, nothing in the way. */
+  private canStand(x: number, y: number): boolean {
+    const r = 0.28;
+    return !this.blockedOutdoor(x - r, y - r) && !this.blockedOutdoor(x + r, y - r) && !this.blockedOutdoor(x - r, y + r) && !this.blockedOutdoor(x + r, y + r);
+  }
+
+  /** Climbs into the truck. */
+  boardTruck() {
+    if (!this.state.truck || this.riding() || this.state.player.inGreenhouse) return;
+    if (this.tools.active) this.tools.cancel();
+    this.carryingDecorId = null;
+    if (!boardTruck(this.state)) return;
+    this.audio.playToolChime();
+    this.pushToast('Driving. Thickets can’t slow the truck, and anything you gather rides in the back once your basket is full.', 'info');
+    this.hint('truckPark', 'To get out, press E with nothing else in reach — or tap the 🚚 button.', 'important', () => this.riding());
+    this.onStateTouched?.();
+  }
+
+  /** Parks the truck where she stopped and steps out. */
+  parkTruck() {
+    if (!this.riding()) return;
+    if (!parkTruck(this.state, (x, y) => this.canStand(x, y))) {
+      this.pushToast('No room to get out here.', 'info');
+      return;
+    }
+    this.audio.playToolChime();
+    const n = this.state.truck!.bed.length;
+    this.pushToast(n ? `Parked. ${n} plant${n === 1 ? '' : 's'} in the back — they’re within reach while you’re beside it.` : 'Parked.', 'info');
+    this.onStateTouched?.();
+  }
+
+  loadTruck() {
+    const n = loadTruck(this.state, basketCapacity(this.state));
+    if (n) this.pushToast(`Loaded ${n} plant${n === 1 ? '' : 's'} into the back.`, 'info');
+    this.onStateTouched?.();
+  }
+
+  unloadTruck() {
+    const n = unloadTruck(this.state, basketCapacity(this.state));
+    if (n) this.pushToast(`Took ${n} plant${n === 1 ? '' : 's'} out of the truck.`, 'info');
+    this.onStateTouched?.();
+  }
+
+  takeOutOfTruck(uid: string) {
+    if (takeOut(this.state, uid, basketCapacity(this.state))) this.onStateTouched?.();
+  }
+
+  /** A note for the toast when something just went into the back of the truck rather than the basket. */
+  private stowedNote(): string {
+    return this.riding() && this.state.basket.length >= basketCapacity(this.state) && this.state.truck!.bed.length ? ' It rides in the back of the truck.' : '';
+  }
+
   private groundSpeed(): number {
     const p = this.state.player;
     if (p.inGreenhouse) return 1;
@@ -1694,6 +1781,12 @@ export class Game {
     const item = findShopItem(itemId)!;
     this.refreshIndoor();
     this.audio.playToolChime();
+    if (itemId === 'miniTruck') {
+      deliverTruck(this.state, (tx, ty) => this.isOpenGround(tx, ty) && !this.plantOnTile(tx, ty) && !isBlockedOutdoor(tx + 0.5, ty + 0.5, this.blockingSet, stallRect(this.state)));
+      this.pushToast(`Bought the Mini Truck. It’s parked in the lane by the house — room for ${TRUCK_BED_CAP} plants in the back.`, 'discovery');
+      this.onStateTouched?.();
+      return;
+    }
     this.pushToast(
       item.category === 'garden'
         ? `Bought ${item.name}. Place it outdoors from your basket.`

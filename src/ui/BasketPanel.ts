@@ -4,6 +4,7 @@ import { el } from './dom';
 import { PLANTS, specimenName, specimenRarity } from '../game/data/plants';
 import { SHOP_ITEMS, DECOR_IDS, FURNITURE_IDS, findPotStyle } from '../game/data/shop';
 import { basketCapacity } from '../game/systems/basket';
+import { TRUCK_BED_CAP, truckNear } from '../game/systems/truck';
 import { ESTABLISH_THRESHOLD } from '../game/systems/collection';
 import { placementBlockReason } from '../game/systems/propagation';
 import { STAGE_LABEL, stageFloat, stageOf } from '../game/systems/growth';
@@ -64,6 +65,51 @@ export class BasketPanel {
         list.appendChild(row);
       }
       this.panel.body.appendChild(list);
+    }
+
+    // The back of the truck: a second basket, within reach when you're beside it.
+    const truck = state.truck;
+    if (truck) {
+      const near = truckNear(state);
+      this.panel.body.appendChild(el('h4', 'section-head', `In the truck (${truck.bed.length}/${TRUCK_BED_CAP})`));
+      if (!near) {
+        this.panel.body.appendChild(note(truck.bed.length ? 'Parked out of reach. Walk back to the truck to get at what’s in the back.' : 'Parked out of reach. Drive it, and anything you gather rides in the back once your basket is full.', 'row-note'));
+      } else {
+        const row = el('div', 'action-row');
+        if (state.basket.length) {
+          row.appendChild(button(truck.bed.length >= TRUCK_BED_CAP ? 'Truck is full' : 'Load the truck', () => {
+            this.game.loadTruck();
+            this.render();
+          }, 'secondary-btn', truck.bed.length >= TRUCK_BED_CAP));
+        }
+        if (truck.bed.length) {
+          row.appendChild(button(state.basket.length >= basketCapacity(state) ? 'Basket is full' : 'Unload into basket', () => {
+            this.game.unloadTruck();
+            this.render();
+          }, 'secondary-btn', state.basket.length >= basketCapacity(state)));
+        }
+        if (row.childElementCount) this.panel.body.appendChild(row);
+      }
+      if (truck.bed.length) {
+        const list = el('div', 'entry-list');
+        for (const item of truck.bed) {
+          const row = el('div', 'entry-row plant-row');
+          const info = el('div', 'entry-info');
+          const stage = stageOf(item.growth);
+          info.append(el('div', 'entry-name', specimenName(item.defId, item.variantId)), el('div', 'entry-sub', stage === 'cutting' ? 'Fresh cutting' : `${STAGE_LABEL[stage]} plant`));
+          info.appendChild(rarityBadge(specimenRarity(item.defId, item.variantId)));
+          const actions = el('div', 'row-actions');
+          if (near) {
+            actions.appendChild(button('Take out', () => {
+              this.game.takeOutOfTruck(item.uid);
+              this.render();
+            }, 'secondary-btn small', state.basket.length >= basketCapacity(state)));
+          }
+          row.append(portrait(item.defId, item.variantId, Math.max(0.6, stageFloat(item.growth)), item.seed, 56), info, actions);
+          list.appendChild(row);
+        }
+        this.panel.body.appendChild(list);
+      }
     }
 
     // Garden decor bought at the market, waiting to be placed.

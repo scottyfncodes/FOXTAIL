@@ -9,6 +9,7 @@ import { gardenPlanter } from '../game/systems/decor';
 import { ESTABLISH_THRESHOLD, isEstablished } from '../game/systems/collection';
 import { STAGES, STAGE_LABEL, stageFloat, stageIndexOf, minutesToNextStage } from '../game/systems/growth';
 import { cuttingBlockReason, occupantOf, placementBlockReason, cuttingCooldown, cuttingOdds } from '../game/systems/propagation';
+import { reachable } from '../game/systems/truck';
 import { button, note, portrait, rarityBadge, realTime, crossButton } from './common';
 
 type Target = { kind: 'bed' | 'display'; id: string };
@@ -68,12 +69,14 @@ export class GreenhousePanel {
     const state = this.game.state;
     const body = this.panel.body;
     body.appendChild(note('Nursery beds are where cuttings root and young plants grow up. Pot anything from your basket here.'));
-    if (state.basket.length === 0) {
-      body.appendChild(el('div', 'empty-state', 'Your basket is empty. Take cuttings in the wild, or from plants you’ve already grown.'));
+    const items = reachable(state);
+    if (items.length === 0) {
+      body.appendChild(el('div', 'empty-state', state.truck?.bed.length ? 'Your basket is empty. Park the truck by the greenhouse door and what’s in the back is within reach here.' : 'Your basket is empty. Take cuttings in the wild, or from plants you’ve already grown.'));
       return;
     }
+    if (items.length > state.basket.length) body.appendChild(note(`${items.length - state.basket.length} of these are in the truck, parked by the door.`, 'row-note'));
     const list = el('div', 'entry-list');
-    for (const item of state.basket) {
+    for (const item of items) {
       const row = el('div', 'entry-row plant-row');
       const info = el('div', 'entry-info');
       info.append(el('div', 'entry-name', specimenName(item.defId, item.variantId)), el('div', 'entry-sub', item.growth === 0 ? 'Fresh cutting' : `${STAGE_LABEL[STAGES[stageIndexOf(item.growth)]]} plant`));
@@ -109,9 +112,9 @@ export class GreenhousePanel {
     const state = this.game.state;
     const body = this.panel.body;
     body.appendChild(note('Your collection. Plants on display stay here for good and keep growing — the rarer, the better they look.'));
-    const eligible = state.basket.filter((i) => !placementBlockReason(state, i));
+    const eligible = reachable(state).filter((i) => !placementBlockReason(state, i));
     if (eligible.length === 0) {
-      const waiting = state.basket.find((i) => placementBlockReason(state, i) === 'not-established');
+      const waiting = reachable(state).find((i) => placementBlockReason(state, i) === 'not-established');
       body.appendChild(
         el(
           'div',

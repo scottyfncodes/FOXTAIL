@@ -402,7 +402,16 @@ export class Renderer {
       if (state.scott.zone !== 'greenhouse') {
         drawables.push({ y: state.scott.y, draw: () => this.atScale(camera, state.scott.x, state.scott.y, CHARACTER_SCALE.scott, () => this.drawScott(camera, state.scott, now)) });
       }
-      drawables.push({ y: state.player.y, draw: () => this.atScale(camera, state.player.x, state.player.y, CHARACTER_SCALE.ellen, () => this.drawEllen(camera, state.player.x, state.player.y, state.player.facing, now, moving, crouching)) });
+      if (state.truck && state.player.riding) {
+        const t = state.truck;
+        drawables.push({ y: state.player.y + 0.05, draw: () => this.drawTruck(camera, t, now, true, moving) });
+      } else {
+        drawables.push({ y: state.player.y, draw: () => this.atScale(camera, state.player.x, state.player.y, CHARACTER_SCALE.ellen, () => this.drawEllen(camera, state.player.x, state.player.y, state.player.facing, now, moving, crouching)) });
+      }
+    }
+    if (state.truck && !state.player.riding && inView(state.truck.x, state.truck.y, 3)) {
+      const t = state.truck;
+      drawables.push({ y: t.y + 0.05, draw: () => this.drawTruck(camera, t, now, false, false) });
     }
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
@@ -1391,6 +1400,200 @@ export class Renderer {
    * the ponytail hangs behind her; from behind the ponytail falls down her
    * back over the pack; in profile it streams off the back of her head.
    */
+  /**
+   * The mini truck: a small flatbed in faded sage with a cream roof, seen
+   * side-on when it faces left or right, end-on otherwise. Whatever rides
+   * in the back is drawn there in its own leaf colour. Driving, Ellen's
+   * hat shows in the cab.
+   */
+  private drawTruck(camera: Camera, t: { x: number; y: number; facing: Facing; bed: { defId: string; variantId: string }[] }, now: number, riding: boolean, moving: boolean) {
+    const { ctx } = this;
+    const tile = TILE_SIZE * camera.zoom;
+    const s = camera.worldToScreen(t.x * TILE_SIZE, t.y * TILE_SIZE);
+    const side = t.facing === 'left' || t.facing === 'right';
+    const bob = moving ? Math.sin(now / 55) * tile * 0.015 : 0;
+    const body = '#8ea16e';
+    const bodyDark = '#63784b';
+    const cream = '#efe3c4';
+    const glass = '#bcd8c8';
+    const tyre = '#2a2c28';
+    const hub = '#cfc7b3';
+    const timber = '#6b5236';
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(0, tile * 0.06, side ? tile * 1.15 : tile * 0.68, tile * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.translate(0, bob);
+    const plantsInBed = (x0: number, w: number, y0: number, scale: number) => {
+      const n = t.bed.length;
+      if (!n) return;
+      const cols = Math.min(n, 6);
+      for (let i = 0; i < n; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const px = x0 + ((col + 0.5) / cols) * w;
+        const py = y0 - row * tile * 0.16 * scale;
+        const look = lookFor(t.bed[i].defId, t.bed[i].variantId);
+        ctx.fillStyle = '#b4633f';
+        ctx.fillRect(px - tile * 0.07 * scale, py - tile * 0.1 * scale, tile * 0.14 * scale, tile * 0.1 * scale);
+        ctx.fillStyle = `hsl(${look.hue} ${look.sat}% ${look.light}%)`;
+        for (let k = 0; k < 3; k++) {
+          const a = -Math.PI / 2 + (k - 1) * 0.9;
+          ctx.beginPath();
+          ctx.ellipse(px + Math.cos(a) * tile * 0.07 * scale, py - tile * 0.12 * scale + Math.sin(a) * tile * 0.07 * scale, tile * 0.075 * scale, tile * 0.045 * scale, a, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    };
+    const hat = () => {
+      ctx.fillStyle = ELLEN_APPEARANCE.skin;
+      ctx.beginPath();
+      ctx.arc(0, 0, tile * 0.11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = ELLEN_APPEARANCE.hat;
+      ctx.beginPath();
+      ctx.ellipse(0, -tile * 0.07, tile * 0.2, tile * 0.05, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, -tile * 0.1, tile * 0.11, Math.PI, Math.PI * 2);
+      ctx.fill();
+    };
+    if (side) {
+      if (t.facing === 'left') ctx.scale(-1, 1);
+      const L = tile * 2.2;
+      const H = tile * 0.5;
+      const bedW = L * 0.56;
+      const x0 = -L / 2;
+      // Flatbed with timber sides
+      ctx.fillStyle = bodyDark;
+      ctx.fillRect(x0, -H * 0.9, bedW, H * 0.9);
+      ctx.fillStyle = timber;
+      ctx.fillRect(x0, -H * 1.15, bedW, H * 0.3);
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      for (let i = 1; i < 5; i++) ctx.fillRect(x0 + (bedW * i) / 5, -H * 1.15, tile * 0.02, H * 0.3);
+      plantsInBed(x0 + tile * 0.05, bedW - tile * 0.1, -H * 1.05, 1);
+      // Cab
+      const cx0 = x0 + bedW;
+      const cabW = L - bedW;
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.moveTo(cx0, -H * 0.9);
+      ctx.lineTo(cx0, -H * 2.05);
+      ctx.lineTo(cx0 + cabW * 0.55, -H * 2.05);
+      ctx.lineTo(cx0 + cabW * 0.8, -H * 1.35);
+      ctx.lineTo(cx0 + cabW, -H * 1.3);
+      ctx.lineTo(cx0 + cabW, 0);
+      ctx.lineTo(x0, 0);
+      ctx.lineTo(x0, -H * 0.9);
+      ctx.closePath();
+      ctx.fill();
+      // Roof
+      ctx.fillStyle = cream;
+      ctx.fillRect(cx0 - tile * 0.02, -H * 2.15, cabW * 0.6, H * 0.16);
+      // Window
+      ctx.fillStyle = glass;
+      ctx.beginPath();
+      ctx.moveTo(cx0 + cabW * 0.08, -H * 1.95);
+      ctx.lineTo(cx0 + cabW * 0.5, -H * 1.95);
+      ctx.lineTo(cx0 + cabW * 0.72, -H * 1.38);
+      ctx.lineTo(cx0 + cabW * 0.08, -H * 1.38);
+      ctx.closePath();
+      ctx.fill();
+      if (riding) {
+        ctx.save();
+        ctx.translate(cx0 + cabW * 0.3, -H * 1.55);
+        hat();
+        ctx.restore();
+      }
+      // Door line, headlight, bumper
+      ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+      ctx.lineWidth = Math.max(1, tile * 0.02);
+      ctx.beginPath();
+      ctx.moveTo(cx0 + cabW * 0.08, -H * 1.3);
+      ctx.lineTo(cx0 + cabW * 0.08, -H * 0.1);
+      ctx.stroke();
+      ctx.fillStyle = '#f8e9b8';
+      ctx.fillRect(cx0 + cabW - tile * 0.07, -H * 1.05, tile * 0.06, tile * 0.09);
+      ctx.fillStyle = bodyDark;
+      ctx.fillRect(x0, -H * 0.12, L, H * 0.12);
+      // Wheels
+      const spin = moving ? now / 90 : 0;
+      for (const wx of [x0 + L * 0.2, x0 + L * 0.78]) {
+        ctx.fillStyle = tyre;
+        ctx.beginPath();
+        ctx.arc(wx, 0, tile * 0.19, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = hub;
+        ctx.beginPath();
+        ctx.arc(wx, 0, tile * 0.09, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = tyre;
+        ctx.lineWidth = Math.max(1, tile * 0.025);
+        ctx.beginPath();
+        ctx.moveTo(wx + Math.cos(spin) * tile * 0.08, Math.sin(spin) * tile * 0.08);
+        ctx.lineTo(wx - Math.cos(spin) * tile * 0.08, -Math.sin(spin) * tile * 0.08);
+        ctx.stroke();
+      }
+    } else {
+      const front = t.facing === 'down';
+      const W = tile * 1.2;
+      const H = tile * 0.5;
+      const x0 = -W / 2;
+      // Wheels peek out either side
+      ctx.fillStyle = tyre;
+      ctx.fillRect(x0 - tile * 0.05, -tile * 0.22, tile * 0.16, tile * 0.28);
+      ctx.fillRect(x0 + W - tile * 0.11, -tile * 0.22, tile * 0.16, tile * 0.28);
+      if (front) {
+        // Cab first, bed hidden behind it
+        ctx.fillStyle = body;
+        ctx.fillRect(x0, -H * 2.0, W, H * 2.0);
+        ctx.fillStyle = cream;
+        ctx.fillRect(x0 - tile * 0.02, -H * 2.1, W + tile * 0.04, H * 0.16);
+        ctx.fillStyle = glass;
+        ctx.fillRect(x0 + W * 0.1, -H * 1.9, W * 0.8, H * 0.55);
+        if (riding) {
+          ctx.save();
+          ctx.translate(0, -H * 1.55);
+          hat();
+          ctx.restore();
+        }
+        ctx.fillStyle = bodyDark;
+        ctx.fillRect(x0, -H * 0.3, W, H * 0.3);
+        ctx.fillStyle = '#f8e9b8';
+        ctx.fillRect(x0 + W * 0.1, -H * 0.6, W * 0.14, H * 0.22);
+        ctx.fillRect(x0 + W * 0.76, -H * 0.6, W * 0.14, H * 0.22);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        for (let i = 0; i < 4; i++) ctx.fillRect(x0 + W * 0.32 + i * W * 0.1, -H * 0.62, W * 0.05, H * 0.26);
+      } else {
+        // Seen from behind: the bed, its load, and the cab roof beyond
+        ctx.fillStyle = body;
+        ctx.fillRect(x0 + W * 0.08, -H * 2.2, W * 0.84, H * 1.2);
+        ctx.fillStyle = cream;
+        ctx.fillRect(x0 + W * 0.06, -H * 2.3, W * 0.88, H * 0.16);
+        ctx.fillStyle = glass;
+        ctx.fillRect(x0 + W * 0.16, -H * 2.1, W * 0.68, H * 0.45);
+        plantsInBed(x0 + tile * 0.08, W - tile * 0.16, -H * 0.95, 0.9);
+        ctx.fillStyle = timber;
+        ctx.fillRect(x0, -H * 1.0, W, H * 0.32);
+        ctx.fillStyle = bodyDark;
+        ctx.fillRect(x0, -H * 0.68, W, H * 0.68);
+        ctx.fillStyle = '#d8563c';
+        ctx.fillRect(x0 + W * 0.08, -H * 0.5, W * 0.12, H * 0.18);
+        ctx.fillRect(x0 + W * 0.8, -H * 0.5, W * 0.12, H * 0.18);
+        if (riding) {
+          ctx.save();
+          ctx.translate(0, -H * 1.85);
+          hat();
+          ctx.restore();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
   private drawEllen(camera: Camera, x: number, y: number, facing: Facing, now: number, moving: boolean, crouching: boolean) {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
