@@ -24,7 +24,7 @@ export function awayText(ms: number): string {
 
 /** The valley at dusk, drawn once in SVG: hills, trees, the greenhouse lit from inside. */
 const HILLS = `
-<svg viewBox="0 0 1000 320" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+<svg viewBox="0 104 1000 216" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
   <path d="M0 200 C 120 150, 220 170, 330 150 C 470 125, 560 170, 700 140 C 820 115, 900 130, 1000 120 L 1000 320 L 0 320 Z" fill="#163b34"/>
   <path d="M0 240 C 110 215, 200 232, 310 214 C 420 196, 520 226, 640 210 C 760 194, 880 220, 1000 200 L 1000 320 L 0 320 Z" fill="#11302a"/>
   <g fill="#0e2822">

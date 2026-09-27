@@ -685,7 +685,9 @@ button {
 }
 
 .start-overlay {
-  /* The hills band along the bottom; the card is centred in the sky above it, never over it. */
+  /* The hills band along the bottom is an in-flow flex item: it takes its
+     preferred height when there's room and shrinks first when there isn't,
+     so the card always sits whole in the sky above it. */
   --hills-h: clamp(150px, 28vh, 280px);
   position: fixed;
   inset: 0;
@@ -694,10 +696,10 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   text-align: center;
-  padding: 24px 24px var(--hills-h);
-  overflow: hidden;
+  padding: max(16px, env(safe-area-inset-top)) 20px 0;
+  overflow: hidden auto;
   transition: opacity 0.4s ease;
 }
 .start-overlay::before {
@@ -707,7 +709,7 @@ button {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 70% 45% at 50% 32%, rgba(248, 233, 184, 0.07), transparent 70%),
+    radial-gradient(ellipse 70% 45% at 50% 30%, rgba(248, 233, 184, 0.07), transparent 70%),
     radial-gradient(ellipse 120% 80% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
 }
 .start-overlay.leaving {
@@ -715,7 +717,6 @@ button {
   pointer-events: none;
 }
 .start-sky,
-.start-hills,
 .start-fireflies {
   position: absolute;
   inset: 0;
@@ -730,13 +731,24 @@ button {
   box-shadow: 0 0 4px 1px rgba(248, 233, 184, 0.35);
   animation: start-twinkle 4s ease-in-out infinite;
 }
+.start-hills {
+  position: relative;
+  order: 10;
+  width: 100vw;
+  flex: 1 1 var(--hills-h);
+  min-height: 112px;
+  max-height: min(280px, 32vh);
+  margin: 0 -20px;
+  z-index: 0;
+  pointer-events: none;
+}
 .start-hills svg {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   width: 100%;
-  height: var(--hills-h);
+  height: 100%;
   display: block;
 }
 .start-firefly {
@@ -762,22 +774,24 @@ button {
 }
 .start-card {
   position: relative;
+  flex: 0 0 auto;
+  margin: auto 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
   max-width: 440px;
-  padding: 8px 0 16px;
+  padding: 4px 0 14px;
 }
 .start-hero {
-  width: 124px;
-  height: 124px;
-  border-radius: 32px;
+  width: 108px;
+  height: 108px;
+  border-radius: 28px;
   overflow: hidden;
   background: #143a33;
   box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.55),
+    0 20px 44px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(248, 233, 184, 0.28),
     0 0 0 6px rgba(248, 233, 184, 0.06),
     0 0 80px rgba(248, 233, 184, 0.1);
@@ -793,10 +807,10 @@ button {
   50% { transform: translateY(-5px); }
 }
 .start-overlay h1 {
-  font-size: clamp(40px, 9vw, 60px);
+  font-size: clamp(38px, 9vw, 56px);
   letter-spacing: 0.2em;
   line-height: 1;
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   padding-left: 0.2em;
   color: var(--ink);
   font-weight: 700;
@@ -827,8 +841,8 @@ button {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   width: 100%;
   max-width: 400px;
-  margin-top: 10px;
-  padding: 12px 4px;
+  margin-top: 6px;
+  padding: 10px 4px;
   border-top: 1px solid rgba(248, 233, 184, 0.14);
   border-bottom: 1px solid rgba(248, 233, 184, 0.14);
 }
@@ -858,19 +872,20 @@ button {
   white-space: nowrap;
 }
 .start-overlay p {
-  max-width: 380px;
+  max-width: 360px;
   color: var(--ink-dim);
-  line-height: 1.6;
+  line-height: 1.5;
   margin: 0;
-  font-size: 15.5px;
+  font-size: 15px;
+  text-wrap: balance;
 }
 .start-overlay .primary-btn {
   width: auto;
   min-width: 220px;
-  padding: 15px 44px;
+  padding: 14px 44px;
   font-size: 17px;
   letter-spacing: 0.03em;
-  margin-top: 10px;
+  margin-top: 6px;
   border-radius: 12px;
   background: linear-gradient(180deg, #3b9384 0%, #2d7a6f 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -894,6 +909,7 @@ button {
   font-family: inherit;
   font-size: 14px;
   letter-spacing: 0.02em;
+  margin-top: -4px;
   padding: 6px 10px;
   cursor: pointer;
   transition: color 0.15s ease;
@@ -907,22 +923,28 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: max(16px, env(safe-area-inset-bottom));
+  bottom: max(14px, env(safe-area-inset-bottom));
   text-align: center;
   color: rgba(244, 236, 216, 0.42);
   font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+  z-index: 1;
   pointer-events: none;
 }
-@media (max-height: 700px) {
-  .start-overlay { --hills-h: clamp(110px, 20vh, 180px); }
-  .start-hero { width: 92px; height: 92px; border-radius: 24px; }
+@media (max-height: 720px) {
+  .start-hero { width: 88px; height: 88px; border-radius: 24px; }
   .start-card { gap: 10px; }
-  .start-overlay h1 { margin-top: 6px; }
+  .start-overlay h1 { font-size: clamp(34px, 8.5vw, 48px); margin-top: 6px; }
   .start-overlay p { font-size: 14.5px; }
-  .start-stats { margin-top: 4px; padding: 8px 4px; }
+  .start-stats { margin-top: 2px; padding: 8px 4px; }
   .start-stat-value { font-size: 19px; }
+  .start-overlay .primary-btn { padding: 12px 40px; font-size: 16px; }
+}
+@media (max-height: 600px) {
+  .start-hero { width: 64px; height: 64px; border-radius: 18px; }
+  .start-card { gap: 8px; }
+  .start-overlay p { font-size: 14px; }
 }
 @media (max-width: 480px) {
   .start-tagline { font-size: 15px; }
