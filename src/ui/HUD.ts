@@ -37,6 +37,8 @@ export class HUD {
    * While a tool is in hand it's the way to stop.
    */
   private toolBtn = el('button', 'icon-btn tool-btn', '\u{1F33F}');
+  /** Shown only behind the wheel: park the truck and get out. */
+  private truckBtn = el('button', 'icon-btn truck-btn', '\u{1F69A}');
   private landMenu = el('div', 'land-menu');
   private modeBar: ModeBar;
   private touch = el('div', 'touch-controls');
@@ -61,7 +63,11 @@ export class HUD {
     this.coinChip.append(coin(), this.coinText);
     left.append(this.zoneChip, this.timeChip, this.coinChip);
     const right = el('div', 'hud-buttons');
-    right.append(this.toolBtn, this.journalBtn, this.basketBtn);
+    right.append(this.truckBtn, this.toolBtn, this.journalBtn, this.basketBtn);
+    this.truckBtn.setAttribute('aria-label', 'Park the truck');
+    this.truckBtn.title = 'Park here and get out';
+    this.truckBtn.style.display = 'none';
+    this.truckBtn.addEventListener('click', () => this.game.parkTruck());
     top.append(left, right);
     this.journalBtn.setAttribute('aria-label', 'Field journal');
     this.basketBtn.setAttribute('aria-label', 'Basket');
@@ -150,6 +156,7 @@ export class HUD {
     setText(this.coinText, String(state.coins));
     const tools = this.game.tools.active;
     setText(this.toolBtn, tools ? '✕' : state.player.inGreenhouse ? '\u{1FA91}' : '\u{1F33F}');
+    this.truckBtn.style.display = this.game.riding() ? '' : 'none';
     this.toolBtn.setAttribute('aria-label', tools ? 'Stop' : state.player.inGreenhouse ? 'Arrange the house' : 'Garden');
     if (state.player.inGreenhouse && this.landMenuOpen) this.setLandMenu(false);
     this.root.classList.toggle('tool-active', tools);
@@ -164,6 +171,7 @@ export class HUD {
     if (!n) return;
     setText(this.promptLabel, n.label);
     const verbs: Record<string, string> = {
+      truck: 'RIDE',
       spot: 'SNIP',
       wildPlant: 'SNIP',
       lantern: 'TAKE',

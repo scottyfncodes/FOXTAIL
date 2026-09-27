@@ -6,6 +6,7 @@ import { addToBasket, basketFull, takeFromBasket } from './basket';
 import { ensureRecord, isEstablished, recordFound } from './collection';
 import { isRooted, stageIndexOf } from './growth';
 import { nextInLine } from './lineage';
+import { findCarried } from './truck';
 
 /** Game-minutes a plant needs to recover before another cutting: a full day (halved with the rooting kit). */
 export const CUTTING_COOLDOWN = 1440;
@@ -212,7 +213,7 @@ export function placementBlockReason(state: GameState, item: BasketItem): Placem
 
 export function placeOnDisplay(state: GameState, uid: string, slotId: string, potId: string, now: number): OwnedPlant | null {
   if (occupantOf(state, { slotId })) return null;
-  const item = state.basket.find((i) => i.uid === uid);
+  const item = findCarried(state, uid);
   if (!item || placementBlockReason(state, item)) return null;
   takeFromBasket(state, uid);
   const plant = newPlantFrom(item, { kind: 'display', slotId, potId }, now);
@@ -223,7 +224,7 @@ export function placeOnDisplay(state: GameState, uid: string, slotId: string, po
 
 /** Plants a carried plant into the ground outdoors, for good. */
 export function plantOutdoors(state: GameState, uid: string, x: number, y: number, zone: OutdoorZoneId, now: number): OwnedPlant | null {
-  const item = state.basket.find((i) => i.uid === uid);
+  const item = findCarried(state, uid);
   if (!item || placementBlockReason(state, item)) return null;
   takeFromBasket(state, uid);
   const plant = newPlantFrom(item, { kind: 'wild', x, y, zone }, now);

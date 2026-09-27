@@ -50,7 +50,7 @@ describe('prices and formulas are unchanged', () => {
       wallTrellis: 95, pottingTable: 85, floorPlanter: 110, growLamp: 150, wateringCan: 15, houseRug: 40, sunRoom: 700, pottingAnnex: 3500, orangery: 6000, roofLights: 9000,
       potGlazed: 25, potSpeckled: 35, potBasket: 40, potCopper: 70, potPorcelain: 140,
       raisedBed: 90, steppingStones: 6, picketFence: 12, gardenLantern: 30, birdbath: 45, gardenBench: 60, gardenTrellis: 55,
-      basketMedium: 80, basketLarge: 340, rootingKit: 260, stallAwning: 120, stallCrates: 260,
+      basketMedium: 80, basketLarge: 340, rootingKit: 260, miniTruck: 2800, stallAwning: 120, stallCrates: 260,
     };
     const state = createNewGame();
     for (const [id, price] of Object.entries(expected)) expect(itemPrice(state, id), id).toBe(price);

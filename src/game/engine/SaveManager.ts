@@ -64,6 +64,13 @@ export function migrateSave(raw: unknown): GameState | null {
     if (!isRecord(merged[key])) merged[key] = defaults[key];
   }
   if (typeof merged.coins !== 'number' || !Number.isFinite(merged.coins)) merged.coins = defaults.coins;
+  // The mini truck (v11): kept where it was parked, with whatever rides in the back.
+  if (isRecord(merged.truck) && typeof merged.truck.x === 'number' && typeof merged.truck.y === 'number') {
+    const t = merged.truck as Loose;
+    merged.truck = { x: t.x, y: t.y, facing: typeof t.facing === 'string' ? t.facing : 'right', bed: Array.isArray(t.bed) ? t.bed : [] };
+  } else merged.truck = null;
+  const player = merged.player as Loose;
+  if (typeof player.riding !== 'boolean' || !merged.truck) player.riding = false;
   // Compost stopped being a currency in v10: whatever was in the heap is
   // worth a few coins each, and beds are dug with coins from here on.
   if (typeof merged.compost === 'number' && Number.isFinite(merged.compost)) merged.coins = (merged.coins as number) + Math.max(0, Math.floor(merged.compost as number)) * 5;

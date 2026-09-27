@@ -5,6 +5,7 @@ import { PLANTS, specimenName, specimenRarity, rarityRank } from '../game/data/p
 import { SHOP_ITEMS, PURPOSE_INFO, PURPOSE_ORDER, type ShopCategory, type ShopItem } from '../game/data/shop';
 import { STAGE_LABEL, stageFloat, stageOf } from '../game/systems/growth';
 import { basketPrices, demandSpecies, buyBlockReason, DEMAND_BONUS, soldToday, canSell, itemPrice, shopItemVisible, isShopItemNew, markShopSeen } from '../game/systems/market';
+import { reachable } from '../game/systems/truck';
 import { button, note, portrait, rarityBadge } from './common';
 import { commissionPay, commissionPortrait, describeCommission, fitBlock, fittingItem, openCommission, COMMISSION_MULT, dayOf } from '../game/systems/commissions';
 import { findPotStyle } from '../game/data/shop';
@@ -87,14 +88,17 @@ export class MarketPanel {
     const wanted = el('div', 'wanted');
     wanted.append(portrait(want, PLANTS[want].variants[0].id, 2.5, 3, 48), el('div', undefined, `People are also asking for ${PLANTS[want].name} today: ${Math.round((DEMAND_BONUS - 1) * 100)}% extra on any sale.`));
     body.appendChild(wanted);
-    if (state.basket.length === 0) {
-      body.appendChild(el('div', 'empty-state', 'Nothing in your basket to sell. Bigger plants fetch far more than cuttings.'));
+    // Beside the stall with the truck, the whole load is for sale.
+    const items = reachable(state);
+    if (items.length === 0) {
+      body.appendChild(el('div', 'empty-state', state.truck?.bed.length ? 'Nothing in your basket to sell. What’s in the truck is only for sale with the truck parked beside the stall.' : 'Nothing in your basket to sell. Bigger plants fetch far more than cuttings.'));
       return;
     }
+    if (items.length > state.basket.length) body.appendChild(note(`${items.length - state.basket.length} of these are in the back of the truck.`, 'row-note'));
     const list = el('div', 'entry-list');
-    const prices = basketPrices(state);
+    const prices = basketPrices(state, items);
     const seen: Record<string, number> = {};
-    state.basket.forEach((item, i) => {
+    items.forEach((item, i) => {
       const before = seen[item.defId] ?? 0;
       seen[item.defId] = before + 1;
       const row = el('div', 'entry-row plant-row');
@@ -103,7 +107,7 @@ export class MarketPanel {
       info.append(el('div', 'entry-name', specimenName(item.defId, item.variantId)), el('div', 'entry-sub', item.growth === 0 ? 'Cutting' : STAGE_LABEL[stageOf(item.growth)]), rarityBadge(rarity));
       // Selling something irreplaceable should feel like a choice, not a click.
       const others =
-        state.basket.filter((b) => b !== item && b.defId === item.defId && b.variantId === item.variantId).length +
+        items.filter((b) => b !== item && b.defId === item.defId && b.variantId === item.variantId).length +
         Object.values(state.plants).filter((p) => p.defId === item.defId && p.variantId === item.variantId).length;
       if (rarityRank(rarity) >= 2 && others === 0) info.appendChild(note('Your only one. Propagate it first, and you could keep one and sell one.', 'row-note warn'));
       const glut = soldToday(state, item.defId);
