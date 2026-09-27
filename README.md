@@ -88,6 +88,11 @@ grow in patches all over it.
   sedge and reeds along the water, lichen and tufts on the rock — thick
   in the open, thicker around what you've planted, thinning out under
   your own carpet (`src/game/world/VergeArt.ts`).
+- **Spend it.** Beyond the working kit, the stall sells things that are only
+  for the pleasure of them: gilded and midnight pots that buyers ask for by
+  name, a pergola for a vine to climb, an ornamental pond with lily pads, and
+  a copper fox weathervane for the greenhouse roof. Nursery beds get dearer
+  the more you buy, and the market tires of rare things faster than commons.
 - **Drive.** The stall's dearest item is a mini truck, delivered to the lane
   by the house. Walk up and get in: it goes twice as fast as walking, thickets
   don't slow it, and a dozen more plants ride in the back once your basket is

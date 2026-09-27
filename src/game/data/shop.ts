@@ -61,7 +61,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'growLights', name: 'Grow Lights', category: 'greenhouse', price: 360, purpose: 'production', role: 'foundation', blurb: 'Everything indoors grows 1.5× faster', description: 'Warm lamps over the whole greenhouse. Everything indoors grows half again as fast.' },
   // Greenhouse furniture: bought by the piece and set down wherever you
   // like indoors, then picked up and moved as the collection grows.
-  { id: 'nurseryBed', name: 'Nursery Bed', category: 'greenhouse', price: 45, priceGrowth: 1.3, repeatable: true, purpose: 'production', role: 'expansion', blurb: 'Adds 1 growing bed', description: 'A timber trough for rooting cuttings and raising young plants. Put it anywhere indoors. Each one costs a little more than the last.' },
+  { id: 'nurseryBed', name: 'Nursery Bed', category: 'greenhouse', price: 45, priceGrowth: 1.5, repeatable: true, purpose: 'production', role: 'expansion', blurb: 'Adds 1 growing bed', description: 'A timber trough for rooting cuttings and raising young plants. Put it anywhere indoors. Each one costs a little more than the last.' },
   { id: 'plantStand', name: 'Plant Stand', category: 'greenhouse', price: 45, repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 plant', description: 'A round wooden stand for one plant. Put it anywhere in the greenhouse.' },
   { id: 'ironPedestal', name: 'Iron Pedestal', category: 'greenhouse', price: 80, repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 plant', description: 'A tall wrought-iron pedestal that lifts one plant up into the light.' },
   { id: 'ceilingHook', name: 'Ceiling Hook', category: 'greenhouse', price: 40, repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Hangs 1 plant', description: 'A single hook: hang one more pot from the roof, above anything you like.' },
@@ -71,6 +71,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'growLamp', name: 'Grow Lamp', category: 'greenhouse', price: 150, repeatable: true, purpose: 'production', role: 'expansion', blurb: 'Plants nearby grow 1.3× faster', description: 'A standing lamp with a warm, pinkish glow. Plants close to it grow a third faster.' },
   { id: 'wateringCan', name: 'Watering Can', category: 'greenhouse', price: 15, repeatable: true, purpose: 'display', role: 'decoration', blurb: 'Decoration', description: 'A dented brass can. Purely for the look of the place.' },
   { id: 'houseRug', name: 'Woven Rug', category: 'greenhouse', price: 40, repeatable: true, purpose: 'display', role: 'decoration', blurb: 'Decoration', description: 'A soft jute rug to put down anywhere indoors. Things stand on it happily.' },
+  { id: 'weathervane', name: 'Fox Weathervane', category: 'greenhouse', price: 1200, purpose: 'display', role: 'decoration', blurb: 'On the greenhouse roof', description: 'A copper fox on the ridge of the greenhouse, nose to the wind. It does nothing at all, and everyone who comes up the lane looks at it.' },
   { id: 'sunRoom', name: 'Clear Out the Sun Room', category: 'greenhouse', price: 700, purpose: 'space', role: 'foundation', blurb: 'Opens a new corner · 4 display spots', description: 'Haul away the old crates in the south-east corner and fit it out: four new display spots in full sun.' },
   // The big ones: whole new stretches of the greenhouse, for a collector
   // whose ambitions have outgrown it.
@@ -84,6 +85,8 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'potBasket', name: 'Woven Baskets', category: 'pots', price: 40, description: 'Seagrass baskets. Cosy.' },
   { id: 'potCopper', name: 'Hammered Copper', category: 'pots', price: 70, description: 'Catches the light beautifully.' },
   { id: 'potPorcelain', name: 'Gold-Rim Porcelain', category: 'pots', price: 140, description: 'For the plants you’re most proud of.' },
+  { id: 'potGilded', name: 'Gilded Urns', category: 'pots', price: 900, description: 'Gold leaf over hammered brass. Buyers ask for them by name.' },
+  { id: 'potMidnight', name: 'Midnight & Stars', category: 'pots', price: 2400, description: 'Deep blue glaze flecked with gold. The pot people come to the stall to see.' },
 
   // Garden decor (placed outdoors)
   { id: 'raisedBed', name: 'Raised Bed', category: 'garden', price: 90, priceGrowth: 1.2, repeatable: true, description: 'A timber-framed bed, ready made: set it down on any open ground and plant into it. Like a dug bed, whatever grows in it stays in it. Each one costs a little more than the last.' },
@@ -93,6 +96,8 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'birdbath', name: 'Birdbath', category: 'garden', price: 45, repeatable: true, description: 'A stone basin. Birds and butterflies will visit.' },
   { id: 'gardenBench', name: 'Garden Bench', category: 'garden', price: 60, repeatable: true, description: 'Somewhere to sit and look at what you’ve made.' },
   { id: 'gardenTrellis', name: 'Garden Trellis', category: 'garden', price: 55, repeatable: true, description: 'A freestanding cedar lattice with a pot at its foot: a planter for the garden, like the trellis indoors. Vines and trailers climb it.' },
+  { id: 'pergola', name: 'Pergola', category: 'garden', price: 1800, priceGrowth: 1.3, repeatable: true, description: 'Four cedar posts and a beam roof, for a vine to find its way over. Somewhere to stand in the shade of what you grew.' },
+  { id: 'gardenPond', name: 'Ornamental Pond', category: 'garden', price: 3000, priceGrowth: 1.3, repeatable: true, description: 'A stone-rimmed pond with lily pads and a dragonfly or two. Dug and lined by the crew. Purely for the pleasure of it.' },
 
   // Equipment
   { id: 'basketMedium', name: 'Collector’s Satchel', category: 'equipment', price: 80, description: 'Carry up to 10 plants.' },
@@ -130,14 +135,16 @@ export const POT_STYLES: PotStyle[] = [
   { id: 'basket', name: 'Woven', requires: 'potBasket', body: '#b99a62', rim: '#d1b67e', shade: '#8a7044', pattern: 'weave' },
   { id: 'copper', name: 'Copper', requires: 'potCopper', body: '#b76e3a', rim: '#e0a066', shade: '#7e4522', pattern: 'hammered' },
   { id: 'porcelain', name: 'Porcelain', requires: 'potPorcelain', body: '#f1efe8', rim: '#d8b24a', shade: '#cfcac0', pattern: 'gold' },
+  { id: 'gilded', name: 'Gilded', requires: 'potGilded', body: '#cfa62c', rim: '#f0d77a', shade: '#8f6f12', pattern: 'hammered' },
+  { id: 'midnight', name: 'Midnight', requires: 'potMidnight', body: '#22305f', rim: '#d8b24a', shade: '#131b3a', pattern: 'speckle' },
 ];
 
 export function findPotStyle(id: string): PotStyle {
   return POT_STYLES.find((p) => p.id === id) ?? POT_STYLES[0];
 }
 
-export type DecorId = 'steppingStones' | 'picketFence' | 'gardenLantern' | 'birdbath' | 'gardenBench' | 'gardenTrellis' | 'raisedBed';
-export const DECOR_IDS: DecorId[] = ['raisedBed', 'steppingStones', 'picketFence', 'gardenLantern', 'birdbath', 'gardenBench', 'gardenTrellis'];
+export type DecorId = 'steppingStones' | 'picketFence' | 'gardenLantern' | 'birdbath' | 'gardenBench' | 'gardenTrellis' | 'raisedBed' | 'pergola' | 'gardenPond';
+export const DECOR_IDS: DecorId[] = ['raisedBed', 'steppingStones', 'picketFence', 'gardenLantern', 'birdbath', 'gardenBench', 'gardenTrellis', 'pergola', 'gardenPond'];
 
 /**
  * Everything that can stand (or hang) indoors. The first group is sold at
