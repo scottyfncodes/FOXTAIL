@@ -688,7 +688,7 @@ button {
   /* The hills band along the bottom is an in-flow flex item: it takes its
      preferred height when there's room and shrinks first when there isn't,
      so the card always sits whole in the sky above it. */
-  --hills-h: clamp(150px, 28vh, 280px);
+  --hills-h: clamp(160px, 30vh, 300px);
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -702,15 +702,20 @@ button {
   overflow: hidden auto;
   transition: opacity 0.4s ease;
 }
-.start-overlay::before {
-  /* A soft vignette: a little light behind the title, deeper shadow at the edges. */
+/* Spacers either side of the card: the sky above it gets twice the room of
+   the gap below, so the card sits low, close to the valley. */
+.start-overlay::before,
+.start-overlay::after {
   content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 70% 45% at 50% 30%, rgba(248, 233, 184, 0.07), transparent 70%),
-    radial-gradient(ellipse 120% 80% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
+  flex: 3 1 0;
+  min-height: 0;
+}
+.start-overlay::before {
+  order: -1;
+}
+.start-overlay::after {
+  order: 5;
+  flex-grow: 1;
 }
 .start-overlay.leaving {
   opacity: 0;
@@ -721,6 +726,12 @@ button {
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+.start-sky {
+  /* A soft vignette: a little light behind the title, deeper shadow at the edges. */
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 30%, rgba(248, 233, 184, 0.07), transparent 70%),
+    radial-gradient(ellipse 120% 80% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
 }
 .start-star {
   position: absolute;
@@ -735,9 +746,9 @@ button {
   position: relative;
   order: 10;
   width: 100vw;
-  flex: 1 1 var(--hills-h);
+  flex: 0 1 var(--hills-h);
   min-height: 112px;
-  max-height: min(280px, 32vh);
+  max-height: min(300px, 34vh);
   margin: 0 -20px;
   z-index: 0;
   pointer-events: none;
@@ -775,7 +786,7 @@ button {
 .start-card {
   position: relative;
   flex: 0 0 auto;
-  margin: auto 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
