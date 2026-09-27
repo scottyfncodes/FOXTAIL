@@ -110,6 +110,9 @@ const FORM_RADIUS: Record<string, number> = {
   pitcher: 0.45,
   cups: 0.62,
   fig: 0.6,
+  fan: 0.62,
+  palm: 0.6,
+  cane: 0.5,
 };
 
 export function matureRadius(defId: string, variantId?: string): number {

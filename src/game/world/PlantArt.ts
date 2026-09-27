@@ -1708,6 +1708,220 @@ function drawCups(p: Paint) {
   }
 }
 
+// ------------------------------------------------------------ crowned stems: fans, palms & canes
+
+/** A crane-headed bird of paradise flower: a boat-shaped bract held out sideways like a beak, with a crest of spiky petals rising from its heel. */
+function craneFlower(p: Paint, dir: number, s: number) {
+  const { ctx, look, rand } = p;
+  // The bract: a long boat, paler than the leaves and flushed red along its keel, pointing out to `dir`.
+  const boat = () => {
+    ctx.beginPath();
+    ctx.moveTo(-dir * s * 0.1, -s * 0.06);
+    ctx.quadraticCurveTo(dir * s * 0.35, s * 0.16, dir * s * 0.85, -s * 0.16);
+    ctx.quadraticCurveTo(dir * s * 0.35, -s * 0.1, -dir * s * 0.1, -s * 0.06);
+    ctx.closePath();
+  };
+  boat();
+  ctx.fillStyle = hsl(look.hue + 15, look.sat - 5, look.light + 14);
+  ctx.fill();
+  ctx.strokeStyle = hsl(355, 60, 42, 0.85);
+  ctx.lineWidth = Math.max(0.8, s * 0.04);
+  ctx.beginPath();
+  ctx.moveTo(-dir * s * 0.1, -s * 0.06);
+  ctx.quadraticCurveTo(dir * s * 0.35, s * 0.16, dir * s * 0.85, -s * 0.16);
+  ctx.stroke();
+  // The crest: petals fanning up from the heel, leaning toward the beak.
+  const petals = 4;
+  for (let i = 0; i < petals; i++) {
+    const L = s * (0.62 - i * 0.05) * (0.95 + rand() * 0.1);
+    withTransform(ctx, dir * s * (0.02 + i * 0.09), -s * 0.05, dir * (-0.15 + i * 0.32), () => {
+      ctx.fillStyle = hsl(look.accentHue, look.accentSat ?? 90, look.accentLight ?? 58);
+      leafPath(ctx, 'spike', L, L * 0.13, 0);
+      ctx.fill();
+      ctx.strokeStyle = hsl(look.accentHue, look.accentSat ?? 90, (look.accentLight ?? 58) - 18, 0.6);
+      ctx.lineWidth = Math.max(0.5, L * 0.03);
+      ctx.stroke();
+    });
+  }
+  // And the one blue tongue every bird of paradise carries.
+  withTransform(ctx, dir * s * 0.22, -s * 0.03, dir * 0.55, () => {
+    ctx.fillStyle = hsl(232, 65, 46);
+    leafPath(ctx, 'spike', s * 0.42, s * 0.075, 0);
+    ctx.fill();
+  });
+}
+
+function drawFan(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  // Long stalks fanning up from the base, all in one plane, each carrying a
+  // big paddle leaf. A cutting is one or two stalks; a specimen is a whole
+  // fan, with crane-headed flowers standing up between the leaves.
+  const n = Math.min(11, Math.round(2 + sf * 2));
+  const stalks = Array.from({ length: n }, (_, i) => {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    return { a: (t - 0.5) * 1.35 + (rand() - 0.5) * 0.15, len: S * (0.5 + rand() * 0.25) * (0.8 + Math.min(sf, 3) * 0.1) };
+  }).sort((a, b) => Math.abs(b.a) - Math.abs(a.a));
+  for (const s of stalks) {
+    const ex = Math.sin(s.a) * s.len;
+    const ey = -Math.cos(s.a) * s.len;
+    stroke(ctx, stemColor(look, -2), Math.max(0.8, S * 0.028), () => {
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(ex * 0.3, ey * 0.6, ex, ey);
+    });
+    // The paddle continues the stalk's line, tipping a little further outward.
+    const L = s.len * 0.8;
+    withTransform(ctx, ex, ey, s.a * 1.05, () => leaf(p, { shape: 'oval', L, W: L * 0.3 * (look.leafWidth ?? 1), dim: Math.abs(s.a) > 0.5 ? 6 : 0 }));
+  }
+  if (!look.flowers || sf < 2.4) return;
+  const flowers = Math.min(3, Math.floor(sf - 1.6));
+  for (let i = 0; i < flowers; i++) {
+    const dir = i % 2 === 0 ? 1 : -1;
+    const x = dir * S * (0.05 + rand() * 0.2);
+    // Flower stalks stand clear above the leaves.
+    const top = -S * (1.15 + rand() * 0.2) * (0.8 + Math.min(sf, 3) * 0.1);
+    stroke(ctx, stemColor(look, -2), Math.max(0.8, S * 0.022), () => {
+      ctx.moveTo(x * 0.2, 0);
+      ctx.quadraticCurveTo(x * 0.6, top * 0.55, x, top);
+    });
+    withTransform(ctx, x, top, dir * 0.1, () => craneFlower(p, dir, S * 0.5));
+  }
+}
+
+/** A pinnate frond arching out from the origin toward `dir`: a rachis with a row of leaflets down either side. */
+function frond(p: Paint, dir: number, len: number, upright: number, dim: number) {
+  const { ctx, look, rand } = p;
+  const cx = dir * len * (0.3 + (1 - upright) * 0.3);
+  const cy = -len * (0.7 + upright * 0.4);
+  const ex = dir * len * (0.55 + (1 - upright) * 0.5);
+  const ey = -len * (0.05 + upright * 0.75);
+  stroke(ctx, stemColor(look, -2), Math.max(0.6, len * 0.022), () => {
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(cx, cy, ex, ey);
+  });
+  const n = 8 + Math.floor(rand() * 3);
+  for (let i = 1; i <= n; i++) {
+    const t = i / (n + 1);
+    const mt = 1 - t;
+    const x = 2 * mt * t * cx + t * t * ex;
+    const y = 2 * mt * t * cy + t * t * ey;
+    const ra = Math.atan2(2 * mt * cy + 2 * t * (ey - cy), 2 * mt * cx + 2 * t * (ex - cx));
+    const L = len * (0.2 + Math.sin(Math.PI * t) * 0.1) * (0.9 + rand() * 0.2);
+    for (const side of [-1, 1]) {
+      // Each leaflet leans forward off the rachis, both sides, a little narrower toward the tip.
+      const la = ra + side * 0.9 * (1 - t * 0.3);
+      withTransform(ctx, x, y, Math.atan2(Math.cos(la), -Math.sin(la)), () => leaf(p, { shape: 'lance', L, W: L * 0.1 * (look.leafWidth ?? 1), dim, midrib: false }));
+    }
+  }
+}
+
+function drawPalm(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  // A clump of slender ringed canes, one more with each stage, each crowned
+  // with fronds: the outer ones arch and droop, the newest stands upright.
+  const canes = Math.min(5, 1 + Math.floor(sf * 0.9));
+  const H = S * (0.3 + Math.min(sf, 4.6) * 0.16);
+  const heads: { x: number; y: number; h: number }[] = [];
+  for (let c = 0; c < canes; c++) {
+    const x0 = c === 0 ? 0 : (rand() - 0.5) * S * 0.35;
+    const lean = (rand() - 0.5) * 0.25;
+    const h = H * (c === 0 ? 1 : 0.6 + rand() * 0.35);
+    const tx = x0 + Math.sin(lean) * h;
+    const ty = -h;
+    stroke(ctx, stemColor(look, 8), Math.max(1, S * 0.03), () => {
+      ctx.moveTo(x0, 0);
+      ctx.lineTo(tx, ty);
+    });
+    // The rings where old fronds fell away.
+    ctx.strokeStyle = hsl(look.hue, look.sat - 10, look.light + 12, 0.6);
+    ctx.lineWidth = Math.max(0.5, S * 0.006);
+    for (let t = 0.15; t < 0.95; t += 0.16) {
+      ctx.beginPath();
+      ctx.moveTo(x0 + (tx - x0) * t - S * 0.02, -h * t);
+      ctx.lineTo(x0 + (tx - x0) * t + S * 0.02, -h * t);
+      ctx.stroke();
+    }
+    heads.push({ x: tx, y: ty, h });
+  }
+  // Fronds, drawn back to front so the smaller canes sit behind the main one.
+  heads.reverse();
+  for (const head of heads) {
+    const fronds = Math.min(7, 2 + Math.round(sf * 1.1));
+    const set = Array.from({ length: fronds }, (_, i) => {
+      const t = fronds === 1 ? 0.5 : i / (fronds - 1);
+      const out = Math.abs(t - 0.5) * 2;
+      return { dir: t < 0.5 ? -1 : 1, up: 1 - out * 0.85 + (rand() - 0.5) * 0.1, len: S * (0.4 + rand() * 0.2) * (0.8 + Math.min(sf, 3) * 0.08) * (head.h / H) };
+    }).sort((a, b) => a.up - b.up);
+    withTransform(ctx, head.x, head.y, 0, () => {
+      for (const f of set) frond(p, f.dir, f.len, f.up, f.up < 0.4 ? 6 : 0);
+    });
+  }
+}
+
+function drawCane(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const bulb = !!look.bulb;
+  // A dragon tree is one slim cane that forks into two or three heads with
+  // age; a ponytail palm is one fat trunk on a swollen base. Either way each
+  // head wears a tuft of ribbon leaves: stiff and spiky on the tree, a long
+  // drooping fountain on the ponytail.
+  const age = Math.min(1, sf / 3);
+  const dh = ((30 - look.hue + 540) % 360) - 180;
+  const bark = hsl(look.hue + dh * age, 18 + (1 - age) * 12, 32 + (1 - age) * 8);
+  const H = S * (bulb ? 0.22 + Math.min(sf, 4.6) * 0.11 : 0.25 + Math.min(sf, 4.6) * 0.18);
+  const trunkW = Math.max(1, S * (bulb ? 0.05 + Math.min(sf, 4) * 0.016 : 0.035 + Math.min(sf, 4) * 0.012));
+  const lean = (rand() - 0.5) * 0.15;
+  const top = { x: Math.sin(lean) * H, y: -H };
+  stroke(ctx, bark, trunkW, () => {
+    ctx.moveTo(0, 0);
+    ctx.lineTo(top.x, top.y);
+  });
+  const heads: { x: number; y: number; a: number }[] = [{ x: top.x, y: top.y, a: lean }];
+  if (bulb) {
+    // The swollen base, cracked like an elephant's foot.
+    const r = S * (0.07 + Math.min(sf, 4.6) * 0.035);
+    ctx.fillStyle = bark;
+    ctx.beginPath();
+    ctx.ellipse(0, -r * 0.5, r, r * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = hsl(30, 20, 18, 0.45);
+    ctx.lineWidth = Math.max(0.5, r * 0.06);
+    for (let i = 0; i < 4; i++) {
+      const a = -Math.PI * 0.85 + i * 0.55 + rand() * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r * 0.25, -r * 0.5 + Math.sin(a) * r * 0.2);
+      ctx.lineTo(Math.cos(a) * r * 0.9, -r * 0.5 + Math.sin(a) * r * 0.62);
+      ctx.stroke();
+    }
+  } else {
+    const forks = sf >= 2.6 ? (sf >= 3.8 ? 2 : 1) : 0;
+    for (let f = 0; f < forks; f++) {
+      const t = 0.55 + f * 0.15 + rand() * 0.08;
+      const ox = Math.sin(lean) * H * t;
+      const oy = -H * t;
+      const side = f % 2 === 0 ? 1 : -1;
+      const a = lean + side * (0.5 + rand() * 0.25);
+      const len = H * (0.35 + rand() * 0.1);
+      stroke(ctx, bark, trunkW * 0.7, () => {
+        ctx.moveTo(ox, oy);
+        ctx.quadraticCurveTo(ox + Math.sin(a) * len * 0.3, oy - len * 0.4, ox + Math.sin(a) * len, oy - Math.cos(a) * len);
+      });
+      heads.push({ x: ox + Math.sin(a) * len, y: oy - Math.cos(a) * len, a });
+    }
+  }
+  for (const h of heads) {
+    const n = bulb ? Math.min(30, Math.round(8 + sf * 5)) : Math.min(22, Math.round(8 + sf * 3));
+    const blades = Array.from({ length: n }, (_, i) => ({
+      dir: (i % 2 === 0 ? -1 : 1) * (0.15 + rand() * 0.85),
+      len: S * (bulb ? 0.5 + rand() * 0.35 : 0.36 + rand() * 0.22) * (0.8 + Math.min(sf, 4) * 0.1),
+      // A ribbon below 0 arches up and over, then hangs: the ponytail's cascade.
+      up: bulb ? -0.3 + rand() * 0.8 : 0.5 + rand() * 0.5,
+    })).sort((a, b) => a.up - b.up);
+    withTransform(ctx, h.x, h.y, h.a, () => {
+      for (const b of blades) ribbon(p, b.dir, b.len, S * (bulb ? 0.022 : 0.05) * (look.leafWidth ?? 1), b.up, b.up < 0.35 ? 6 : 0);
+    });
+  }
+}
+
 const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   fern: drawFern,
   splitleaf: drawSplitleaf,
@@ -1732,6 +1946,9 @@ const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   pitcher: drawPitcher,
   cups: drawCups,
   fig: drawFig,
+  fan: drawFan,
+  palm: drawPalm,
+  cane: drawCane,
 };
 
 /**
@@ -1765,6 +1982,9 @@ function extent(form: PlantForm, mode: PlantMode): { w: number; up: number; down
   if (form === 'pitcher') return { w: 1.2, up: 2.1, down: 0.4 };
   if (form === 'fig') return { w: 1.5, up: 2.5, down: 0.4 };
   if (form === 'cups') return { w: 1.7, up: 1.6, down: mode === 'ground' ? 0.5 : 1.4 };
+  if (form === 'fan') return { w: 1.7, up: 2.4, down: 0.4 };
+  if (form === 'palm') return { w: 1.9, up: 2.3, down: 0.4 };
+  if (form === 'cane') return { w: 2.0, up: 2.3, down: 0.5 };
   return { w: 1.35, up: 1.6, down: 0.5 };
 }
 

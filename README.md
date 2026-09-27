@@ -10,7 +10,7 @@ grow in patches all over it.
 
 - **Discover.** Every wild patch shows the actual plant growing there, and
   re-rolls what grows in it over time, weighted by rarity (Common → Uncommon →
-  Rare → Very Rare → Extremely Rare). 39 species, over 100 variants: variegated,
+  Rare → Very Rare → Extremely Rare). 48 species, nearly 200 variants: variegated,
   dark-leaved, crested, glowing… and, down in the creek bogs and the damp
   forest, carnivores: sundews, flytraps and pitcher plants. Some only appear in the rain, some only by
   lantern light, and a few only where the fox leads you.
