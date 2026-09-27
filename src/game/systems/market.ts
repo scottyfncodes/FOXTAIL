@@ -1,6 +1,6 @@
 import type { BasketItem, GameState } from '../state';
 import type { Rarity } from '../types';
-import { PLANTS, PLANT_LIST, specimenRarity } from '../data/plants';
+import { PLANTS, PLANT_LIST, specimenRarity, rarityRank } from '../data/plants';
 import { findShopItem, type DecorId, DECOR_IDS, type FurnitureId, FURNITURE_IDS } from '../data/shop';
 import { MINUTES_PER_DAY } from '../engine/Clock';
 import { hashString } from '../engine/Random';
@@ -37,6 +37,18 @@ export const DEMAND_BONUS = 1.5;
  */
 export const GLUT_STEP = 0.85;
 export const GLUT_FLOOR = 0.4;
+/**
+ * The market for anything rare is thinner: a second rare specimen in a day
+ * fetches a lot less than the first, and the floor is lower. Growing one
+ * rare thing on is still a windfall; farming it is not a business.
+ */
+export const GLUT_STEP_RARE = 0.7;
+export const GLUT_FLOOR_RARE = 0.25;
+
+/** How the market tires of a species, by how rare what's being sold is. */
+export function glutCurve(rarity: Rarity): { step: number; floor: number } {
+  return rarityRank(rarity) >= rarityRank('rare') ? { step: GLUT_STEP_RARE, floor: GLUT_FLOOR_RARE } : { step: GLUT_STEP, floor: GLUT_FLOOR };
+}
 
 function today(state: GameState): number {
   return Math.floor(state.clock.totalMinutes / MINUTES_PER_DAY);
@@ -52,8 +64,9 @@ export function soldToday(state: GameState, defId: string): number {
  * same species. `ahead` counts sales not yet made but coming first (the
  * rows above this one in the basket), so a list can show each plant's real price.
  */
-export function glutFactor(state: GameState, defId: string, ahead = 0): number {
-  return Math.max(GLUT_FLOOR, Math.pow(GLUT_STEP, soldToday(state, defId) + ahead));
+export function glutFactor(state: GameState, defId: string, ahead = 0, rarity: Rarity = 'common'): number {
+  const { step, floor } = glutCurve(rarity);
+  return Math.max(floor, Math.pow(step, soldToday(state, defId) + ahead));
 }
 
 /** Today's sought-after species: people are asking for it at the stall. */
@@ -76,7 +89,7 @@ export function priceOf(state: GameState, item: Pick<BasketItem, 'defId' | 'vari
   const rarity = specimenRarity(item.defId, item.variantId);
   let p = RARITY_PRICE[rarity] * STAGE_PRICE_MULT[stageIndexOf(item.growth)];
   if (demandSpecies(state) === item.defId) p *= DEMAND_BONUS;
-  return Math.max(1, Math.round(p * stallBonus(state) * glutFactor(state, item.defId, ahead)));
+  return Math.max(1, Math.round(p * stallBonus(state) * glutFactor(state, item.defId, ahead, rarity)));
 }
 
 /**

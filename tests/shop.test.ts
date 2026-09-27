@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createNewGame, SAVE_VERSION } from '../src/game/state';
 import { SHOP_ITEMS, PURPOSE_INFO, findShopItem } from '../src/game/data/shop';
-import { buyItem, buyBlockReason, itemPrice, isShopItemNew, markShopSeen, priceOf, stallBonus, glutFactor, RARITY_PRICE, STAGE_PRICE_MULT, DEMAND_BONUS, GLUT_STEP, GLUT_FLOOR } from '../src/game/systems/market';
+import { buyItem, buyBlockReason, itemPrice, isShopItemNew, markShopSeen, priceOf, stallBonus, glutFactor, RARITY_PRICE, STAGE_PRICE_MULT, DEMAND_BONUS, GLUT_STEP, GLUT_FLOOR, GLUT_STEP_RARE, GLUT_FLOOR_RARE } from '../src/game/systems/market';
 import { migrateSave, saveGame, loadGame } from '../src/game/engine/SaveManager';
 import { nurserySpots } from '../src/game/systems/furniture';
 import { STAGE_AT } from '../src/game/systems/growth';
@@ -48,7 +48,7 @@ describe('prices and formulas are unchanged', () => {
     const expected: Record<string, number> = {
       hangingHooks: 90, plantShelf: 120, nurseryBeds: 160, moreNurseryBeds: 280, tieredStand: 240, growLights: 360, plantStand: 45, ironPedestal: 80, ceilingHook: 40,
       wallTrellis: 95, pottingTable: 85, floorPlanter: 110, growLamp: 150, wateringCan: 15, houseRug: 40, sunRoom: 700, pottingAnnex: 3500, orangery: 6000, roofLights: 9000,
-      potGlazed: 25, potSpeckled: 35, potBasket: 40, potCopper: 70, potPorcelain: 140,
+      potGlazed: 25, potSpeckled: 35, potBasket: 40, potCopper: 70, potPorcelain: 140, potGilded: 900, potMidnight: 2400, weathervane: 1200, pergola: 1800, gardenPond: 3000,
       raisedBed: 90, steppingStones: 6, picketFence: 12, gardenLantern: 30, birdbath: 45, gardenBench: 60, gardenTrellis: 55,
       basketMedium: 80, basketLarge: 340, rootingKit: 260, miniTruck: 2800, stallAwning: 120, stallCrates: 260,
     };
@@ -62,6 +62,8 @@ describe('prices and formulas are unchanged', () => {
     expect(DEMAND_BONUS).toBe(1.5);
     expect(GLUT_STEP).toBe(0.85);
     expect(GLUT_FLOOR).toBe(0.4);
+    expect(GLUT_STEP_RARE).toBe(0.7);
+    expect(GLUT_FLOOR_RARE).toBe(0.25);
     const state = createNewGame();
     expect(stallBonus(state)).toBe(1);
     expect(glutFactor(state, 'pothos')).toBe(1);
@@ -72,7 +74,7 @@ describe('prices and formulas are unchanged', () => {
 });
 
 describe('nursery beds', () => {
-  it('can be bought without limit, each costing a quarter more than the last', () => {
+  it('can be bought without limit, each costing half again what the last did', () => {
     const state = createNewGame();
     state.coins = 100_000;
     const prices: number[] = [];
@@ -80,7 +82,7 @@ describe('nursery beds', () => {
       prices.push(itemPrice(state, 'nurseryBed'));
       expect(buyItem(state, 'nurseryBed')).toBe(true);
     }
-    expect(prices).toEqual([45, 59, 76, 99, 129, 167]);
+    expect(prices).toEqual([45, 68, 101, 152, 228, 342]);
     expect(state.furnitureStock.nurseryBed).toBe(6);
     expect(buyBlockReason(state, 'nurseryBed')).toBeNull();
   });
@@ -88,9 +90,9 @@ describe('nursery beds', () => {
   it('charges the escalated price and refuses when it cannot be afforded', () => {
     const state = createNewGame();
     state.purchases.nurseryBed = 3;
-    state.coins = 98;
+    state.coins = 151;
     expect(buyBlockReason(state, 'nurseryBed')).toBe('coins');
-    state.coins = 99;
+    state.coins = 152;
     expect(buyItem(state, 'nurseryBed')).toBe(true);
     expect(state.coins).toBe(0);
   });
@@ -184,7 +186,7 @@ describe('older saves', () => {
     expect(state.furnitureStock).toEqual({ nurseryBed: 2, plantStand: 1 });
     expect(state.plants.p.location).toEqual({ kind: 'nursery', bedId: 'furniture-t1' });
     expect(nurserySpots(state).some((b) => b.id === 'furniture-t1')).toBe(true);
-    expect(itemPrice(state, 'nurseryBed')).toBe(99);
+    expect(itemPrice(state, 'nurseryBed')).toBe(152);
   });
 
   it('a current save round-trips its purchases', () => {

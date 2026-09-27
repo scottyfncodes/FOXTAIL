@@ -303,7 +303,7 @@ export class Renderer {
       if (Math.max(...xs) < bounds.minX - 2 || Math.min(...xs) > bounds.maxX + 2 || Math.max(...ys) < bounds.minY - 2 || Math.min(...ys) > bounds.maxY + 2) continue;
       drawGardenPath(this.ctx, camera, path, gm);
     }
-    this.drawGreenhouseExterior(camera, state.clock.totalMinutes);
+    this.drawGreenhouseExterior(camera, state.clock.totalMinutes, state.owned.includes('weathervane'), now);
     drawHouseExterior(this.ctx, camera, state.clock.totalMinutes);
 
     for (const o of obstacles) {
@@ -623,7 +623,7 @@ export class Renderer {
     }
   }
 
-  private drawGreenhouseExterior(camera: Camera, gameMinutes: number) {
+  private drawGreenhouseExterior(camera: Camera, gameMinutes: number, weathervane = false, now = 0) {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
     const topLeft = camera.worldToScreen(GREENHOUSE_FOOTPRINT.x * TILE_SIZE, GREENHOUSE_FOOTPRINT.y * TILE_SIZE);
@@ -650,6 +650,7 @@ export class Renderer {
     // Warm interior glow
     ctx.fillStyle = night ? 'rgba(255,200,120,0.18)' : 'rgba(255,220,150,0.08)';
     ctx.fillRect(topLeft.x + tile, topLeft.y + tile, w - tile * 2, h - tile * 2);
+    if (weathervane) this.drawWeathervane(topLeft.x + w * 0.28, topLeft.y + tile * 1.25, tile, now);
     // Doors: the garden door at the front, a back door and a side door,
     // each a timber frame straddling the glass wall it opens through.
     ctx.fillStyle = '#4a3623';
@@ -659,6 +660,58 @@ export class Renderer {
       else if (d.wall === 'north') ctx.fillRect(s.x, s.y + tile * 0.8, tile, tile * 0.5);
       else ctx.fillRect(s.x + tile * 0.8, s.y, tile * 0.5, tile);
     }
+  }
+
+  /** A copper fox on the greenhouse ridge, swinging slowly with the wind. */
+  private drawWeathervane(x: number, y: number, tile: number, now: number) {
+    const { ctx } = this;
+    const sway = Math.sin(now / 1400) * 0.35;
+    ctx.save();
+    ctx.translate(x, y);
+    // Post and the four points
+    ctx.strokeStyle = '#6e4a2a';
+    ctx.lineWidth = Math.max(1, tile * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, -tile * 0.9);
+    ctx.stroke();
+    ctx.lineWidth = Math.max(1, tile * 0.025);
+    ctx.beginPath();
+    ctx.moveTo(-tile * 0.22, -tile * 0.45);
+    ctx.lineTo(tile * 0.22, -tile * 0.45);
+    ctx.stroke();
+    ctx.fillStyle = '#8a5d33';
+    for (const dx of [-0.22, 0.22]) {
+      ctx.beginPath();
+      ctx.arc(dx * tile, -tile * 0.45, tile * 0.035, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // The fox, side-on, turning with the wind
+    ctx.translate(0, -tile * 0.9);
+    ctx.scale(Math.cos(sway) * 0.8 + 0.2 > 0 ? 1 : -1, 1);
+    ctx.scale(Math.abs(Math.cos(sway)) * 0.6 + 0.4, 1);
+    ctx.fillStyle = '#b8773c';
+    ctx.beginPath();
+    ctx.ellipse(0, -tile * 0.08, tile * 0.26, tile * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(tile * 0.2, -tile * 0.12);
+    ctx.lineTo(tile * 0.36, -tile * 0.1);
+    ctx.lineTo(tile * 0.24, -tile * 0.02);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(tile * 0.22, -tile * 0.16);
+    ctx.lineTo(tile * 0.26, -tile * 0.28);
+    ctx.lineTo(tile * 0.3, -tile * 0.15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-tile * 0.24, -tile * 0.1);
+    ctx.quadraticCurveTo(-tile * 0.42, -tile * 0.22, -tile * 0.4, -tile * 0.02);
+    ctx.quadraticCurveTo(-tile * 0.34, tile * 0.02, -tile * 0.22, -tile * 0.04);
+    ctx.fill();
+    ctx.restore();
   }
 
   private drawObstacle(camera: Camera, o: Obstacle, lushHere: number) {
@@ -1162,6 +1215,96 @@ export class Renderer {
         // A planter, like the wall trellis indoors: a pot at its foot, vines climbing the lattice.
         const slot: DisplaySlot = { id: d.id, x: d.x - 0.5, y: d.y - 0.8, kind: 'trellis' };
         this.drawDisplaySlot(camera, slot, occupantOf(state, { slotId: d.id }), now);
+        break;
+      }
+      case 'pergola': {
+        // Four cedar posts, a beam roof, and a vine over the top.
+        const w = tile * 1.6;
+        const hgt = tile * 1.1;
+        const x0 = s.x - w / 2;
+        ctx.fillStyle = 'rgba(0,0,0,0.16)';
+        ctx.fillRect(x0 - tile * 0.05, s.y - tile * 0.08, w + tile * 0.1, tile * 0.16);
+        ctx.fillStyle = '#7a5836';
+        for (const px of [x0, x0 + w - tile * 0.08]) {
+          ctx.fillRect(px, s.y - hgt, tile * 0.08, hgt);
+          ctx.fillRect(px, s.y - hgt - tile * 0.45, tile * 0.08, tile * 0.45);
+        }
+        ctx.fillStyle = '#5a3f26';
+        ctx.fillRect(x0 - tile * 0.1, s.y - hgt - tile * 0.5, w + tile * 0.2, tile * 0.09);
+        ctx.fillRect(x0 - tile * 0.1, s.y - hgt - tile * 0.28, w + tile * 0.2, tile * 0.07);
+        ctx.fillStyle = '#6b4a2e';
+        for (let i = 0; i < 6; i++) ctx.fillRect(x0 + tile * 0.06 + (i * (w - tile * 0.12)) / 5, s.y - hgt - tile * 0.56, tile * 0.05, tile * 0.42);
+        // Vine along the beams
+        ctx.fillStyle = '#3f7a45';
+        for (let i = 0; i < 9; i++) {
+          const vx = x0 - tile * 0.05 + ((i + 0.5) * (w + tile * 0.1)) / 9;
+          const vy = s.y - hgt - tile * 0.5 + Math.sin(i * 1.7 + d.x) * tile * 0.06;
+          ctx.beginPath();
+          ctx.ellipse(vx, vy, tile * 0.09, tile * 0.06, i * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = '#5aa35a';
+        for (let i = 0; i < 5; i++) {
+          const vx = x0 + tile * 0.1 + ((i + 0.5) * (w - tile * 0.2)) / 5;
+          ctx.beginPath();
+          ctx.ellipse(vx, s.y - hgt - tile * 0.34 + (i % 2) * tile * 0.12, tile * 0.07, tile * 0.05, 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'gardenPond': {
+        // Stone rim, still water with a slow shimmer, lily pads and the odd dragonfly.
+        const rx = tile * 0.95;
+        const ry = tile * 0.6;
+        ctx.fillStyle = '#8f8a7a';
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, rx + tile * 0.12, ry + tile * 0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#a8a292';
+        for (let i = 0; i < 14; i++) {
+          const a = (i / 14) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.ellipse(s.x + Math.cos(a) * (rx + tile * 0.06), s.y + Math.sin(a) * (ry + tile * 0.05), tile * 0.1, tile * 0.065, a, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        const night = isNight(state.clock.totalMinutes);
+        ctx.fillStyle = night ? '#1e3f48' : lerpColor('#3f7f86', '#5d9ea6', 0.5 + 0.5 * Math.sin(now * 0.0015 + d.x));
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+        ctx.lineWidth = Math.max(1, tile * 0.02);
+        for (let i = 0; i < 3; i++) {
+          const t = ((now * 0.0004 + i * 0.33 + d.y * 0.1) % 1);
+          ctx.beginPath();
+          ctx.ellipse(s.x + (i - 1) * tile * 0.3, s.y + (i % 2 ? -1 : 1) * tile * 0.12, rx * 0.25 * t, ry * 0.25 * t, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#3f8a4c';
+        for (let i = 0; i < 5; i++) {
+          const px = s.x + Math.cos(i * 2.1 + d.x) * rx * 0.55;
+          const py = s.y + Math.sin(i * 2.1 + d.x) * ry * 0.55;
+          ctx.beginPath();
+          ctx.ellipse(px, py, tile * 0.12, tile * 0.085, 0, 0.3, Math.PI * 2 - 0.3);
+          ctx.lineTo(px, py);
+          ctx.fill();
+        }
+        ctx.fillStyle = '#f3c9d8';
+        ctx.beginPath();
+        ctx.arc(s.x + Math.cos(d.x) * rx * 0.55, s.y + Math.sin(d.x) * ry * 0.55 - tile * 0.03, tile * 0.045, 0, Math.PI * 2);
+        ctx.fill();
+        if (!night) {
+          const fx = s.x + Math.cos(now * 0.0012) * rx * 0.7;
+          const fy = s.y - ry * 0.9 + Math.sin(now * 0.003) * tile * 0.1;
+          ctx.strokeStyle = 'rgba(150,220,235,0.85)';
+          ctx.lineWidth = Math.max(1, tile * 0.02);
+          ctx.beginPath();
+          ctx.moveTo(fx - tile * 0.1, fy);
+          ctx.lineTo(fx + tile * 0.1, fy);
+          ctx.moveTo(fx - tile * 0.08, fy + tile * 0.03);
+          ctx.lineTo(fx + tile * 0.08, fy + tile * 0.03);
+          ctx.stroke();
+        }
         break;
       }
       case 'gardenBench': {
