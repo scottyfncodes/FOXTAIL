@@ -47,7 +47,10 @@ export type PlantForm =
   | 'dew' // spoon leaves bristling with dew-tipped hairs (sundew)
   | 'pitcher' // upright hooded trumpets (sarracenia)
   | 'cups' // a scrambling vine hanging lidded cups from its leaf tips (nepenthes)
-  | 'fig'; // a little indoor tree: a woody trunk hung with big leathery leaves (fiddle leaf fig, rubber plant)
+  | 'fig' // a little indoor tree: a woody trunk hung with big leathery leaves (fiddle leaf fig, rubber plant)
+  | 'fan' // long-stalked paddle leaves fanning up from the base in one plane, crane-headed flowers (bird of paradise)
+  | 'palm' // a clump of slender ringed canes, each crowned with arching pinnate fronds (parlour palm)
+  | 'cane'; // a bare stem or trunk topped with a tuft of ribbon leaves (dragon tree, ponytail palm)
 
 /**
  * What kind of landscape a species pushes an area toward once it's
@@ -87,6 +90,8 @@ export interface PlantLook {
   hairy?: boolean;
   /** Figs: violin-waisted leaves (fiddle leaf) instead of plain ovals. */
   fiddle?: boolean;
+  /** Canes: a swollen, water-storing base under the trunk, and a long drooping fountain of leaves (ponytail palm). */
+  bulb?: boolean;
 }
 
 export interface VariantDef {
