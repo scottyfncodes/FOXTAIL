@@ -629,7 +629,6 @@ export class Renderer {
     const topLeft = camera.worldToScreen(GREENHOUSE_FOOTPRINT.x * TILE_SIZE, GREENHOUSE_FOOTPRINT.y * TILE_SIZE);
     const w = GREENHOUSE_FOOTPRINT.w * tile;
     const h = GREENHOUSE_FOOTPRINT.h * tile;
-    if (weathervane) this.drawWeathervane(topLeft.x + w * 0.5, topLeft.y + tile * 0.55, tile, now);
     const grad = ctx.createLinearGradient(topLeft.x, topLeft.y, topLeft.x, topLeft.y + h);
     const night = isNight(gameMinutes);
     grad.addColorStop(0, night ? '#8fae9e' : '#bcd8c8');
@@ -651,6 +650,7 @@ export class Renderer {
     // Warm interior glow
     ctx.fillStyle = night ? 'rgba(255,200,120,0.18)' : 'rgba(255,220,150,0.08)';
     ctx.fillRect(topLeft.x + tile, topLeft.y + tile, w - tile * 2, h - tile * 2);
+    if (weathervane) this.drawWeathervane(topLeft.x + w * 0.28, topLeft.y + tile * 1.25, tile, now);
     // Doors: the garden door at the front, a back door and a side door,
     // each a timber frame straddling the glass wall it opens through.
     ctx.fillStyle = '#4a3623';
