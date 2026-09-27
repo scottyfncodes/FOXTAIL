@@ -79,6 +79,8 @@ grow in patches all over it.
   own — and pay a crew to carve paths through the
   growth: they'll clear anything in the way, trees and rocks included, for a
   price, and you can walk quickly along the result while its verges creep back in.
+  Any single rock, tree or bush in your way can be cleared too: walk up to it
+  and pay the crew (a bush is cheap, a tree is not).
   Where your plants have grown thick, the ground is drawn as a carpet of
   their own foliage; large plants, specimens and sports still stand out of it.
   Everywhere else, nature fills the gaps: meadow grass, clover and

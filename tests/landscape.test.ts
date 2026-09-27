@@ -345,7 +345,7 @@ describe('carved paths', () => {
   });
 });
 
-import { removeRock, rockRemovalBlock, ROCK_REMOVAL_COST } from '../src/game/systems/landscape';
+import { removeRock, rockRemovalBlock, ROCK_REMOVAL_COST, clearObstacle, clearBlock, clearCost, CLEAR_COST } from '../src/game/systems/landscape';
 import { buildBlockingSet as blockingFrom, generateObstacles as allObstacles } from '../src/game/world/Obstacles';
 
 describe('hauling rocks away', () => {
@@ -378,6 +378,49 @@ describe('hauling rocks away', () => {
     const state = createNewGame();
     state.coins = 1000;
     expect(removeRock(state, worldFor([]), tree.x, tree.y)).toBe(false);
+    expect(state.coins).toBe(1000);
+  });
+});
+
+describe('clearing trees and bushes', () => {
+  const obstacles = allObstacles();
+  const tree = obstacles.find((o) => o.kind === 'tree')!;
+  const bush = obstacles.find((o) => o.kind === 'bush')!;
+  const flower = obstacles.find((o) => o.kind === 'flower')!;
+  const worldFor = (cleared: string[]) => ({
+    obstacleAt: (tx: number, ty: number) => {
+      const o = obstacles.find((b) => b.x === tx && b.y === ty);
+      return o && !cleared.includes(`${tx},${ty}`) ? o.kind : null;
+    },
+    isBuiltOrWater: () => false,
+    isSpot: () => false,
+  });
+
+  it('costs by kind: a bush is cheap, a tree is dear, and the ground is open for good after', () => {
+    expect(CLEAR_COST.tree).toBeGreaterThan(CLEAR_COST.rock);
+    expect(CLEAR_COST.rock).toBeGreaterThan(CLEAR_COST.bush);
+    const state = createNewGame();
+    const w = worldFor(state.clearedObstacles);
+    expect(clearCost(w, tree.x, tree.y)).toBe(CLEAR_COST.tree);
+    expect(clearCost(w, bush.x, bush.y)).toBe(CLEAR_COST.bush);
+    state.coins = CLEAR_COST.tree - 1;
+    expect(clearBlock(state, w, tree.x, tree.y)).toBe('coins');
+    expect(clearObstacle(state, w, tree.x, tree.y)).toBeNull();
+    state.coins = CLEAR_COST.tree + CLEAR_COST.bush;
+    expect(clearObstacle(state, w, tree.x, tree.y)).toEqual({ kind: 'tree', cost: CLEAR_COST.tree });
+    expect(clearObstacle(state, w, bush.x, bush.y)).toEqual({ kind: 'bush', cost: CLEAR_COST.bush });
+    expect(state.coins).toBe(0);
+    expect(blockingFrom(obstacles, state.clearedObstacles).has(`${tree.x},${tree.y}`)).toBe(false);
+    expect(clearBlock(state, w, tree.x, tree.y)).toBe('nothing');
+  });
+
+  it('has nothing to charge for on flowers, reeds or open ground', () => {
+    const state = createNewGame();
+    state.coins = 1000;
+    const w = worldFor([]);
+    expect(clearCost(w, flower.x, flower.y)).toBeNull();
+    expect(clearObstacle(state, w, flower.x, flower.y)).toBeNull();
+    expect(clearObstacle(state, w, 0, 0)).toBeNull();
     expect(state.coins).toBe(1000);
   });
 });
