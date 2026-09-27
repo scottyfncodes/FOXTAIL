@@ -667,7 +667,7 @@ export class Game {
     }
     const p = this.state.player;
     const kissing = !!this.chase.kiss;
-    if (tickChase(this.chase, this.state.scott, { ellenX: p.x, ellenY: p.y, ellenIndoors: p.inGreenhouse, ellenMoving: move.x !== 0 || move.y !== 0, dtSeconds })) {
+    if (tickChase(this.chase, this.state.scott, { ellenX: p.x, ellenY: p.y, ellenIndoors: p.inGreenhouse, ellenMoving: move.x !== 0 || move.y !== 0, dtSeconds, rand: Math.random })) {
       p.facing = this.chase.kiss!.ellenLeft ? 'right' : 'left';
       if (this.tools.active) this.tools.cancel();
     }
