@@ -83,7 +83,8 @@ export class StartOverlay {
     const card = el('div', 'start-card');
     const hero = el('div', 'start-hero');
     const img = el('img');
-    img.src = '/icons/foxtail.svg';
+    // Relative to the app's base, so it resolves when the game is served from a sub-path (GitHub Pages).
+    img.src = `${import.meta.env.BASE_URL}icons/foxtail.svg`;
     img.alt = '';
     img.draggable = false;
     hero.appendChild(img);
@@ -93,12 +94,17 @@ export class StartOverlay {
 
     const sum = isNew ? null : this.summary();
     if (sum) {
-      const row = el('div', 'start-summary');
-      const chip = (text: string) => row.appendChild(el('span', 'start-chip', text));
-      chip(`Day ${sum.day}`);
-      chip(`${sum.plants} plant${sum.plants === 1 ? '' : 's'} growing`);
-      chip(`${sum.species} kind${sum.species === 1 ? '' : 's'} found`);
-      chip(`${sum.coins} coins`);
+      const row = el('div', 'start-stats');
+      const stat = (value: number, label: string) => {
+        const cell = el('div', 'start-stat');
+        cell.appendChild(el('span', 'start-stat-value', value.toLocaleString('en-GB')));
+        cell.appendChild(el('span', 'start-stat-label', label));
+        row.appendChild(cell);
+      };
+      stat(sum.day, 'day');
+      stat(sum.plants, 'growing');
+      stat(sum.species, 'found');
+      stat(sum.coins, 'coins');
       card.appendChild(row);
       card.appendChild(el('p', undefined, `You’ve been away ${awayText(sum.awayMs)}. Your plants have been growing without you, and the valley may look a little different.`));
     } else {
@@ -120,7 +126,7 @@ export class StartOverlay {
     card.appendChild(btn);
 
     if (!isNew) {
-      const resetLink = el('button', 'start-reset', 'Start a new game instead');
+      const resetLink = el('button', 'start-reset', 'Start a new game');
       resetLink.addEventListener('click', () => {
         if (confirm('This will erase your current progress. Start fresh?')) {
           this.onReset();
