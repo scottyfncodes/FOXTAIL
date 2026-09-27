@@ -31,8 +31,40 @@ export interface LandscapeWorld {
 
 /** What it costs to have one rock dug out and carted away. */
 export const ROCK_REMOVAL_COST = 30;
+/** What the crew charges to clear each kind of thing standing in the way, for good. */
+export const CLEAR_COST: Record<string, number> = { rock: ROCK_REMOVAL_COST, tree: 120, bush: 15 };
+/** The word for having each kind of thing cleared. */
+export const CLEAR_VERB: Record<string, { label: string; done: string; name: string }> = {
+  rock: { label: 'Have this rock hauled away', done: 'Rock hauled away', name: 'A rock' },
+  tree: { label: 'Have this tree felled', done: 'Tree felled and carted off', name: 'A tree' },
+  bush: { label: 'Have this bush grubbed out', done: 'Bush grubbed out', name: 'A bush' },
+};
+
+/** What it costs to clear whatever stands on this tile, or null if nothing clearable does. */
+export function clearCost(world: LandscapeWorld, tx: number, ty: number): number | null {
+  const kind = world.obstacleAt(tx, ty);
+  return kind && kind in CLEAR_COST ? CLEAR_COST[kind] : null;
+}
 
 export type RockBlock = 'no-rock' | 'coins';
+export type ClearBlock = 'nothing' | 'coins';
+
+export function clearBlock(state: GameState, world: LandscapeWorld, tx: number, ty: number): ClearBlock | null {
+  const cost = clearCost(world, tx, ty);
+  if (cost === null) return 'nothing';
+  if (state.coins < cost) return 'coins';
+  return null;
+}
+
+/** Pays to have a rock, tree or bush cleared: the tile becomes open ground for good. */
+export function clearObstacle(state: GameState, world: LandscapeWorld, tx: number, ty: number): { kind: string; cost: number } | null {
+  if (clearBlock(state, world, tx, ty)) return null;
+  const kind = world.obstacleAt(tx, ty)!;
+  const cost = CLEAR_COST[kind];
+  state.coins -= cost;
+  state.clearedObstacles.push(`${tx},${ty}`);
+  return { kind, cost };
+}
 
 export function rockRemovalBlock(state: GameState, world: LandscapeWorld, tx: number, ty: number): RockBlock | null {
   if (world.obstacleAt(tx, ty) !== 'rock') return 'no-rock';
@@ -43,12 +75,10 @@ export function rockRemovalBlock(state: GameState, world: LandscapeWorld, tx: nu
 /** Pays to have a rock hauled away: the tile becomes open ground for good. */
 export function removeRock(state: GameState, world: LandscapeWorld, tx: number, ty: number): boolean {
   if (rockRemovalBlock(state, world, tx, ty)) return false;
-  state.coins -= ROCK_REMOVAL_COST;
-  state.clearedObstacles.push(`${tx},${ty}`);
-  return true;
+  return !!clearObstacle(state, world, tx, ty);
 }
 
-/** Trees and rocks stay (unless you pay to have a rock moved); bushes, flowers and reeds can be cleared. */
+/** Trees and rocks stand in the way of beds and plantings (unless you pay to have them cleared); bushes, flowers and reeds give way to them. */
 export function isHardObstacle(kind: string | null): boolean {
   return kind === 'tree' || kind === 'rock';
 }

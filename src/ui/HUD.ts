@@ -183,7 +183,7 @@ export class HUD {
       greenhouseDoor: 'IN',
       greenhouseExit: 'OUT',
       frontDoor: 'OUT',
-      rock: 'HAUL',
+      rock: 'CLEAR',
       decor: 'MOVE',
       setDown: 'DROP',
       puttingMat: 'PUTT',
