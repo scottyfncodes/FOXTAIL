@@ -60,7 +60,9 @@ export type PlantForm =
   | 'runner' // flat stems strung with paired round leaves, running over the ground or spilling down (creeping jenny)
   | 'climber' // a scrambling vine of five-leaflet hands that climbs a trellis (virginia creeper)
   | 'clump' // a wide mound of broad, ribbed leaves on short stalks (hosta)
-  | 'bamboo'; // tall jointed canes with sprays of narrow leaves at the nodes (bamboo)
+  | 'bamboo' // tall jointed canes with sprays of narrow leaves at the nodes (bamboo)
+  | 'lilypad' // round notched pads floating flat on the water (water lily)
+  | 'cattail'; // a stand of tall blades with brown velvet seed heads on stiff stalks (cattail)
 
 /** How a mushroom's cap is shaped. */
 export type CapShape = 'dome' | 'flat' | 'funnel' | 'shaggy' | 'honeycomb' | 'nodding';
@@ -170,6 +172,12 @@ export interface PlantDef {
   keepsake?: boolean;
   /** Kept out of the field journal's collection entirely. */
   unlisted?: boolean;
+  /**
+   * A water plant. 'only': it can only be planted (and only spreads) on
+   * open water — the creek or a pond. 'also': it grows on the bank or out
+   * in the shallows alike.
+   */
+  water?: 'only' | 'also';
   /** Only comes from crossing these two species; never found anywhere. */
   parents?: [string, string];
 }

@@ -1826,3 +1826,13 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Pond size picker in the Buy tab */
+.pond-picker { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.pond-dim { display: flex; align-items: center; gap: 6px; }
+.pond-label { min-width: 52px; font-size: 0.85em; opacity: 0.8; }
+.pond-value { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+.pond-dim .secondary-btn.small { min-width: 30px; padding: 2px 8px; }
+.stones-preview { display: block; margin-top: 6px; border-radius: 6px; background: #5f7f45; }
+.koi-portrait { flex-shrink: 0; border-radius: 6px; }
+.resell-row .row-note.warn { margin-top: 4px; }

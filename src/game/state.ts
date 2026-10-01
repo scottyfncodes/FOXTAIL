@@ -213,6 +213,18 @@ export interface PlacedDecor {
   y: number;
   /** Quarter-turns, for pieces that can be turned (0 or 1). */
   rot?: number;
+  /** A pond's size as dug, in tiles at rotation 0 (the original size if unset). */
+  w?: number;
+  h?: number;
+  /** The koi let go in a pond, by id. */
+  koi?: string[];
+}
+
+/** One of the player's koi: its variety and the seed that makes its markings its own. */
+export interface Koi {
+  id: string;
+  variety: string;
+  seed: number;
 }
 
 export type FoxBehavior = 'idle' | 'wandering' | 'leading' | 'paused' | 'gone' | 'fleeing' | 'lookingBack' | 'vanishing';
@@ -311,6 +323,10 @@ export interface GameState {
   /** Garden decor bought but not yet placed. */
   decorStock: Partial<Record<DecorId, number>>;
   decor: PlacedDecor[];
+  /** The sizes of ponds bought but not yet dug, in the order they'll be set down. */
+  pondStock: { w: number; h: number }[];
+  /** Every koi the player owns: in a pond (a pond lists it) or waiting in its bag. */
+  koi: Koi[];
   /** Where the Plant Stand & Supply stall stands: its top-left tile. It can be moved like the decor. */
   stall: { x: number; y: number };
   /** Greenhouse furniture bought but not yet placed. */
@@ -379,6 +395,8 @@ export function createNewGame(): GameState {
     seenShop: SHOP_ITEMS.filter((s) => !s.after).map((s) => s.id),
     decorStock: {},
     decor: [],
+    pondStock: [],
+    koi: [],
     stall: { x: MARKET_STALL.x, y: MARKET_STALL.y },
     furnitureStock: {},
     furniture: [],

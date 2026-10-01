@@ -49,19 +49,25 @@ export interface ShopItem {
    * much more than the last (1.25 = a quarter more).
    */
   priceGrowth?: number;
+  /** How many units one purchase adds to stock (a double bed adds two beds). */
+  pack?: number;
+  /** The stock a purchase fills, when it isn't the item's own id (the double bed fills nursery beds). */
+  stock?: string;
+  /** The purchase counter a compounding price follows, when it isn't the item's own (shared with what it replaced). */
+  priceKey?: string;
 }
 
 export const SHOP_ITEMS: ShopItem[] = [
   // Greenhouse
   { id: 'hangingHooks', name: 'Hanging Hook Rail', category: 'greenhouse', price: 90, purpose: 'display', role: 'foundation', blurb: 'Adds 3 hanging spots', description: 'A rail of three ceiling hooks for hanging pots. Trailing plants look spectacular up here.' },
   { id: 'plantShelf', name: 'Wall Shelf', category: 'greenhouse', price: 120, purpose: 'display', role: 'expansion', blurb: 'Adds 3 display spots', description: 'A reclaimed-wood shelf along the west wall. Room for three more plants.' },
-  { id: 'nurseryBeds', name: 'Extra Nursery Beds', category: 'greenhouse', price: 160, purpose: 'production', role: 'expansion', blurb: 'Adds 2 growing beds', description: 'Two more beds for rooting cuttings and raising young plants.' },
-  { id: 'moreNurseryBeds', name: 'Two More Nursery Beds', category: 'greenhouse', price: 280, after: 'nurseryBeds', purpose: 'production', role: 'expansion', blurb: 'Adds 2 growing beds', description: 'Another pair of beds below the others. More cuttings rooting at once.' },
   { id: 'tieredStand', name: 'Tiered Plant Stand', category: 'greenhouse', price: 240, purpose: 'display', role: 'expansion', blurb: 'Adds 3 display spots', description: 'A three-step iron stand by the east glass. Three more display spots in the best light.' },
   { id: 'growLights', name: 'Grow Lights', category: 'greenhouse', price: 360, purpose: 'production', role: 'foundation', blurb: 'Everything indoors grows 1.5× faster', description: 'Warm lamps over the whole greenhouse. Everything indoors grows half again as fast.' },
   // Greenhouse furniture: bought by the piece and set down wherever you
   // like indoors, then picked up and moved as the collection grows.
-  { id: 'nurseryBed', name: 'Nursery Bed', category: 'greenhouse', price: 45, priceGrowth: 1.5, repeatable: true, purpose: 'production', role: 'expansion', blurb: 'Adds 1 growing bed', description: 'A timber trough for rooting cuttings and raising young plants. Put it anywhere indoors. Each one costs a little more than the last.' },
+  // Nursery beds come in pairs. The price per bed is the old single bed's,
+  // still compounding with every bed bought (singles bought before count too).
+  { id: 'doubleNurseryBed', name: 'Double Nursery Bed', category: 'greenhouse', price: 45, priceGrowth: 1.5, priceKey: 'nurseryBed', pack: 2, stock: 'nurseryBed', repeatable: true, purpose: 'production', role: 'expansion', blurb: 'Adds 2 growing beds', description: 'A pair of timber troughs for rooting cuttings and raising young plants: two more planting spaces. Put each anywhere indoors. Each pair costs a little more than the last.' },
   { id: 'plantStand', name: 'Plant Stand', category: 'greenhouse', price: 45, repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 plant', description: 'A round wooden stand for one plant. Put it anywhere in the greenhouse.' },
   { id: 'ironPedestal', name: 'Iron Pedestal', category: 'greenhouse', price: 80, repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 plant', description: 'A tall wrought-iron pedestal that lifts one plant up into the light.' },
   { id: 'ceilingHook', name: 'Ceiling Hook', category: 'greenhouse', price: 40, repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Hangs 1 plant', description: 'A single hook: hang one more pot from the roof, above anything you like.' },
@@ -90,14 +96,15 @@ export const SHOP_ITEMS: ShopItem[] = [
 
   // Garden decor (placed outdoors)
   { id: 'raisedBed', name: 'Raised Bed', category: 'garden', price: 90, priceGrowth: 1.2, repeatable: true, description: 'A timber-framed bed, ready made: set it down on any open ground and plant into it. Like a dug bed, whatever grows in it stays in it. Each one costs a little more than the last.' },
-  { id: 'steppingStones', name: 'Stepping Stones', category: 'garden', price: 6, repeatable: true, description: 'A few flat stones. Lay a path through your plantings.' },
+  { id: 'steppingStones', name: 'Stepping Stones', category: 'garden', price: 6, repeatable: true, description: 'A pair of flat stones, cut to match the path from the front door. Lay pairs end to end and the zigzag carries on.' },
   { id: 'picketFence', name: 'Picket Fence', category: 'garden', price: 12, repeatable: true, description: 'A short run of white fence to frame a bed.' },
   { id: 'gardenLantern', name: 'Garden Lantern', category: 'garden', price: 30, repeatable: true, description: 'Glows warmly after dark.' },
   { id: 'birdbath', name: 'Birdbath', category: 'garden', price: 45, repeatable: true, description: 'A stone basin. Birds and butterflies will visit.' },
   { id: 'gardenBench', name: 'Garden Bench', category: 'garden', price: 60, repeatable: true, description: 'Somewhere to sit and look at what you’ve made.' },
   { id: 'gardenTrellis', name: 'Garden Trellis', category: 'garden', price: 55, repeatable: true, description: 'A freestanding cedar lattice with a pot at its foot: a planter for the garden, like the trellis indoors. Vines and trailers climb it.' },
   { id: 'pergola', name: 'Pergola', category: 'garden', price: 1800, priceGrowth: 1.3, repeatable: true, description: 'Four cedar posts and a beam roof, for a vine to find its way over. Somewhere to stand in the shade of what you grew.' },
-  { id: 'gardenPond', name: 'Ornamental Pond', category: 'garden', price: 3000, priceGrowth: 1.3, repeatable: true, description: 'A stone-rimmed pond with lily pads and a dragonfly or two. Dug and lined by the crew. Purely for the pleasure of it.' },
+  { id: 'gardenPond', name: 'Ornamental Pond', category: 'garden', price: 3000, priceGrowth: 1.3, repeatable: true, description: 'A stone-rimmed pond with lily pads and a dragonfly or two, dug to whatever size you choose and lined by the crew. Big enough, and it can keep koi.' },
+  { id: 'koi', name: 'Koi', category: 'garden', price: 120, repeatable: true, description: 'A young koi in a bag of water, its markings its own. Let it go in a pond big enough for it.' },
 
   // Equipment
   { id: 'basketMedium', name: 'Collector’s Satchel', category: 'equipment', price: 80, description: 'Carry up to 10 plants.' },
@@ -115,7 +122,7 @@ export function findShopItem(id: string): ShopItem | undefined {
 }
 
 /** Items added to the market in a later build, so older saves see them as NEW. */
-export const INTRODUCED_IN_V7 = ['nurseryBed'];
+export const INTRODUCED_IN_V7 = ['doubleNurseryBed'];
 
 export interface PotStyle {
   id: string;
@@ -198,6 +205,19 @@ export const FURNITURE_IDS: FurnitureId[] = [
   'tieredStand',
   'sunroomStand',
 ];
+
+/**
+ * Ponds are dug to size. The price is by area (the original 2.2 × 1.5 pond
+ * still costs 3000), compounding as before with every pond bought.
+ */
+export const POND_DEFAULT = { w: 2.2, h: 1.5 };
+export const POND_MIN = { w: 1.5, h: 1 };
+export const POND_MAX = { w: 5, h: 4 };
+export const POND_STEP = 0.5;
+export const POND_PRICE_PER_TILE = 3000 / (POND_DEFAULT.w * POND_DEFAULT.h);
+
+/** Selling something back to the market fetches this share of its list price (never of a compounded price, so never more than was paid). */
+export const RESALE_RATE = 0.5;
 
 /** The raised bed a piece of stocked decor becomes when it's set down, in tiles. */
 export const RAISED_BED = { w: 2.5, h: 1.5 };

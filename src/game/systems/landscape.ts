@@ -1,8 +1,9 @@
+import { inPond } from './koi';
 import type { GameState, GardenBed, GardenPath, OwnedPlant } from '../state';
 import { makeUid } from '../state';
 import type { OutdoorZoneId } from '../types';
 import { PLANTS, lookFor, specimenName } from '../data/plants';
-import { GRID_H, GRID_W, zoneAt } from '../data/worldMap';
+import { GRID_H, GRID_W, zoneAt, isWater } from '../data/worldMap';
 import { MINUTES_PER_DAY } from '../engine/Clock';
 import { addToBasket, basketFull } from './basket';
 import { rollSport } from './propagation';
@@ -119,6 +120,8 @@ const FORM_RADIUS: Record<string, number> = {
   climber: 0.6,
   clump: 0.6,
   bamboo: 0.5,
+  lilypad: 0.55,
+  cattail: 0.45,
   fig: 0.6,
   fan: 0.62,
   palm: 0.6,
@@ -594,7 +597,7 @@ export function compostPlant(state: GameState, plantId: string, now: number, ran
 
 // ---------------------------------------------------------------- planting & moving
 
-export type PlantingBlock = 'bounds' | 'water' | 'building' | 'obstacle' | 'spot' | 'path' | 'crowded' | 'decor';
+export type PlantingBlock = 'bounds' | 'water' | 'dry' | 'building' | 'obstacle' | 'spot' | 'path' | 'crowded' | 'decor';
 
 export interface PlantingCheck {
   block: PlantingBlock | null;
@@ -624,11 +627,17 @@ export function checkPlanting(
   const zone = zoneAt(tx, ty);
   if (zone === 'greenhouse') return { block: 'building', zone: null };
   const oz = zone as OutdoorZoneId;
-  if (world.isBuiltOrWater(tx, ty)) return { block: 'water', zone: oz };
-  if (world.obstacleAt(tx, ty) && world.obstacleAt(tx, ty) !== 'flower') return { block: 'obstacle', zone: oz };
-  if (world.isSpot(tx, ty)) return { block: 'spot', zone: oz };
-  if (onPath(state, x, y, now)) return { block: 'path', zone: oz };
-  if (state.decor.some((d) => Math.hypot(d.x - x, d.y - y) < 0.55)) return { block: 'decor', zone: oz };
+  // Water plants go out on the creek or a pond; a lily pad goes nowhere else.
+  const def = PLANTS[defId];
+  const wet = isWater(tx, ty) || inPond(state, x, y);
+  if (def?.water === 'only' && !wet) return { block: 'dry', zone: oz };
+  if (!(wet && def?.water)) {
+    if (world.isBuiltOrWater(tx, ty)) return { block: 'water', zone: oz };
+    if (world.obstacleAt(tx, ty) && world.obstacleAt(tx, ty) !== 'flower') return { block: 'obstacle', zone: oz };
+    if (world.isSpot(tx, ty)) return { block: 'spot', zone: oz };
+    if (onPath(state, x, y, now)) return { block: 'path', zone: oz };
+    if (state.decor.some((d) => Math.hypot(d.x - x, d.y - y) < 0.55) || inPond(state, x, y)) return { block: 'decor', zone: oz };
+  }
   const mine = matureRadius(defId) * 0.4;
   let blocker: OwnedPlant | undefined;
   const test = (p: OwnedPlant) => {
@@ -643,7 +652,7 @@ export function checkPlanting(
   if (opts.grid) opts.grid.query(x, y, 2, test);
   else for (const p of Object.values(state.plants)) if (test(p)) break;
   if (blocker) return { block: 'crowded', blocker, zone: oz };
-  return { block: null, zone: oz, bedId: bedAt(state, x, y)?.id };
+  return { block: null, zone: oz, bedId: wet ? undefined : bedAt(state, x, y)?.id };
 }
 
 /** Young plants can still be dug up and moved; once large, they've settled in for good. */

@@ -10,7 +10,7 @@ grow in patches all over it.
 
 - **Discover.** Every wild patch shows the actual plant growing there, and
   re-rolls what grows in it over time, weighted by rarity (Common → Uncommon →
-  Rare → Very Rare → Extremely Rare). 67 species, nearly 280 variants: variegated,
+  Rare → Very Rare → Extremely Rare). 69 species, nearly 290 variants: variegated,
   dark-leaved, crested, glowing… and, down in the creek bogs and the damp
   forest, carnivores: sundews, flytraps and pitcher plants. Some only appear in the rain, some only by
   lantern light, and a few only where the fox leads you.
@@ -21,6 +21,9 @@ grow in patches all over it.
   leaves in the woods, and bamboo stands in groves by the water, taller
   than anything else you can plant. The low ones are the quickest to
   spread, and in a garden bed they count as ground cover.
+- **The water's edge.** Lily pads float on the creek and in your ponds —
+  they can only be planted out on open water, and only spread across it —
+  and cattails stand in the shallows and along the bank alike.
 - **Mushrooms.** A whole family of fungi grows wild alongside the plants and
   is gathered, grown on, propagated and planted out the same way:
   chanterelles, shaggy ink caps, fly agarics, porcini, morels, fairy rings
@@ -52,7 +55,9 @@ grow in patches all over it.
 - **Sell and build.** The Plant Stand & Supply buys plants (rarer and bigger is
   worth more; there's a daily "wanted" bonus) and sells pots, shelves,
   hanging hooks, grow lights, a sun-room expansion, garden decor and stall
-  upgrades.
+  upgrades. Its sign says PLANT MARKET. Anything still in stock — decor,
+  furniture, koi not in a pond — can be sold back for half its list price,
+  after a confirming second press.
 - **Fill a request.** The board by the stall has one request pinned up at a
   time: someone wants a particular plant grown on to a size, sometimes a
   named variety, sometimes in a particular pot, sometimes anything big from
@@ -107,9 +112,15 @@ grow in patches all over it.
   your own carpet (`src/game/world/VergeArt.ts`).
 - **Spend it.** Beyond the working kit, the stall sells things that are only
   for the pleasure of them: gilded and midnight pots that buyers ask for by
-  name, a pergola for a vine to climb, an ornamental pond with lily pads, and
-  a copper fox weathervane for the greenhouse roof. Nursery beds get dearer
-  the more you buy, and the market tires of rare things faster than commons.
+  name, a pergola for a vine to climb, an ornamental pond with lily pads
+  (dug to the width and length you choose, priced by area), and a copper fox
+  weathervane for the greenhouse roof. Nursery beds come in pairs and get
+  dearer the more you buy, and the market tires of rare things faster than
+  commons.
+- **Koi.** A few koi of different varieties drift up and down the creek
+  between the bridges. The stall sells your own, each with its own markings,
+  to let go in a pond: walk up to one to tend it. A pond holds about one koi
+  per 1.1 square tiles of water, up to twelve; a tiny one holds none.
 - **Drive.** The stall's dearest item is a mini truck, delivered to the lane
   by the house. Walk up and get in: it goes twice as fast as walking, thickets
   don't slow it, and a dozen more plants ride in the back once your basket is

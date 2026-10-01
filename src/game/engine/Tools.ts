@@ -31,7 +31,7 @@ import {
   type PlantingCheck,
 } from '../systems/landscape';
 import { plantOutdoors } from '../systems/propagation';
-import { pickUpDecor, rotateDecor } from '../systems/decor';
+import { pickUpDecor, rotateDecor, nextPondSize } from '../systems/decor';
 import { decorRotatable } from '../data/decor';
 import {
   STALL_ID,
@@ -301,7 +301,7 @@ export class ToolController {
     let best: string | null = null;
     let bestD = Infinity;
     for (const p of yardPieces(this.host.state)) {
-      const fp = yardFootprint(p.kind, p.x, p.y, p.rot ?? 0);
+      const fp = yardFootprint(p.kind, p.x, p.y, p.rot ?? 0, p.size);
       const lift = p.kind === 'stall' ? 0.45 : 0.25;
       const cx = fp.x + fp.w / 2;
       const cy = fp.y + fp.h / 2 - lift;
@@ -447,7 +447,7 @@ export class ToolController {
       }
       case 'yard': {
         if (m.pending) {
-          const fp = yardFootprint(m.pending.decorId, m.pending.x, m.pending.y, m.pending.rot);
+          const fp = yardFootprint(m.pending.decorId, m.pending.x, m.pending.y, m.pending.rot, m.pending.decorId === 'gardenPond' ? nextPondSize(this.host.state) : undefined);
           const near = Math.abs(x - (fp.x + fp.w / 2)) <= fp.w / 2 + GRAB_SLOP + 0.3 && Math.abs(y - (fp.y + fp.h / 2 - 0.25)) <= fp.h / 2 + GRAB_SLOP + 0.5;
           if (near) {
             m.pendingDrag = { offX: m.pending.x - x, offY: m.pending.y - y };

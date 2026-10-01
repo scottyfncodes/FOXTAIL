@@ -71,7 +71,8 @@ import {
   crossPollinate,
   crossOf,
 } from '../systems/propagation';
-import { sellItem, buyItem } from '../systems/market';
+import { sellItem, buyItem, sellBack, resellables, type BuyOptions, type Resellable } from '../systems/market';
+import { addKoiToPond, removeKoiFromPond, koiVariety, pondCapacity, pondSize } from '../systems/koi';
 import { tickCommissions, fillCommission, openCommission } from '../systems/commissions';
 import { tickBedCuriosities } from '../systems/beds';
 import { checkRegionTiers, eveningStroll, lushestTile, nameRegion, regionLabel, suggestedName } from '../systems/regions';
@@ -99,6 +100,7 @@ export type InteractableKind =
   | 'puttingMat'
   | 'rock'
   | 'decor'
+  | 'pond'
   | 'setDown'
   | 'truck';
 
@@ -142,6 +144,7 @@ export const INTERACT_PRIORITY: Record<InteractableKind, number> = {
   plaque: 3,
   spot: 4,
   decor: 5,
+  pond: 5,
   rock: 5,
   wildPlant: 6,
   truck: 1,
@@ -246,6 +249,7 @@ export class Game {
   onStateTouched: (() => void) | null = null;
   onOpenGreenhouse: ((target: { kind: 'bed' | 'display'; id: string }) => void) | null = null;
   onOpenMarket: (() => void) | null = null;
+  onOpenPond: ((pondId: string) => void) | null = null;
   onOpenPutting: (() => void) | null = null;
   onOpenPlantCard: ((plantId: string) => void) | null = null;
   onOpenGroundCard: ((target: { kind: 'bed' | 'path'; id: string }) => void) | null = null;
@@ -934,6 +938,12 @@ export class Game {
           const plant = occupantOf(this.state, { slotId: d.id });
           const label = plant ? `${specimenName(plant.defId, plant.variantId)} — ${STAGE_LABEL[stageName(plant)]}` : `Empty ${name.toLowerCase()}`;
           consider({ kind: 'display', id: d.id, x: d.x, y: d.y, label, available: true }, d.x, d.y, 1.0);
+        } else if (d.decorId === 'gardenPond') {
+          // A pond is tended, not carried (the garden's arrange mode still moves it).
+          const cap = pondCapacity(d);
+          const label = cap === 0 ? 'The pond — too small for koi' : `Tend the pond · ${d.koi?.length ?? 0} of ${cap} koi`;
+          const size = pondSize(d);
+          consider({ kind: 'pond', id: d.id, x: d.x, y: d.y, label, available: true }, d.x, d.y, Math.max(1.2, Math.max(size.w, size.h) / 2 + 0.3));
         } else consider({ kind: 'decor', id: d.id, x: d.x, y: d.y, label: `Move the ${name}`, available: true }, d.x, d.y, 1.0);
       }
       for (const spot of DISCOVERY_SPOTS) {
@@ -1083,6 +1093,8 @@ export class Game {
     } else if (n.kind === 'decor') {
       this.carryingDecorId = n.id;
       this.pushToast('Carrying it. Walk to where it should go, then set it down.', 'info');
+    } else if (n.kind === 'pond') {
+      this.onOpenPond?.(n.id);
     } else if (n.kind === 'setDown') {
       this.setDownDecor();
     } else if (n.kind === 'bed' || n.kind === 'display') {
@@ -1809,6 +1821,28 @@ export class Game {
     this.onStateTouched?.();
   }
 
+  /** Sells something back to the market, at the resale price shown. */
+  sellBack(kind: Resellable['kind'], id: string) {
+    const name = resellables(this.state).find((r) => r.kind === kind && r.id === id)?.name;
+    const paid = sellBack(this.state, kind, id);
+    if (paid === null) return;
+    this.audio.playToolChime();
+    this.pushToast(`Sold the ${name ?? 'piece'} back for ${paid} coins.`, 'coins');
+    this.onStateTouched?.();
+  }
+
+  /** Lets one of the player's koi go in a pond. */
+  addKoi(pondId: string, koiId: string) {
+    if (!addKoiToPond(this.state, pondId, koiId)) return;
+    this.onStateTouched?.();
+  }
+
+  /** Nets a koi back out of a pond. */
+  removeKoi(pondId: string, koiId: string) {
+    if (!removeKoiFromPond(this.state, pondId, koiId)) return;
+    this.onStateTouched?.();
+  }
+
   /** Hands over the plant a request asked for. */
   fillCommission(uid: string) {
     const c = this.state.commission;
@@ -1819,14 +1853,20 @@ export class Game {
     this.onStateTouched?.();
   }
 
-  buy(itemId: string) {
-    if (!buyItem(this.state, itemId)) return;
+  buy(itemId: string, opts: BuyOptions = {}) {
+    if (!buyItem(this.state, itemId, opts)) return;
     const item = findShopItem(itemId)!;
     this.refreshIndoor();
     this.audio.playToolChime();
     if (itemId === 'miniTruck') {
       deliverTruck(this.state, (tx, ty) => this.isOpenGround(tx, ty) && !this.plantOnTile(tx, ty) && !isBlockedOutdoor(tx + 0.5, ty + 0.5, this.blockingSet, stallRect(this.state)));
       this.pushToast(`Bought the Mini Truck. It’s parked in the lane by the house — room for ${TRUCK_BED_CAP} plants in the back.`, 'discovery');
+      this.onStateTouched?.();
+      return;
+    }
+    if (itemId === 'koi') {
+      const k = this.state.koi[this.state.koi.length - 1];
+      this.pushToast(`Bought a ${koiVariety(k.variety).name} koi. Let it go in a pond: walk up to one you’ve dug.`, 'coins');
       this.onStateTouched?.();
       return;
     }

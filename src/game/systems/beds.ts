@@ -80,6 +80,8 @@ const FORM_ROLE: Record<PlantForm, BedRole> = {
   climber: 'trailer',
   clump: 'broadleaf',
   bamboo: 'broadleaf',
+  lilypad: 'broadleaf',
+  cattail: 'broadleaf',
 };
 
 /** What a plant brings to a bed. A flowering broadleaf counts as both. */

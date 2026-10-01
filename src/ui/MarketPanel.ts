@@ -4,14 +4,17 @@ import { el } from './dom';
 import { PLANTS, specimenName, specimenRarity, rarityRank } from '../game/data/plants';
 import { SHOP_ITEMS, PURPOSE_INFO, PURPOSE_ORDER, type ShopCategory, type ShopItem } from '../game/data/shop';
 import { STAGE_LABEL, stageFloat, stageOf } from '../game/systems/growth';
-import { basketPrices, demandSpecies, buyBlockReason, DEMAND_BONUS, soldToday, canSell, itemPrice, shopItemVisible, isShopItemNew, markShopSeen } from '../game/systems/market';
+import { basketPrices, demandSpecies, buyBlockReason, DEMAND_BONUS, soldToday, canSell, itemPrice, shopItemVisible, isShopItemNew, markShopSeen, clampPondSize, pondPrice, resellables, type Resellable } from '../game/systems/market';
+import { POND_MAX, POND_MIN, POND_STEP, RESALE_RATE } from '../game/data/shop';
+import { koiCapacity } from '../game/systems/koi';
+import { drawSteppingStonePiece } from '../game/world/GardenArt';
 import { reachable } from '../game/systems/truck';
 import { button, note, portrait, rarityBadge } from './common';
 import { commissionPay, commissionPortrait, describeCommission, fitBlock, fittingItem, openCommission, COMMISSION_MULT, dayOf } from '../game/systems/commissions';
 import { findPotStyle } from '../game/data/shop';
 import { ZONES } from '../game/data/zones';
 
-type Tab = 'sell' | 'shop';
+type Tab = 'sell' | 'shop' | 'resell';
 
 /** Nearer misses first: a plant that only needs growing on is closer than the wrong species. */
 function rank(block: ReturnType<typeof fitBlock>): number {
@@ -31,18 +34,24 @@ export class MarketPanel {
   private tab: Tab = 'sell';
   /** Items shown in the Buy tab since it was last left; they stop being NEW once the player moves on. */
   private shown = new Set<string>();
+  /** The pond size picked in the Buy tab, before it's paid for. */
+  private pond = { w: 2, h: 1.5 };
+  /** The one resale waiting for a second press to confirm, as `kind:id`. */
+  private confirming: string | null = null;
 
   constructor(private game: Game) {
     this.panel.onClose = () => this.commitSeen();
     for (const [id, label] of [
       ['sell', 'Sell'],
       ['shop', 'Buy'],
+      ['resell', 'Sell back'],
     ] as [Tab, string][]) {
       const b = el('button', 'panel-tab', label);
       b.dataset.tab = id;
       b.addEventListener('click', () => {
         if (this.tab === 'shop' && id !== 'shop') this.commitSeen();
         this.tab = id;
+        this.confirming = null;
         this.render();
       });
       this.panel.tabsEl.appendChild(b);
@@ -77,6 +86,7 @@ export class MarketPanel {
     this.panel.clearBody();
     this.panel.setTitle(`Plant Stand & Supply · ${this.game.state.coins} coins`);
     if (this.tab === 'sell') this.renderSell();
+    else if (this.tab === 'resell') this.renderResell();
     else this.renderShop();
   }
 
@@ -214,16 +224,80 @@ export class MarketPanel {
     }
   }
 
+  /** Width and length steppers for a pond, with what it will hold. */
+  private pondPicker(size: { w: number; h: number }): HTMLElement {
+    const wrap = el('div', 'pond-picker');
+    const dim = (label: string, key: 'w' | 'h', lo: number, hi: number) => {
+      const row = el('div', 'pond-dim');
+      const value = el('span', 'pond-value', `${size[key]} tiles`);
+      const less = button('−', () => {
+        this.pond = clampPondSize(key === 'w' ? size.w - POND_STEP : size.w, key === 'h' ? size.h - POND_STEP : size.h);
+        this.render();
+      }, 'secondary-btn small pond-less', size[key] <= lo);
+      const more = button('+', () => {
+        this.pond = clampPondSize(key === 'w' ? size.w + POND_STEP : size.w, key === 'h' ? size.h + POND_STEP : size.h);
+        this.render();
+      }, 'secondary-btn small pond-more', size[key] >= hi);
+      row.append(el('span', 'pond-label', label), less, value, more);
+      return row;
+    };
+    wrap.append(dim('Width', 'w', POND_MIN.w, POND_MAX.w), dim('Length', 'h', POND_MIN.h, POND_MAX.h));
+    const cap = koiCapacity(size.w, size.h);
+    wrap.appendChild(el('div', 'entry-sub dim pond-capacity', cap === 0 ? 'Too small to keep koi.' : `Room for up to ${cap} koi.`));
+    return wrap;
+  }
+
+  /** Selling kit back: only what's in stock, at half the list price, and only on a second, deliberate press. */
+  private renderResell() {
+    const state = this.game.state;
+    const body = this.panel.body;
+    body.appendChild(note(`The market buys back anything you haven’t set out — decor, furniture, koi not in a pond — for ${Math.round(RESALE_RATE * 100)}% of its list price. Pick up a placed piece first to sell it.`));
+    const items = resellables(state);
+    if (!items.length) {
+      body.appendChild(el('div', 'empty-state', 'Nothing to sell back. Only pieces still in stock, and koi not in a pond, can be sold.'));
+      return;
+    }
+    const list = el('div', 'entry-list');
+    for (const r of items) {
+      const key = `${r.kind}:${r.id}`;
+      const row = el('div', 'entry-row shop-row resell-row');
+      const info = el('div', 'entry-info');
+      info.append(el('div', 'entry-name', r.count > 1 ? `${r.name} ×${r.count}` : r.name), el('div', 'entry-sub', `Sells back for ${r.value} coins${r.count > 1 ? ' each' : ''}.`));
+      const armed = this.confirming === key;
+      if (armed) info.appendChild(note(`Sell it for ${r.value} coins? It costs more than that to buy again.`, 'row-note warn'));
+      const act = armed
+        ? button(`Confirm · ${r.value}`, () => {
+            this.confirming = null;
+            this.game.sellBack(r.kind as Resellable['kind'], r.id);
+            this.render();
+          }, 'primary-btn small resell-confirm')
+        : button(`Sell back · ${r.value}`, () => {
+            this.confirming = key;
+            this.render();
+          }, 'secondary-btn small resell-btn');
+      row.append(info, act);
+      if (armed) row.appendChild(button('Keep it', () => {
+        this.confirming = null;
+        this.render();
+      }, 'secondary-btn small resell-cancel'));
+      list.appendChild(row);
+    }
+    body.appendChild(list);
+  }
+
   private itemList(items: ShopItem[]): HTMLElement {
     const state = this.game.state;
     const list = el('div', 'entry-list');
     for (const item of items) {
       const row = el('div', `entry-row shop-row${item.purpose ? ` purpose-${item.purpose}` : ''}`);
       const info = el('div', 'entry-info');
+      const target = item.stock ?? item.id;
       const stock = item.repeatable
-        ? (state.decorStock[item.id as keyof typeof state.decorStock] ?? 0) + (state.furnitureStock[item.id as keyof typeof state.furnitureStock] ?? 0)
+        ? item.id === 'koi'
+          ? state.koi.length
+          : (state.decorStock[target as keyof typeof state.decorStock] ?? 0) + (state.furnitureStock[target as keyof typeof state.furnitureStock] ?? 0)
         : 0;
-      const extra = stock ? ` (${stock} unplaced)` : '';
+      const extra = stock ? (item.id === 'koi' ? ` (${stock} owned)` : ` (${stock} unplaced)`) : '';
       const name = el('div', 'entry-name', item.name + extra);
       if (isShopItemNew(state, item.id)) name.appendChild(el('span', 'new-tag', 'NEW'));
       this.shown.add(item.id);
@@ -241,14 +315,33 @@ export class MarketPanel {
         info.appendChild(line);
       }
       info.appendChild(el('div', 'entry-sub', item.description));
-      const block = buyBlockReason(state, item.id);
-      const label = block === 'owned' ? 'Owned ✓' : `${itemPrice(state, item.id)} coins`;
+      // Drawn at the size they're laid in the garden, inside the text column so the row stays text-then-price.
+      if (item.id === 'steppingStones') info.appendChild(stonesPreview());
+      const pond = item.id === 'gardenPond' ? clampPondSize(this.pond.w, this.pond.h) : null;
+      if (pond) info.appendChild(this.pondPicker(pond));
+      const opts = pond ? { pond } : {};
+      const block = buyBlockReason(state, item.id, opts);
+      const price = pond ? pondPrice(state, pond.w, pond.h) : itemPrice(state, item.id);
+      const label = block === 'owned' ? 'Owned ✓' : `${price} coins`;
       row.append(info, button(label, () => {
-        this.game.buy(item.id);
+        this.game.buy(item.id, opts);
         this.render();
       }, block === 'owned' ? 'secondary-btn' : 'primary-btn small', !!block));
       list.appendChild(row);
     }
     return list;
   }
+}
+
+/** A drawing of one piece of stepping stones, at the same size they're laid in the garden. */
+function stonesPreview(): HTMLElement {
+  const c = el('canvas', 'stones-preview');
+  const tile = 40;
+  c.width = 64;
+  c.height = 34;
+  c.style.width = '64px';
+  c.style.height = '34px';
+  const ctx = c.getContext?.('2d');
+  if (ctx) drawSteppingStonePiece(ctx, 32, 17, tile, false);
+  return c;
 }

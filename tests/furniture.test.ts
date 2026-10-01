@@ -63,19 +63,18 @@ describe('greenhouse furniture', () => {
 });
 
 describe('nursery bed upgrades', () => {
-  it('sells two more nursery beds once the first extra pair is owned', async () => {
+  it('beds already bought with the old two-bed upgrades stay, though the upgrades are no longer sold', async () => {
     const { nurserySpots, sitBlockReason } = await import('../src/game/systems/furniture');
     const state = createNewGame();
     state.coins = 1000;
     const base = nurserySpots(state).length;
+    expect(buyItem(state, 'nurseryBeds')).toBe(false);
     expect(buyItem(state, 'moreNurseryBeds')).toBe(false);
-    expect(buyItem(state, 'nurseryBeds')).toBe(true);
-    expect(nurserySpots(state)).toHaveLength(base + 2);
-    expect(buyItem(state, 'moreNurseryBeds')).toBe(true);
+    state.owned.push('nurseryBeds', 'moreNurseryBeds');
     const spots = nurserySpots(state);
     expect(spots).toHaveLength(base + 4);
-    // The new beds stand clear of everything else in the room.
-    for (const id of ['bed7', 'bed8']) {
+    // The beds stand clear of everything else in the room.
+    for (const id of ['bed5', 'bed6', 'bed7', 'bed8']) {
       const bed = spots.find((b) => b.id === id)!;
       expect(sitBlockReason(state, bed.kind, bed.x, bed.y, { ignoreId: id })).toBeNull();
     }

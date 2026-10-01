@@ -2933,6 +2933,151 @@ function drawBamboo(p: Paint) {
   }
 }
 
+// ------------------------------------------------------------ water's edge
+
+/** One floating pad centred at the origin, seen a little from above: notched, veined, its rim catching the light. */
+function lilyPad(p: Paint, rx: number, notch: number) {
+  const { ctx, look, rand } = p;
+  const ry = rx * 0.5;
+  const pad = () => {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.ellipse(0, 0, rx, ry, 0, notch + 0.18, notch + Math.PI * 2 - 0.18);
+    ctx.closePath();
+  };
+  if (look.ruffled) {
+    // A giant pad's upturned rim, standing up round the edge.
+    ctx.beginPath();
+    ctx.ellipse(0, -rx * 0.06, rx * 1.02, ry * 1.04, 0, 0, Math.PI * 2);
+    ctx.fillStyle = hsl(look.hue + 10, look.sat - 5, look.light - 12);
+    ctx.fill();
+  }
+  pad();
+  const g = ctx.createRadialGradient(-rx * 0.25, -ry * 0.3, 0, 0, 0, rx);
+  g.addColorStop(0, hsl(look.hue, look.sat, look.light + 10));
+  g.addColorStop(1, hsl(look.hue, look.sat, look.light - 6));
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.save();
+  pad();
+  ctx.clip();
+  if (look.variegation === 'splash' && look.variegationColor) {
+    const [vh, vs, vl] = look.variegationColor;
+    ctx.fillStyle = hsl(vh, vs, vl, 0.8);
+    for (let i = 0; i < 9; i++) {
+      ctx.beginPath();
+      ctx.ellipse((rand() - 0.5) * rx * 1.7, (rand() - 0.5) * ry * 1.7, rx * (0.08 + rand() * 0.12), ry * (0.08 + rand() * 0.12), rand() * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // Veins running out from the stem.
+  ctx.strokeStyle = hsl(look.hue, look.sat - 10, look.light - 14, 0.45);
+  ctx.lineWidth = Math.max(0.4, rx * 0.025);
+  ctx.beginPath();
+  for (let i = 1; i < 12; i++) {
+    const a = notch + (i / 12) * Math.PI * 2;
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * rx * 0.95, Math.sin(a) * ry * 0.95);
+  }
+  ctx.stroke();
+  if (glowing(look)) {
+    ctx.beginPath();
+    for (let i = 1; i < 12; i++) {
+      const a = notch + (i / 12) * Math.PI * 2;
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * rx * 0.9, Math.sin(a) * ry * 0.9);
+    }
+    glowStroke(p, Math.max(0.4, rx * 0.03));
+  }
+  ctx.restore();
+  pad();
+  ctx.strokeStyle = hsl(look.hue, look.sat, Math.min(90, look.light + 22), 0.6);
+  ctx.lineWidth = Math.max(0.5, rx * (look.ruffled ? 0.12 : 0.035));
+  ctx.stroke();
+  if (look.ruffled) {
+    // The upturned rim's inner face, darker, all the way round.
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 0.93, ry * 0.9, 0, Math.PI * 1.05, Math.PI * 1.95);
+    ctx.strokeStyle = hsl(look.hue + 8, look.sat, look.light - 16, 0.7);
+    ctx.lineWidth = Math.max(0.5, rx * 0.06);
+    ctx.stroke();
+  }
+}
+
+/** Lily pads: a raft of floating pads that widens as it grows, and now and then a closed bud. */
+function drawLilyPad(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const n = Math.min(9, 1 + Math.round(sf * 1.8));
+  const spread = S * (0.12 + Math.min(4.6, sf) * 0.14);
+  // A dark shine of water under the raft, so it reads as floating wherever it's drawn.
+  ctx.fillStyle = 'rgba(40,90,100,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, spread + S * 0.3, (spread + S * 0.3) * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const pads = Array.from({ length: n }, (_, i) =>
+    i === 0 ? { x: 0, y: 0, k: 1 } : { x: (rand() - 0.5) * 2 * spread, y: (rand() - 0.5) * spread * 0.7, k: 0.6 + rand() * 0.45 }
+  ).sort((a, b) => a.y - b.y);
+  for (const pd of pads) withTransform(ctx, pd.x, pd.y, 0, () => lilyPad(p, S * 0.26 * pd.k, rand() * Math.PI * 2));
+  if (sf >= 2.5 && look.variegation !== 'glow') {
+    // One closed bud, held just above the water: not a flower show.
+    const b = pads[pads.length - 1];
+    ctx.fillStyle = hsl(look.accentHue, look.accentSat ?? 40, look.accentLight ?? 80);
+    ctx.beginPath();
+    ctx.moveTo(b.x + S * 0.05, b.y - S * 0.02);
+    ctx.quadraticCurveTo(b.x + S * 0.1, b.y - S * 0.12, b.x + S * 0.07, b.y - S * 0.2);
+    ctx.quadraticCurveTo(b.x + S * 0.02, b.y - S * 0.12, b.x + S * 0.05, b.y - S * 0.02);
+    ctx.fill();
+  }
+}
+
+/** Cattails: a dense stand of tall blades, and the brown velvet tails standing above them on stiff stalks. */
+function drawCattail(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const blades = Math.min(18, 4 + Math.round(sf * 3));
+  const width = S * 0.06 * (look.leafWidth ?? 1);
+  const leaves = Array.from({ length: blades }, (_, i) => ({ dir: i % 2 ? 1 : -1, len: S * (0.85 + rand() * 0.55), up: 0.72 + rand() * 0.28, x: (rand() - 0.5) * S * 0.2 }));
+  const back = leaves.slice(0, Math.ceil(blades / 2));
+  const front = leaves.slice(Math.ceil(blades / 2));
+  for (const l of back) withTransform(ctx, l.x, 0, 0, () => ribbon(p, l.dir, l.len, width, l.up, 6));
+  // The tails: a stiff stalk, a fat velvet cylinder, and a thin spike above it.
+  const tails = sf < 1.5 ? 0 : Math.min(6, Math.floor(sf * 1.3));
+  const dwarf = (look.size ?? 1) < 0.8;
+  for (let i = 0; i < tails; i++) {
+    const x = (rand() - 0.5) * S * 0.3;
+    const h = S * (1.25 + rand() * 0.3);
+    const lean = (rand() - 0.5) * 0.06;
+    withTransform(ctx, x, 0, lean, () => {
+      stroke(ctx, hsl(look.hue, look.sat - 8, look.light - 6), Math.max(0.6, S * 0.018), () => {
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -h);
+      });
+      const tl = dwarf ? S * 0.14 : S * (look.leafWidth && look.leafWidth < 1 ? 0.36 : 0.3);
+      const tw = dwarf ? S * 0.07 : S * (look.leafWidth && look.leafWidth < 1 ? 0.045 : 0.065);
+      const top = -h * 0.92;
+      const body = () => {
+        ctx.beginPath();
+        ctx.ellipse(0, top + tl / 2, tw, tl / 2, 0, 0, Math.PI * 2);
+      };
+      body();
+      const g = ctx.createLinearGradient(-tw, 0, tw, 0);
+      g.addColorStop(0, hsl(look.accentHue, look.accentSat ?? 45, (look.accentLight ?? 28) - 6));
+      g.addColorStop(0.45, hsl(look.accentHue, look.accentSat ?? 45, (look.accentLight ?? 28) + 10));
+      g.addColorStop(1, hsl(look.accentHue, look.accentSat ?? 45, (look.accentLight ?? 28) - 8));
+      ctx.fillStyle = g;
+      ctx.fill();
+      if (glowing(look)) {
+        body();
+        glowStroke(p, Math.max(0.6, tw * 0.4));
+      }
+      stroke(ctx, hsl(look.accentHue, 25, 55), Math.max(0.4, S * 0.008), () => {
+        ctx.moveTo(0, top);
+        ctx.lineTo(0, top - S * 0.12);
+      });
+    });
+  }
+  for (const l of front) withTransform(ctx, l.x, 0, 0, () => ribbon(p, l.dir, l.len * 0.9, width, l.up, 0));
+}
+
 const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   fern: drawFern,
   splitleaf: drawSplitleaf,
@@ -2970,6 +3115,8 @@ const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   climber: drawClimber,
   clump: drawClump,
   bamboo: drawBamboo,
+  lilypad: drawLilyPad,
+  cattail: drawCattail,
 };
 
 /**
@@ -3016,6 +3163,8 @@ function extent(form: PlantForm, mode: PlantMode): { w: number; up: number; down
   if (form === 'climber') return mode === 'ground' ? { w: 1.9, up: 1.9, down: 0.6 } : { w: 1.6, up: 1.0, down: mode === 'hanging' ? 3.0 : 2.4 };
   if (form === 'clump') return { w: 1.6, up: 1.3, down: 0.4 };
   if (form === 'bamboo') return { w: 1.2, up: 3.1, down: 0.4 };
+  if (form === 'lilypad') return { w: 1.4, up: 0.6, down: 0.6 };
+  if (form === 'cattail') return { w: 1.3, up: 1.9, down: 0.4 };
   return { w: 1.35, up: 1.6, down: 0.5 };
 }
 

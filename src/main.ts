@@ -9,6 +9,7 @@ import { StartOverlay } from './ui/StartOverlay';
 import { PlantCard } from './ui/PlantCard';
 import { GroundCard } from './ui/GroundCard';
 import { PuttingPanel } from './ui/PuttingPanel';
+import { PondPanel } from './ui/PondPanel';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const game = new Game(canvas);
@@ -23,12 +24,14 @@ const market = new MarketPanel(game);
 const plantCard = new PlantCard(game);
 const groundCard = new GroundCard(game);
 const putting = new PuttingPanel(game);
+const pond = new PondPanel(game);
 
 hud.onJournal = () => journal.open();
 game.onOpenRegions = () => journal.open('regions');
 hud.onBasket = () => basket.open();
 game.onOpenGreenhouse = (target) => greenhouse.open(target);
 game.onOpenMarket = () => market.open();
+game.onOpenPond = (id) => pond.open(id);
 game.onOpenPutting = () => putting.open();
 game.onOpenPlantCard = (id) => plantCard.open(id);
 game.onOpenGroundCard = (target) => groundCard.open(target);
@@ -39,6 +42,7 @@ game.onStateTouched = () => {
   market.refresh();
   plantCard.refresh();
   groundCard.refresh();
+  pond.refresh();
 };
 game.onFrame = () => hud.update();
 

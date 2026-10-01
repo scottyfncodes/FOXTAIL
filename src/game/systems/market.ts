@@ -1,7 +1,8 @@
 import type { BasketItem, GameState } from '../state';
 import type { Rarity } from '../types';
 import { PLANTS, PLANT_LIST, specimenRarity, rarityRank } from '../data/plants';
-import { findShopItem, type DecorId, DECOR_IDS, type FurnitureId, FURNITURE_IDS } from '../data/shop';
+import { findShopItem, SHOP_ITEMS, type DecorId, DECOR_IDS, type FurnitureId, FURNITURE_IDS, POND_DEFAULT, POND_MAX, POND_MIN, POND_PRICE_PER_TILE, POND_STEP, RESALE_RATE } from '../data/shop';
+import { freeKoi, koiVariety, newKoi } from './koi';
 import { MINUTES_PER_DAY } from '../engine/Clock';
 import { hashString } from '../engine/Random';
 import { takeFromBasket } from './basket';
@@ -130,14 +131,40 @@ export type BuyBlock = 'owned' | 'locked' | 'coins';
 
 /**
  * What an item costs right now. Most items have a fixed price; a few
- * repeatable ones (nursery beds) compound with every one already bought.
+ * repeatable ones (nursery beds, ponds) compound with every one already
+ * bought. A pack (the double bed) costs what its units would one after
+ * another, so buying beds in pairs costs exactly what buying them singly did.
  */
 export function itemPrice(state: Pick<GameState, 'purchases'>, itemId: string): number {
   const item = findShopItem(itemId);
   if (!item) return Infinity;
-  if (!item.priceGrowth) return item.price;
-  const bought = state.purchases?.[itemId] ?? 0;
-  return Math.round(item.price * Math.pow(item.priceGrowth, bought));
+  if (!item.priceGrowth) return item.price * (item.pack ?? 1);
+  const bought = state.purchases?.[item.priceKey ?? itemId] ?? 0;
+  let total = 0;
+  for (let i = 0; i < (item.pack ?? 1); i++) total += item.price * Math.pow(item.priceGrowth, bought + i);
+  return Math.round(total);
+}
+
+/** A pond size the crew will dig: clamped to the allowed range and rounded to the step. */
+export function clampPondSize(w: number, h: number): { w: number; h: number } {
+  const fit = (v: number, lo: number, hi: number) => {
+    const n = Number.isFinite(v) ? v : lo;
+    return Math.min(hi, Math.max(lo, Math.round(n / POND_STEP) * POND_STEP));
+  };
+  return { w: fit(w, POND_MIN.w, POND_MAX.w), h: fit(h, POND_MIN.h, POND_MAX.h) };
+}
+
+/** A pond's list price by size alone: area times the price per square tile. */
+export function pondBasePrice(w: number, h: number): number {
+  return Math.round((POND_PRICE_PER_TILE * w * h) / 10) * 10;
+}
+
+/** What digging a pond this size costs right now: its list price, compounding with every pond already bought. */
+export function pondPrice(state: Pick<GameState, 'purchases'>, w: number, h: number): number {
+  // The original size predates the size steps, so it's taken as it is.
+  const size = w === POND_DEFAULT.w && h === POND_DEFAULT.h ? { w, h } : clampPondSize(w, h);
+  const growth = findShopItem('gardenPond')?.priceGrowth ?? 1;
+  return Math.round(pondBasePrice(size.w, size.h) * Math.pow(growth, state.purchases?.gardenPond ?? 0));
 }
 
 /** Whether the market offers this item yet: unlocked by its prerequisite, or already owned. */
@@ -157,29 +184,123 @@ export function markShopSeen(state: Pick<GameState, 'seenShop'>, ids: string[]):
   for (const id of ids) if (!state.seenShop.includes(id)) state.seenShop.push(id);
 }
 
-export function buyBlockReason(state: GameState, itemId: string): BuyBlock | null {
+/** Options for an item bought to order: the size of a pond. */
+export interface BuyOptions {
+  pond?: { w: number; h: number };
+}
+
+function priceFor(state: GameState, itemId: string, opts: BuyOptions): number {
+  if (itemId === 'gardenPond') {
+    const size = opts.pond ? clampPondSize(opts.pond.w, opts.pond.h) : POND_DEFAULT;
+    return pondPrice(state, size.w, size.h);
+  }
+  return itemPrice(state, itemId);
+}
+
+export function buyBlockReason(state: GameState, itemId: string, opts: BuyOptions = {}): BuyBlock | null {
   const item = findShopItem(itemId);
   if (!item) return 'locked';
   if (!item.repeatable && state.owned.includes(itemId)) return 'owned';
   if (item.after && !state.owned.includes(item.after)) return 'locked';
-  if (state.coins < itemPrice(state, itemId)) return 'coins';
+  if (state.coins < priceFor(state, itemId, opts)) return 'coins';
   return null;
 }
 
-export function buyItem(state: GameState, itemId: string): boolean {
+export function buyItem(state: GameState, itemId: string, opts: BuyOptions = {}): boolean {
   const item = findShopItem(itemId);
-  if (!item || buyBlockReason(state, itemId)) return false;
-  state.coins -= itemPrice(state, itemId);
-  if (item.priceGrowth) state.purchases[itemId] = (state.purchases[itemId] ?? 0) + 1;
+  if (!item || buyBlockReason(state, itemId, opts)) return false;
+  state.coins -= priceFor(state, itemId, opts);
+  const units = item.pack ?? 1;
+  if (item.priceGrowth) state.purchases[item.priceKey ?? itemId] = (state.purchases[item.priceKey ?? itemId] ?? 0) + units;
   markShopSeen(state, [itemId]);
-  if (item.repeatable && (DECOR_IDS as string[]).includes(itemId)) {
-    const id = itemId as DecorId;
-    state.decorStock[id] = (state.decorStock[id] ?? 0) + 1;
-  } else if (item.repeatable && (FURNITURE_IDS as string[]).includes(itemId)) {
-    const id = itemId as FurnitureId;
-    state.furnitureStock[id] = (state.furnitureStock[id] ?? 0) + 1;
+  const target = item.stock ?? itemId;
+  if (itemId === 'koi') {
+    state.koi.push(newKoi());
+  } else if (item.repeatable && (DECOR_IDS as string[]).includes(target)) {
+    const id = target as DecorId;
+    state.decorStock[id] = (state.decorStock[id] ?? 0) + units;
+    if (id === 'gardenPond') state.pondStock.push(opts.pond ? clampPondSize(opts.pond.w, opts.pond.h) : { ...POND_DEFAULT });
+  } else if (item.repeatable && (FURNITURE_IDS as string[]).includes(target)) {
+    const id = target as FurnitureId;
+    state.furnitureStock[id] = (state.furnitureStock[id] ?? 0) + units;
   } else {
     state.owned.push(itemId);
   }
   return true;
+}
+
+// ---------------------------------------------------------------- selling back
+
+/**
+ * Something the market will buy back: a piece of decor or furniture still in
+ * stock (unplaced), or a koi not in a pond. Placed pieces are picked up first.
+ * One-off upgrades are part of the place now and can't be sold.
+ */
+export interface Resellable {
+  /** 'decor' | 'furniture' by stock id; 'pond' by its index in the pond stock; 'koi' by koi id. */
+  kind: 'decor' | 'furniture' | 'pond' | 'koi';
+  id: string;
+  name: string;
+  /** How many of it are in stock (always 1 for a pond or a koi). */
+  count: number;
+  value: number;
+}
+
+/** The shop item a stock kind was bought as, and its list price per unit. */
+function listPrice(stockId: string): { name: string; price: number } | null {
+  const item = SHOP_ITEMS.find((s) => (s.stock ?? s.id) === stockId && s.repeatable);
+  return item ? { name: stockId === 'nurseryBed' ? 'Nursery Bed' : item.name, price: item.price } : null;
+}
+
+/** What the market pays back: a fixed share of the list price, rounded down. Always less than anything costs to buy. */
+export function resalePrice(listPrice: number): number {
+  return Math.max(0, Math.floor(listPrice * RESALE_RATE));
+}
+
+/** The pond sizes in stock, one per pond: sizes chosen when bought, the original size for any bought before ponds came in sizes. */
+export function stockedPonds(state: Pick<GameState, 'decorStock' | 'pondStock'>): { w: number; h: number }[] {
+  const n = state.decorStock.gardenPond ?? 0;
+  const sized = state.pondStock.slice(0, n);
+  while (sized.length < n) sized.push({ ...POND_DEFAULT });
+  return sized;
+}
+
+/** Everything the player could sell back right now, with what each fetches. */
+export function resellables(state: GameState): Resellable[] {
+  const out: Resellable[] = [];
+  for (const id of DECOR_IDS) {
+    const n = state.decorStock[id] ?? 0;
+    if (n <= 0) continue;
+    if (id === 'gardenPond') {
+      stockedPonds(state).forEach((size, i) => out.push({ kind: 'pond', id: String(i), name: `Ornamental Pond (${size.w} × ${size.h})`, count: 1, value: resalePrice(pondBasePrice(size.w, size.h)) }));
+      continue;
+    }
+    const list = listPrice(id);
+    if (list) out.push({ kind: 'decor', id, name: list.name, count: n, value: resalePrice(list.price) });
+  }
+  for (const id of FURNITURE_IDS) {
+    const n = state.furnitureStock[id] ?? 0;
+    const list = listPrice(id);
+    if (n > 0 && list) out.push({ kind: 'furniture', id, name: list.name, count: n, value: resalePrice(list.price) });
+  }
+  const koiPrice = findShopItem('koi')?.price ?? 0;
+  for (const k of freeKoi(state)) out.push({ kind: 'koi', id: k.id, name: `${koiVariety(k.variety).name} koi`, count: 1, value: resalePrice(koiPrice) });
+  return out;
+}
+
+/** Sells one of something back to the market. Returns the coins paid, or null if the player doesn't have it to sell. */
+export function sellBack(state: GameState, kind: Resellable['kind'], id: string): number | null {
+  const entry = resellables(state).find((r) => r.kind === kind && r.id === id);
+  if (!entry || entry.count <= 0) return null;
+  if (kind === 'decor') state.decorStock[id as DecorId] = (state.decorStock[id as DecorId] ?? 0) - 1;
+  else if (kind === 'furniture') state.furnitureStock[id as FurnitureId] = (state.furnitureStock[id as FurnitureId] ?? 0) - 1;
+  else if (kind === 'pond') {
+    const i = Number(id);
+    state.decorStock.gardenPond = (state.decorStock.gardenPond ?? 0) - 1;
+    if (i < state.pondStock.length) state.pondStock.splice(i, 1);
+  } else {
+    state.koi = state.koi.filter((k) => k.id !== id);
+  }
+  state.coins += entry.value;
+  return entry.value;
 }
