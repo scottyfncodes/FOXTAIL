@@ -2502,6 +2502,437 @@ function drawCoral(p: Paint) {
   }
 }
 
+// ------------------------------------------------------------ ground layer, clumps and climbers
+
+/** Colour for one of a mat's tiny leaves: the look's green, jittered, now and then in its variegation colour. */
+function tinyLeafColor(p: Paint, lift = 0): string {
+  const { look, rand } = p;
+  if (look.variegationColor && look.variegation !== 'none' && look.variegation !== 'glow' && rand() < 0.3) {
+    const [h, s, l] = look.variegationColor;
+    return hsl(h, s, l);
+  }
+  return hsl(look.hue + (rand() - 0.5) * 8, look.sat + (rand() - 0.5) * 8, look.light + lift + (rand() - 0.5) * 12);
+}
+
+/** A scatter of glowing specks over whatever is clipped (glowing forms only). */
+function glowSpecks(p: Paint, n: number, x0: number, y0: number, w: number, h: number, r: number) {
+  const { ctx, look, rand } = p;
+  if (!glowing(look)) return;
+  const [gh, gs, gl] = look.variegationColor!;
+  ctx.save();
+  ctx.fillStyle = hsl(gh, gs, gl);
+  ctx.shadowColor = hsl(gh, gs, gl);
+  ctx.shadowBlur = Math.max(1.5, r * 3);
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath();
+    ctx.arc(x0 + rand() * w, y0 + rand() * h, Math.max(0.4, r), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** One springy cushion of moss, base at the origin. */
+function mossCushion(p: Paint, r: number) {
+  const { ctx, look, rand } = p;
+  const h = r * 0.55;
+  const dome = () => {
+    ctx.beginPath();
+    ctx.moveTo(-r, 0);
+    ctx.bezierCurveTo(-r * 0.95, -h * 1.3, r * 0.95, -h * 1.3, r, 0);
+    ctx.quadraticCurveTo(0, r * 0.16, -r, 0);
+    ctx.closePath();
+  };
+  const g = ctx.createLinearGradient(0, -h, 0, r * 0.1);
+  g.addColorStop(0, hsl(look.accentHue, look.accentSat ?? 50, look.accentLight ?? 46));
+  g.addColorStop(0.5, hsl(look.hue, look.sat, look.light));
+  g.addColorStop(1, hsl(look.hue, look.sat, look.light - 12));
+  dome();
+  ctx.fillStyle = g;
+  ctx.fill();
+  // The texture: countless tiny shoots, lighter on the crown.
+  ctx.save();
+  dome();
+  ctx.clip();
+  ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(0.35, r * 0.035);
+  for (let i = 0; i < 46; i++) {
+    const x = (rand() - 0.5) * 2 * r;
+    const y = -rand() * h;
+    ctx.strokeStyle = tinyLeafColor(p, y < -h * 0.5 ? 8 : -4);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (rand() - 0.5) * r * 0.08, y - r * 0.08);
+    ctx.stroke();
+  }
+  glowSpecks(p, 14, -r, -h, 2 * r, h, r * 0.035);
+  ctx.restore();
+  dome();
+  ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 18, 0.45);
+  ctx.lineWidth = Math.max(0.4, r * 0.03);
+  ctx.stroke();
+  if (look.tufts) {
+    // Haircap: stiff little stems standing up out of the cushion, each tipped with a star.
+    for (let i = 0; i < 9; i++) {
+      const x = (rand() - 0.5) * r * 1.5;
+      const base = -h * (0.55 + rand() * 0.35) * (1 - Math.abs(x) / (r * 1.1));
+      const top = base - r * (0.18 + rand() * 0.14);
+      stroke(ctx, hsl(look.hue, look.sat, look.light - 6), Math.max(0.35, r * 0.03), () => {
+        ctx.moveTo(x, base);
+        ctx.lineTo(x, top);
+      });
+      ctx.strokeStyle = hsl(look.hue, look.sat + 8, look.light + 10);
+      ctx.beginPath();
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2;
+        ctx.moveTo(x, top);
+        ctx.lineTo(x + Math.cos(a) * r * 0.07, top + Math.sin(a) * r * 0.045);
+      }
+      ctx.stroke();
+    }
+  }
+}
+
+/** Moss: low cushions that merge into a patch as it grows. No stem, no pot-plant shape: just ground. */
+function drawMoss(p: Paint) {
+  const { ctx, rand, S, sf } = p;
+  const n = Math.min(8, 1 + Math.round(sf * 1.6));
+  const spread = S * (0.12 + Math.min(4.6, sf) * 0.15);
+  const cushions = Array.from({ length: n }, (_, i) =>
+    i === 0 ? { x: 0, y: 0, k: 1 } : { x: (rand() - 0.5) * 2 * spread, y: (rand() - 0.5) * spread * 0.35, k: 0.5 + rand() * 0.45 }
+  ).sort((a, b) => a.y - b.y);
+  for (const c of cushions) withTransform(ctx, c.x, c.y, 0, () => mossCushion(p, S * 0.3 * c.k));
+}
+
+/** Creeping thyme: a flat, irregular mat of tiny leaves over wiry stems, hugging the ground. */
+function drawMat(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const rx = S * (0.2 + Math.min(4.6, sf) * 0.15);
+  const ry = rx * 0.34;
+  const h = S * 0.1;
+  const wob = Array.from({ length: 4 }, () => rand() * Math.PI * 2);
+  const edge = (a: number) => 0.84 + Math.sin(a * 3 + wob[0]) * 0.08 + Math.sin(a * 5 + wob[1]) * 0.06;
+  ctx.beginPath();
+  for (let i = 0; i <= 28; i++) {
+    const a = (i / 28) * Math.PI * 2;
+    const k = edge(a);
+    const x = Math.cos(a) * rx * k;
+    const y = Math.sin(a) * ry * k - (Math.sin(a) < 0 ? h * -Math.sin(a) : 0);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = hsl(look.hue, look.sat, look.light - 12);
+  ctx.fill();
+  // Wiry stems poking out at the edge.
+  ctx.strokeStyle = hsl(look.accentHue, look.accentSat ?? 30, look.accentLight ?? 32, 0.8);
+  ctx.lineWidth = Math.max(0.35, S * 0.008);
+  ctx.beginPath();
+  for (let i = 0; i < 12; i++) {
+    const a = rand() * Math.PI * 2;
+    const k = edge(a);
+    ctx.moveTo(Math.cos(a) * rx * k * 0.8, Math.sin(a) * ry * k * 0.8);
+    ctx.lineTo(Math.cos(a) * rx * (k + 0.12), Math.sin(a) * ry * (k + 0.12));
+  }
+  ctx.stroke();
+  // The leaves: a dense pile of tiny ovals, higher toward the middle.
+  const n = Math.min(240, 50 + Math.round(sf * 42));
+  const leaves = Array.from({ length: n }, () => {
+    const a = rand() * Math.PI * 2;
+    const d = Math.sqrt(rand()) * edge(a);
+    return { x: Math.cos(a) * rx * d, y: Math.sin(a) * ry * d - h * (1 - d * d), a: rand() * Math.PI };
+  }).sort((a, b) => a.y - b.y);
+  const lr = S * 0.026;
+  for (const l of leaves) {
+    ctx.fillStyle = tinyLeafColor(p, l.y < -h * 0.4 ? 6 : 0);
+    ctx.beginPath();
+    ctx.ellipse(l.x, l.y, lr, lr * 0.55, l.a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (look.hairy) {
+    ctx.fillStyle = 'rgba(245,245,240,0.45)';
+    for (let i = 0; i < n * 0.4; i++) {
+      const l = leaves[Math.floor(rand() * leaves.length)];
+      ctx.beginPath();
+      ctx.arc(l.x + (rand() - 0.5) * lr, l.y - lr * 0.3, lr * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  glowSpecks(p, Math.round(n * 0.15), -rx * 0.8, -h - ry * 0.6, rx * 1.6, ry * 1.4 + h, lr * 0.4);
+}
+
+/** One clover leaf seen from a little above: three (or four) notched leaflets, each with its chevron. */
+function cloverLeaf(p: Paint, Lf: number) {
+  const { ctx, look, rand } = p;
+  const count = look.fourLeaf ? 4 : 3;
+  const turn = rand() * Math.PI * 2;
+  ctx.save();
+  ctx.scale(1, 0.6);
+  for (let i = 0; i < count; i++) {
+    const a = turn + (i / count) * Math.PI * 2;
+    withTransform(ctx, 0, 0, a + Math.PI / 2, () =>
+      withTransform(ctx, 0, -Lf, Math.PI, () => {
+        // A heart turned round: the notch out at the rim, the point at the stalk.
+        const W = Lf * 0.62;
+        leafPath(ctx, 'heart', Lf, W, 0);
+        ctx.fillStyle = leafFill(p, Lf);
+        ctx.fill();
+        leafPath(ctx, 'heart', Lf, W, 0);
+        ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 18, 0.5);
+        ctx.lineWidth = Math.max(0.35, Lf * 0.05);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-W * 0.55, -Lf * 0.28);
+        ctx.lineTo(0, -Lf * 0.55);
+        ctx.lineTo(W * 0.55, -Lf * 0.28);
+        ctx.strokeStyle = hsl(look.accentHue, look.accentSat ?? 25, look.accentLight ?? 74, 0.85);
+        ctx.lineWidth = Math.max(0.4, Lf * 0.13);
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        glowStroke(p, Math.max(0.4, Lf * 0.1));
+      })
+    );
+  }
+  ctx.restore();
+}
+
+/** Clover: a low, spreading carpet of leaves on short stalks of different heights. */
+function drawTrefoil(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const n = Math.min(26, 3 + Math.round(sf * 5));
+  const rx = S * (0.1 + Math.min(4.6, sf) * 0.15);
+  const ry = rx * 0.38;
+  const leaves = Array.from({ length: n }, (_, i) => {
+    const a = rand() * Math.PI * 2;
+    const d = i === 0 ? 0 : Math.sqrt(rand());
+    return { x: Math.cos(a) * rx * d, y: Math.sin(a) * ry * d, h: S * (0.08 + rand() * 0.18), L: S * (0.09 + rand() * 0.035) };
+  }).sort((a, b) => a.y - b.y);
+  for (const l of leaves) {
+    stroke(ctx, stemColor(look, 10), Math.max(0.4, S * 0.01), () => {
+      ctx.moveTo(l.x, l.y);
+      ctx.quadraticCurveTo(l.x + (rand() - 0.5) * S * 0.05, l.y - l.h * 0.5, l.x, l.y - l.h);
+    });
+    withTransform(ctx, l.x, l.y - l.h, 0, () => cloverLeaf(p, l.L));
+  }
+}
+
+/** One round leaf for creeping jenny, attached at the origin. */
+function coinLeaf(p: Paint, L: number, dim: number) {
+  leaf(p, { shape: 'oval', L, W: L * 0.5, dim, midrib: false });
+}
+
+/** Creeping jenny: flat stems running out over the ground (or spilling down from a pot), strung with pairs of round leaves. */
+function drawRunner(p: Paint) {
+  const { ctx, look, rand, S, sf, mode } = p;
+  const stems = Math.min(9, Math.round(2 + sf * 1.5));
+  const paths: [number, number][][] = [];
+  for (let i = 0; i < stems; i++) {
+    const len = S * (0.35 + sf * 0.3) * (0.5 + rand() * 0.6) * (mode === 'hanging' ? 1.3 : 1);
+    const pts: [number, number][] = [];
+    if (mode === 'ground') {
+      // Flat to the ground, wandering: a loose, low tangle of runners.
+      const a = (i / stems) * Math.PI * 2 + (rand() - 0.5) * 1.1;
+      const bend = (rand() - 0.5) * 1.6;
+      for (let t = 0; t <= 1.001; t += 0.12) {
+        const aa = a + bend * t;
+        pts.push([Math.cos(aa) * len * t, Math.sin(aa) * len * t * 0.36]);
+      }
+    } else {
+      const side = i % 2 === 0 ? -1 : 1;
+      const sx = side * S * (0.08 + rand() * 0.14);
+      for (let t = 0; t <= 1.001; t += 0.12) pts.push([sx + side * S * 0.12 * Math.sin(t * 2.2) + Math.sin(t * 6 + i) * S * 0.015, -S * 0.02 + len * t]);
+    }
+    paths.push(pts);
+  }
+  const leafL = S * 0.125;
+  // Back runners (those heading away) first.
+  paths.sort((a, b) => a[a.length - 1][1] - b[b.length - 1][1]);
+  for (const pts of paths) {
+    stroke(ctx, stemColor(look, -2), Math.max(0.5, S * 0.012), () => {
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (const [x, y] of pts) ctx.lineTo(x, y);
+    });
+    for (let k = 1; k < pts.length; k++) {
+      const [x, y] = pts[k];
+      const [px, py] = pts[k - 1];
+      const along = Math.atan2(y - py, x - px);
+      const L = leafL * (1 - (k / pts.length) * 0.35);
+      // A pair at every node, one each side, angled a little forward along the runner.
+      for (const side of [-1, 1]) withTransform(ctx, x, y, along + side * 1.3 + Math.PI / 2, () => coinLeaf(p, L, side > 0 ? 4 : 0));
+    }
+  }
+  // A little tuft of leaves where it roots.
+  for (let i = 0; i < 6; i++) withTransform(ctx, (rand() - 0.5) * S * 0.08, -S * 0.02, (rand() - 0.5) * 2.4, () => coinLeaf(p, leafL, 0));
+}
+
+/** One Virginia creeper leaf: five toothed leaflets held out like a hand from the end of the stalk. */
+function creeperLeaf(p: Paint, size: number, dim: number) {
+  const fan = [-1.15, -0.58, 0, 0.58, 1.15];
+  const len = [0.6, 0.85, 1, 0.85, 0.6];
+  fan.forEach((a, i) => withTransform(p.ctx, 0, 0, a, () => leaf(p, { shape: 'lance', L: size * len[i], W: size * len[i] * 0.3, dim: dim + (i === 2 ? 0 : 3) })));
+}
+
+/** Virginia creeper: a vine of five-leaflet hands, scrambling over the ground or hanging (and, on a trellis, climbing). */
+function drawClimber(p: Paint) {
+  const { ctx, look, rand, S, sf, mode } = p;
+  const vines = Math.min(7, Math.round(2 + sf * 1.2));
+  const leafS = S * 0.34;
+  const all: { x: number; y: number; a: number; s: number; dim: number }[] = [];
+  for (let i = 0; i < vines; i++) {
+    const len = S * (0.4 + sf * 0.3) * (0.7 + rand() * 0.4) * (mode === 'hanging' ? 1.35 : 1);
+    const pts: [number, number][] = [];
+    if (mode === 'ground') {
+      // Scrambling: arching low and outward, a couple reaching up looking for something to climb.
+      const up = i < 2;
+      const dir = i % 2 ? 1 : -1;
+      const ex = dir * len * (up ? 0.35 : 0.9);
+      const ey = up ? -len * 0.75 : (rand() - 0.3) * len * 0.3;
+      const cx = dir * len * 0.3;
+      const cy = up ? -len * 0.5 : -len * 0.3;
+      for (let t = 0; t <= 1.001; t += 0.1) {
+        const u = 1 - t;
+        pts.push([2 * u * t * cx + t * t * ex, 2 * u * t * cy + t * t * ey]);
+      }
+    } else {
+      const side = i % 2 === 0 ? -1 : 1;
+      const sx = side * S * (0.1 + rand() * 0.18);
+      for (let t = 0; t <= 1.001; t += 0.1) pts.push([sx + side * S * 0.18 * Math.sin(t * 2) + Math.sin(t * 5 + i) * S * 0.03, -S * 0.02 + len * t]);
+    }
+    stroke(ctx, hsl(look.accentHue, 35, 28), Math.max(0.6, S * 0.014), () => {
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (const [x, y] of pts) ctx.lineTo(x, y);
+    });
+    for (let k = 2; k < pts.length; k += 3) {
+      const [x, y] = pts[k];
+      const side = (k / 3) % 2 < 1 ? 1 : -1;
+      // Leaves held up toward the light on the ground, out to the sides when it hangs.
+      const a = mode === 'ground' ? side * (0.5 + rand() * 0.4) : side * (1.2 + rand() * 0.5);
+      all.push({ x, y, a, s: leafS * (0.75 + rand() * 0.3) * (1 - k * 0.025), dim: k % 4 ? 3 : 0 });
+    }
+  }
+  for (const l of all) {
+    const px = l.x + Math.sin(l.a) * l.s * 0.3;
+    const py = l.y - Math.cos(l.a) * l.s * 0.3;
+    stroke(ctx, stemColor(look, 4), Math.max(0.4, S * 0.009), () => {
+      ctx.moveTo(l.x, l.y);
+      ctx.lineTo(px, py);
+    });
+    withTransform(ctx, px, py, l.a, () => creeperLeaf(p, l.s, l.dim));
+  }
+}
+
+/** One broad hosta leaf with its deep parallel ribs, attached at the origin. */
+function hostaLeaf(p: Paint, L: number, W: number, dim: number) {
+  const { ctx, look } = p;
+  leaf(p, { shape: 'heart', L, W, dim, midrib: true });
+  ctx.save();
+  leafPath(ctx, 'heart', L, W, 0);
+  ctx.clip();
+  ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 16 - dim, 0.5);
+  ctx.lineWidth = Math.max(0.4, W * 0.035);
+  ctx.beginPath();
+  for (const s of [-1, 1]) {
+    for (let k = 1; k <= 4; k++) {
+      const f = k / 4;
+      ctx.moveTo(0, -L * 0.04);
+      ctx.quadraticCurveTo(s * W * 1.1 * f, -L * (0.3 + f * 0.1), s * W * 0.3 * f, -L * (0.86 + f * 0.04));
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Hosta: a wide, low mound of broad ribbed leaves arching out from the crown. */
+function drawClump(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const n = Math.min(14, Math.round(3 + sf * 2.4));
+  const leaves = Array.from({ length: n }, () => {
+    const a = (rand() - 0.5) * 2.7;
+    return { a, stalk: S * (0.14 + rand() * 0.14) * (1 - Math.abs(a) * 0.2), L: S * (0.4 + rand() * 0.14) };
+  }).sort((x, y) => Math.abs(x.a) - Math.abs(y.a));
+  for (const l of leaves) {
+    const tx = Math.sin(l.a) * l.stalk;
+    const ty = -Math.cos(l.a) * l.stalk;
+    stroke(ctx, stemColor(look, 6), Math.max(0.6, S * 0.022), () => {
+      ctx.moveTo(0, 0);
+      ctx.lineTo(tx, ty);
+    });
+    // Outer leaves lie out flatter, and nearer the eye, so they're drawn last.
+    withTransform(ctx, tx, ty, l.a * 1.2, () => hostaLeaf(p, l.L, l.L * 0.42 * (look.leafWidth ?? 1), Math.abs(l.a) < 0.5 ? 6 : 0));
+  }
+}
+
+/** One spray of narrow bamboo leaves hanging from a twig end. */
+function bambooSpray(p: Paint, side: number, L: number) {
+  const n = 3 + Math.floor(p.rand() * 3);
+  for (let i = 0; i < n; i++) {
+    const a = side * (1.5 + (i / n) * 0.9 + (p.rand() - 0.5) * 0.2);
+    withTransform(p.ctx, 0, 0, a, () => leaf(p, { shape: 'lance', L: L * (0.8 + p.rand() * 0.3), W: L * 0.12, dim: i % 2 ? 4 : 0 }));
+  }
+}
+
+/** Bamboo: a stand of tall jointed canes, sprays of narrow leaves at the upper nodes. The tallest thing you can plant. */
+function drawBamboo(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const n = Math.min(7, 1 + Math.round(sf * 1.4));
+  const culms = Array.from({ length: n }, (_, i) => ({
+    x: i === 0 ? 0 : (rand() - 0.5) * S * 0.7,
+    h: S * (0.55 + Math.min(4.6, sf) * 0.42) * (i === 0 ? 1 : 0.7 + rand() * 0.3),
+    lean: (rand() - 0.5) * 0.1,
+  })).sort((a, b) => a.h - b.h);
+  const culmCol = (dl: number) => hsl(look.accentHue, look.accentSat ?? 40, (look.accentLight ?? 42) + dl);
+  for (const c of culms) {
+    withTransform(ctx, c.x, 0, c.lean + (c.x / S) * 0.08, () => {
+      const w = S * 0.045;
+      const seg = S * 0.24;
+      const nodes = Math.max(2, Math.round(c.h / seg));
+      // The cane, shaded round, then its nodes.
+      const g = ctx.createLinearGradient(-w, 0, w, 0);
+      g.addColorStop(0, culmCol(-12));
+      g.addColorStop(0.4, culmCol(8));
+      g.addColorStop(1, culmCol(-8));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(-w, 0);
+      ctx.lineTo(-w * 0.75, -c.h);
+      ctx.lineTo(w * 0.75, -c.h);
+      ctx.lineTo(w, 0);
+      ctx.closePath();
+      ctx.fill();
+      for (let k = 1; k <= nodes; k++) {
+        const y = -(c.h * k) / nodes;
+        const ww = w * (1 - (k / nodes) * 0.25);
+        ctx.beginPath();
+        ctx.moveTo(-ww * 1.1, y);
+        ctx.lineTo(ww * 1.1, y);
+        ctx.strokeStyle = culmCol(-20);
+        ctx.lineWidth = Math.max(0.6, w * 0.32);
+        ctx.stroke();
+        if (glowing(look)) glowStroke(p, Math.max(0.6, w * 0.25));
+        ctx.strokeStyle = culmCol(16);
+        ctx.lineWidth = Math.max(0.4, w * 0.12);
+        ctx.beginPath();
+        ctx.moveTo(-ww, y + w * 0.3);
+        ctx.lineTo(ww, y + w * 0.3);
+        ctx.stroke();
+        // Twigs and leaf sprays from the upper nodes, alternating sides.
+        if (k / nodes < 0.4 && nodes > 3) continue;
+        const side = k % 2 ? 1 : -1;
+        const tx = side * S * (0.1 + rand() * 0.06);
+        const ty = y - S * 0.06;
+        stroke(ctx, culmCol(-6), Math.max(0.4, w * 0.25), () => {
+          ctx.moveTo(0, y);
+          ctx.lineTo(tx, ty);
+        });
+        withTransform(ctx, tx, ty, 0, () => bambooSpray(p, side, S * 0.2));
+      }
+      withTransform(ctx, 0, -c.h, 0, () => {
+        bambooSpray(p, 1, S * 0.18);
+        bambooSpray(p, -1, S * 0.18);
+      });
+    });
+  }
+}
+
 const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   fern: drawFern,
   splitleaf: drawSplitleaf,
@@ -2532,6 +2963,13 @@ const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   mushroom: drawMushroom,
   bracket: drawBracket,
   coral: drawCoral,
+  moss: drawMoss,
+  mat: drawMat,
+  trefoil: drawTrefoil,
+  runner: drawRunner,
+  climber: drawClimber,
+  clump: drawClump,
+  bamboo: drawBamboo,
 };
 
 /**
@@ -2571,6 +3009,13 @@ function extent(form: PlantForm, mode: PlantMode): { w: number; up: number; down
   if (form === 'mushroom') return { w: 1.5, up: 1.8, down: 0.5 };
   if (form === 'bracket') return { w: 1.5, up: 1.4, down: 0.4 };
   if (form === 'coral') return { w: 1.3, up: 1.4, down: 0.4 };
+  if (form === 'moss') return { w: 1.4, up: 0.7, down: 0.4 };
+  if (form === 'mat') return { w: 1.2, up: 0.6, down: 0.45 };
+  if (form === 'trefoil') return { w: 1.0, up: 0.8, down: 0.45 };
+  if (form === 'runner') return mode === 'ground' ? { w: 1.9, up: 0.8, down: 0.8 } : { w: 1.3, up: 0.6, down: mode === 'hanging' ? 2.8 : 2.2 };
+  if (form === 'climber') return mode === 'ground' ? { w: 1.9, up: 1.9, down: 0.6 } : { w: 1.6, up: 1.0, down: mode === 'hanging' ? 3.0 : 2.4 };
+  if (form === 'clump') return { w: 1.6, up: 1.3, down: 0.4 };
+  if (form === 'bamboo') return { w: 1.2, up: 3.1, down: 0.4 };
   return { w: 1.35, up: 1.6, down: 0.5 };
 }
 

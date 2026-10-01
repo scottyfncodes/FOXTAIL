@@ -239,7 +239,7 @@ export function pickUpFurniture(state: GameState, id: string): boolean {
 
 /** Vines and trailers climb a trellis; anything else just sits in its pot at the foot. */
 export function climbsTrellis(form: string): boolean {
-  return form === 'trailing' || form === 'beads';
+  return form === 'trailing' || form === 'beads' || form === 'climber';
 }
 
 /** Centres of every grow lamp, for growth. */
