@@ -1181,6 +1181,56 @@ export const PLANTS: Record<string, PlantDef> = {
     spread: 0.5,
   },
 
+  // ---------------------------------------------------------------- Water's edge
+  // The creek's own plants: pads that float out on the open water, and the
+  // cattails standing in the shallows and along the bank.
+
+  lilyPad: {
+    id: 'lilyPad',
+    name: 'Lily Pad',
+    latin: 'Nymphaea odorata',
+    form: 'lilypad',
+    rarity: 'common',
+    habitat: ['creek', 'dampForest'],
+    landscape: 'fern',
+    description: 'Round, notched pads lying flat on still water, each on a long stem down to the mud. A frog would sit on one.',
+    hint: 'Round leaves floating on the slow water.',
+    look: { hue: 112, sat: 45, light: 36, accentHue: 340, accentSat: 45, accentLight: 82, variegation: 'none', size: 0.95 },
+    variants: [
+      { id: 'green', name: 'Green', rarity: 'common', description: 'Glossy green pads, some with a pale bud between them.', look: {} },
+      { id: 'redFlare', name: 'Red Flare', rarity: 'uncommon', description: 'Pads of deep wine-red.', look: { hue: 350, sat: 45, light: 30 } },
+      { id: 'tiger', name: 'Tiger', rarity: 'rare', description: 'Green pads splashed with maroon, like a tiger lotus.', look: { variegation: 'splash', variegationColor: [350, 50, 30] } },
+      { id: 'giant', name: 'Giant', rarity: 'veryRare', description: 'Huge pads with upturned rims, like trays floating on the water.', look: { size: 1.35, ruffled: true, light: 40 } },
+      { id: 'moonpad', name: 'Moonpad', rarity: 'unheardOf', sportOnly: true, description: 'Silver pads whose veins shine across the water after dark.', look: { hue: 190, sat: 18, light: 62, variegation: 'glow', variegationColor: [185, 90, 74] } },
+    ],
+    growthRate: 1.15,
+    spread: 0.6,
+    water: 'only',
+  },
+
+  cattail: {
+    id: 'cattail',
+    name: 'Cattail',
+    latin: 'Typha latifolia',
+    form: 'cattail',
+    rarity: 'common',
+    habitat: ['creek', 'dampForest'],
+    landscape: 'jungle',
+    description: 'Tall blue-green blades in a dense stand, and above them the brown velvet "cat’s tails" on stiff stalks. It grows in the shallows as happily as on the bank.',
+    hint: 'Brown velvet tails standing up out of the reeds.',
+    look: { hue: 100, sat: 30, light: 38, accentHue: 25, accentSat: 45, accentLight: 28, variegation: 'none', size: 1.1 },
+    variants: [
+      { id: 'broadleaf', name: 'Broadleaf', rarity: 'common', description: 'Broad blades, fat brown tails.', look: {} },
+      { id: 'narrowleaf', name: 'Narrowleaf', rarity: 'uncommon', description: 'Slender blades and long, thin tails.', look: { leafWidth: 0.6, accentLight: 22 } },
+      { id: 'dwarf', name: 'Dwarf', rarity: 'rare', description: 'Knee-high, with little round tails like buttons.', look: { size: 0.65 } },
+      { id: 'variegated', name: 'Variegated', rarity: 'veryRare', description: 'Every blade edged in cream from base to tip.', look: { variegation: 'edge', variegationColor: [52, 60, 90] } },
+      { id: 'emberTail', name: 'Ember Tail', rarity: 'unheardOf', sportOnly: true, description: 'Its tails smoulder orange after dark, as if they had been lit.', look: { accentHue: 18, accentSat: 80, accentLight: 34, variegation: 'glow', variegationColor: [25, 100, 60] } },
+    ],
+    growthRate: 1.25,
+    spread: 0.7,
+    water: 'also',
+  },
+
   // ---------------------------------------------------------------- Fungi
   // Mushrooms come up wherever the ground stays damp and there's something
   // for them to live on: leaf litter, old wood, the roots of the trees.

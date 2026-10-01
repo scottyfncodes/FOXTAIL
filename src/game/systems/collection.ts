@@ -35,7 +35,7 @@ export function hasFound(state: GameState, defId: string, variantId?: string): b
 }
 
 /** Whether this species (or variant) has been successfully grown: what the journal counts as discovered. */
-export function hasGrown(state: GameState, defId: string, variantId?: string): boolean {
+export function hasGrown(state: Pick<GameState, 'collection'>, defId: string, variantId?: string): boolean {
   const grown = state.collection[defId]?.grownVariants ?? [];
   return variantId === undefined ? grown.length > 0 : grown.includes(variantId);
 }

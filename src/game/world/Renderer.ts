@@ -7,6 +7,7 @@ import { ZONES } from '../data/zones';
 import { GREENHOUSE_GRID_W, GREENHOUSE_GRID_H, GREENHOUSE_EXIT, NURSERY_BEDS, STORAGE_CRATES, type DisplaySlot } from '../data/stations';
 import { displaySlots, climbsTrellis } from '../systems/furniture';
 import { nextPondSize } from '../systems/decor';
+import { scottHasJoint } from '../systems/scott';
 import { koiInPond, pondKoiAt, pondSize, riverKoi } from '../systems/koi';
 import { drawKoi, drawMarketSign, drawSteppingStonePiece } from './GardenArt';
 import { POND_DEFAULT } from '../data/shop';
@@ -410,7 +411,7 @@ export class Renderer {
       drawables.push({ y: state.player.y, draw: () => this.drawKiss(camera, state, kiss, now) });
     } else {
       if (state.scott.zone !== 'greenhouse') {
-        drawables.push({ y: state.scott.y, draw: () => this.atScale(camera, state.scott.x, state.scott.y, CHARACTER_SCALE.scott, () => this.drawScott(camera, state.scott, now)) });
+        drawables.push({ y: state.scott.y, draw: () => this.atScale(camera, state.scott.x, state.scott.y, CHARACTER_SCALE.scott, () => this.drawScott(camera, state.scott, now, scottHasJoint(state))) });
       }
       if (state.truck && state.player.riding) {
         const t = state.truck;
@@ -943,6 +944,13 @@ export class Renderer {
     const s = camera.worldToScreen((spot.x + 0.5) * TILE_SIZE, (spot.y + 0.65) * TILE_SIZE);
     const rank = rarityRank(specimenRarity(content.defId, content.variantId));
     const unseen = !hasFound(state, content.defId, content.variantId);
+    // A water plant's patch is a little pool; anything else's is soft, disturbed earth.
+    if (PLANTS[content.defId]?.water === 'only') {
+      ctx.fillStyle = 'rgba(63,127,134,0.85)';
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y + tile * 0.02, tile * 0.42, tile * 0.18, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     // Soft disturbed-earth patch so it reads as "something's growing here".
     ctx.fillStyle = 'rgba(58,40,22,0.35)';
     ctx.beginPath();
@@ -2520,7 +2528,7 @@ export class Renderer {
    * drives on its own independent clock. Built like Ellen — legs, arms, a
    * tapered torso — just a head taller and in overalls.
    */
-  private drawScott(camera: Camera, scott: ScottState, now: number) {
+  private drawScott(camera: Camera, scott: ScottState, now: number, joint = false) {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
     const screen = camera.worldToScreen(scott.x * TILE_SIZE, scott.y * TILE_SIZE);
@@ -2961,7 +2969,48 @@ export class Renderer {
       drawArms(true);
       if (!(golfing && Math.abs(theta) > 1.6)) drawClub();
     }
+    // Out walking, once there's cannabis growing: a joint at his lips and a thread of smoke.
+    if (joint && moving) this.drawJoint(isBack ? null : { x: isSide ? cx + s * headR * 0.55 : cx, y: headY + headR * 0.62 }, isSide ? s : 1, isSide, { x: cx, y: headY }, headR, tile, now);
     drawBallFlight();
+  }
+
+  /** A joint held in the mouth (or, from behind, just its smoke), with the ember glowing and smoke drifting up. */
+  private drawJoint(mouth: { x: number; y: number } | null, s: number, side: boolean, head: { x: number; y: number }, headR: number, tile: number, now: number) {
+    const { ctx } = this;
+    let tip: { x: number; y: number };
+    if (mouth) {
+      const len = headR * (side ? 0.8 : 0.7);
+      const x0 = mouth.x + (side ? 0 : headR * 0.1);
+      tip = { x: x0 + s * len, y: mouth.y + headR * (side ? 0.12 : 0.2) };
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(28,20,12,0.5)';
+      ctx.lineWidth = headR * 0.17;
+      ctx.beginPath();
+      ctx.moveTo(x0, mouth.y);
+      ctx.lineTo(tip.x, tip.y);
+      ctx.stroke();
+      ctx.strokeStyle = '#f2eee4';
+      ctx.lineWidth = headR * 0.11;
+      ctx.stroke();
+      // The ember, brighter on each draw.
+      const glow = 0.6 + 0.4 * Math.sin(now * 0.004);
+      ctx.fillStyle = `rgba(255,${110 + Math.round(glow * 60)},40,${0.75 + glow * 0.25})`;
+      ctx.beginPath();
+      ctx.arc(tip.x, tip.y, headR * 0.09, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineCap = 'butt';
+    } else {
+      tip = { x: head.x + headR * 0.6, y: head.y + headR * 0.4 };
+    }
+    // A thin, lazy thread of smoke.
+    for (let k = 0; k < 3; k++) {
+      const ph = (now * 0.0005 + k / 3) % 1;
+      const r = headR * (0.12 + ph * 0.32);
+      ctx.fillStyle = `rgba(225,225,230,${(1 - ph) * 0.32})`;
+      ctx.beginPath();
+      ctx.arc(tip.x + Math.sin(ph * 6 + k) * tile * 0.035, tip.y - ph * tile * 0.38, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   private drawScottNapping(screen: { x: number; y: number }, tile: number, now: number) {
@@ -3380,7 +3429,7 @@ export class Renderer {
       const sy = state.scott.y + (seated ? -0.12 : onCouch ? -0.05 : 0);
       drawables.push({
         y: state.scott.y + (onCouch ? 0.6 : 0),
-        draw: () => this.atScale(camera, state.scott.x, sy, CHARACTER_SCALE.scott, () => this.drawScott(camera, seated || onCouch ? { ...state.scott, y: sy } : state.scott, now)),
+        draw: () => this.atScale(camera, state.scott.x, sy, CHARACTER_SCALE.scott, () => this.drawScott(camera, seated || onCouch ? { ...state.scott, y: sy } : state.scott, now, scottHasJoint(state))),
       });
     }
     // Up on something (the couch, the TV), the cat is drawn raised and in front of it;
