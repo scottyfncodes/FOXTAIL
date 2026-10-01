@@ -14,19 +14,17 @@ import { MusicManager } from './MusicManager';
 interface ZoneAudioProfile {
   windGain: number;
   windCutoff: number;
-  hum: number; // low drone gain (bees/insects/greenhouse warmth)
-  humFreq: number;
   sparkleRate: number; // chance per second of a soft high tick (birds/insects)
 }
 
 const PROFILES: Record<ZoneId, ZoneAudioProfile> = {
-  greenhouse: { windGain: 0.02, windCutoff: 400, hum: 0.05, humFreq: 70, sparkleRate: 0.04 },
-  meadow: { windGain: 0.09, windCutoff: 1400, hum: 0.03, humFreq: 220, sparkleRate: 0.25 },
-  woodland: { windGain: 0.07, windCutoff: 900, hum: 0.015, humFreq: 140, sparkleRate: 0.15 },
-  creek: { windGain: 0.05, windCutoff: 2200, hum: 0.06, humFreq: 180, sparkleRate: 0.08 },
-  dampForest: { windGain: 0.03, windCutoff: 500, hum: 0.02, humFreq: 90, sparkleRate: 0.05 },
-  rockyClearing: { windGain: 0.11, windCutoff: 1800, hum: 0.01, humFreq: 260, sparkleRate: 0.1 },
-  overgrownClearing: { windGain: 0.06, windCutoff: 1000, hum: 0.025, humFreq: 130, sparkleRate: 0.18 },
+  greenhouse: { windGain: 0.02, windCutoff: 400, sparkleRate: 0.04 },
+  meadow: { windGain: 0.09, windCutoff: 1400, sparkleRate: 0.25 },
+  woodland: { windGain: 0.07, windCutoff: 900, sparkleRate: 0.15 },
+  creek: { windGain: 0.05, windCutoff: 2200, sparkleRate: 0.08 },
+  dampForest: { windGain: 0.03, windCutoff: 500, sparkleRate: 0.05 },
+  rockyClearing: { windGain: 0.11, windCutoff: 1800, sparkleRate: 0.1 },
+  overgrownClearing: { windGain: 0.06, windCutoff: 1000, sparkleRate: 0.18 },
 };
 
 /**
@@ -41,8 +39,6 @@ export class AudioManager {
   private windGain: GainNode | null = null;
   private windFilter: BiquadFilterNode | null = null;
   private rainGain: GainNode | null = null;
-  private humOsc: OscillatorNode | null = null;
-  private humGain: GainNode | null = null;
   private currentZone: ZoneId = 'meadow';
   private sparkleTimer = 0;
   private enabled = true;
@@ -112,14 +108,8 @@ export class AudioManager {
     rainSrc.connect(rainFilter).connect(this.rainGain).connect(this.master);
     rainSrc.start();
 
-    // Hum drone
-    this.humOsc = this.ctx.createOscillator();
-    this.humOsc.type = 'sine';
-    this.humOsc.frequency.value = 200;
-    this.humGain = this.ctx.createGain();
-    this.humGain.gain.value = 0;
-    this.humOsc.connect(this.humGain).connect(this.master);
-    this.humOsc.start();
+    // No steady drone: a pure low tone that never stops reads as machinery
+    // (a fridge, a server room), not bees or warm glass.
   }
 
   private makeNoiseBuffer(seconds: number): AudioBuffer {
@@ -136,14 +126,12 @@ export class AudioManager {
   }
 
   setZone(zone: ZoneId, isRaining: boolean, dt: number) {
-    if (!this.ctx || !this.windGain || !this.windFilter || !this.humGain || !this.humOsc || !this.rainGain) return;
+    if (!this.ctx || !this.windGain || !this.windFilter || !this.rainGain) return;
     this.currentZone = zone;
     const p = PROFILES[zone];
     const t = this.ctx.currentTime;
     this.windGain.gain.setTargetAtTime(this.enabled ? p.windGain * WIND_LEVEL : 0, t, 1.2);
     this.windFilter.frequency.setTargetAtTime(p.windCutoff, t, 1.2);
-    this.humGain.gain.setTargetAtTime(this.enabled ? p.hum : 0, t, 1.5);
-    this.humOsc.frequency.setTargetAtTime(p.humFreq, t, 1.5);
     this.rainGain.gain.setTargetAtTime(this.enabled && isRaining ? 0.06 : 0, t, 2);
 
     this.sparkleTimer -= dt;
