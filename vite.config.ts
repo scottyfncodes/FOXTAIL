@@ -25,6 +25,20 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        // Soundtrack recordings aren't precached (no giant download on first
+        // visit); each is cached the first time it plays, so it works offline after.
+        runtimeCaching: [
+          {
+            urlPattern: /\/music\/[^/]+\.(?:m4a|mp3|ogg|webm)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'foxtail-music',
+              rangeRequests: true,
+              cacheableResponse: { statuses: [200] },
+              expiration: { maxEntries: 16 },
+            },
+          },
+        ],
       },
     }),
   ],

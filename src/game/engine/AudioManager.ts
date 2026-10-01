@@ -1,10 +1,15 @@
 import type { ZoneId } from '../types';
+import type { MusicSituation } from '../audio/musicContext';
+import { MusicManager } from './MusicManager';
 
 // A small procedural ambience + cue engine using WebAudio noise/oscillators.
 // No external audio assets: each environment gets a distinct filtered-noise
 // "bed" plus sparse tonal cues, and discoveries get a single soft chime
-// rather than an arcade jingle. Music stays out of the way entirely —
-// silence and ambience carry the mood, per the design brief.
+// rather than an arcade jingle.
+//
+// Music has its own bus and its own manager (MusicManager), sharing this
+// audio context but mixed separately, so the soundtrack can be turned down
+// or off without touching the ambience and sound effects.
 
 interface ZoneAudioProfile {
   windGain: number;
@@ -35,15 +40,45 @@ export class AudioManager {
   private currentZone: ZoneId = 'meadow';
   private sparkleTimer = 0;
   private enabled = true;
+  readonly music = new MusicManager();
 
+  /**
+   * Starts audio, or wakes it again. Safe to call on every tap: browsers
+   * (iOS above all) only allow sound to start from a user gesture, and iOS
+   * suspends — "interrupts" — the context when the app goes to the
+   * background or a call comes in, so each tap is a chance to resume.
+   */
   init() {
-    if (this.ctx) return;
+    if (this.ctx) {
+      if (this.ctx.state !== 'running' && !document.hidden) this.ctx.resume().catch(() => {});
+      this.music.unlock();
+      return;
+    }
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
-    this.ctx = new Ctx();
+    try {
+      this.ctx = new Ctx();
+    } catch {
+      return;
+    }
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
     this.master = this.ctx.createGain();
     this.master.gain.value = 0.5;
     this.master.connect(this.ctx.destination);
+    this.music.attach(this.ctx, this.ctx.destination);
+    this.music.unlock();
+    document.addEventListener('visibilitychange', () => {
+      if (!this.ctx) return;
+      // In the background nothing should play or burn battery; coming back,
+      // everything picks up where it was.
+      if (document.hidden) {
+        this.music.pause();
+        this.ctx.suspend().catch(() => {});
+      } else {
+        this.ctx.resume().catch(() => {});
+        this.music.resume();
+      }
+    });
 
     const noiseBuffer = this.makeNoiseBuffer(2);
 
@@ -159,6 +194,11 @@ export class AudioManager {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
     osc.start(t);
     osc.stop(t + 0.55);
+  }
+
+  /** Lets the music follow where Ellen is and what time it is. */
+  updateMusic(situation: MusicSituation, dtSeconds: number) {
+    this.music.update(situation, dtSeconds);
   }
 
   setEnabled(v: boolean) {
