@@ -51,7 +51,7 @@ describe('how lively a bed is', () => {
     bedded(state, 'p5', 'venusFlytrap');
     const five = bedLiveliness(state, 'b');
     expect(five.word).toBe('Humming');
-    expect(five.missing).toEqual(['broadleaf', 'fungus']);
+    expect(five.missing).toEqual(['broadleaf', 'fungus', 'groundcover']);
   });
 
   it('three of the same kind is not lively, however many there are', () => {

@@ -53,7 +53,14 @@ export type PlantForm =
   | 'cane' // a bare stem or trunk topped with a tuft of ribbon leaves (dragon tree, ponytail palm)
   | 'mushroom' // a little cluster of capped fruiting bodies on stems (fly agaric, chanterelle, morel)
   | 'bracket' // shelves stacked up a mossy stump (oyster mushroom, turkey tail)
-  | 'coral'; // branching fingers, or a shaggy mass of hanging spines (coral fungus, lion's mane)
+  | 'coral' // branching fingers, or a shaggy mass of hanging spines (coral fungus, lion's mane)
+  | 'moss' // low, springy cushions hugging the ground (moss)
+  | 'mat' // a dense, flat mat of tiny leaves on wiry stems (creeping thyme)
+  | 'trefoil' // a low carpet of three-leaflet leaves on short stalks (clover)
+  | 'runner' // flat stems strung with paired round leaves, running over the ground or spilling down (creeping jenny)
+  | 'climber' // a scrambling vine of five-leaflet hands that climbs a trellis (virginia creeper)
+  | 'clump' // a wide mound of broad, ribbed leaves on short stalks (hosta)
+  | 'bamboo'; // tall jointed canes with sprays of narrow leaves at the nodes (bamboo)
 
 /** How a mushroom's cap is shaped. */
 export type CapShape = 'dome' | 'flat' | 'funnel' | 'shaggy' | 'honeycomb' | 'nodding';
@@ -110,6 +117,10 @@ export interface PlantLook {
   zoned?: boolean;
   /** Coral form: a rounded mass hung with soft spines instead of branching fingers (lion's mane). */
   icicles?: boolean;
+  /** Moss: upright stems each tipped with a little star of leaves (haircap). */
+  tufts?: boolean;
+  /** Clover: four leaflets to a stalk instead of three. */
+  fourLeaf?: boolean;
 }
 
 export interface VariantDef {

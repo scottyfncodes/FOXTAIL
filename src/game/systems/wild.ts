@@ -1,6 +1,6 @@
 import type { GameState, OwnedPlant } from '../state';
 import { makeUid } from '../state';
-import type { LandscapeCharacter, OutdoorZoneId } from '../types';
+import type { LandscapeCharacter, OutdoorZoneId, PlantForm } from '../types';
 import { PLANTS, lookFor } from '../data/plants';
 import { GRID_W, GRID_H, zoneAt, isWater } from '../data/worldMap';
 import { stageFloat, stageIndexOf, tickGrowth, type StageUp } from './growth';
@@ -48,6 +48,8 @@ const CROSS_RADIUS = 3;
 export const SELF_SOW_CHANCE = 0.02;
 /** No new self-sown seedlings while this many cannabis plants already grow wild. */
 export const SELF_SOW_MAX = 5;
+/** Forms that run along the ground (or climb over it), so their seedlings come up a little further out. */
+const RUNNING_FORMS: PlantForm[] = ['trailing', 'beads', 'runner', 'climber', 'mat', 'moss', 'trefoil'];
 const MIN_SPACING = 0.85;
 const CROWD_RADIUS = 2;
 const CROWD_LIMIT = 7;
@@ -132,7 +134,7 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
     const bed = bedId ? state.gardenBeds.find((b) => b.id === bedId) : undefined;
     const tier = bed ? bedTier.get(bed.id) ?? 0 : 0;
     const diverse = !!bed && tier >= LIVELY_TIER;
-    const reach = (def.form === 'trailing' || def.form === 'beads' ? 1.35 : 1) * (bed ? 0.8 : 1);
+    const reach = (RUNNING_FORMS.includes(def.form) ? 1.35 : 1) * (bed ? 0.8 : 1);
     for (let attempt = 0; attempt < (bed ? 6 : 4); attempt++) {
       const a = rand() * Math.PI * 2;
       const d = (1.1 + rand() * 1.7) * reach;
