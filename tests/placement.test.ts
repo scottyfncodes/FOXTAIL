@@ -120,7 +120,7 @@ describe('free placement indoors', () => {
   it('sells new kinds of furniture: nursery beds that root cuttings, tables, planters, lamps', () => {
     const state = createNewGame();
     state.coins = 10_000;
-    for (const id of ['nurseryBed', 'pottingTable', 'floorPlanter', 'growLamp', 'wateringCan', 'houseRug']) expect(buyItem(state, id)).toBe(true);
+    for (const id of ['doubleNurseryBed', 'pottingTable', 'floorPlanter', 'growLamp', 'wateringCan', 'houseRug']) expect(buyItem(state, id)).toBe(true);
     const tray = placeFurniture(state, 'nurseryBed', 12, 9)!;
     expect(nurserySpots(state).some((n) => n.id === tray.id)).toBe(true);
     const planter = placeFurniture(state, 'floorPlanter', 14, 9)!;

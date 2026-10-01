@@ -87,11 +87,12 @@ describe('the economy: spending', () => {
     const state = createNewGame();
     expect(state.coins).toBe(20);
     expect(itemPrice(state, 'plantStand')).toBeLessThanOrEqual(45);
-    expect(itemPrice(state, 'nurseryBed')).toBe(45);
-    buyItem({ ...state, coins: 1e6 } as GameState, 'nurseryBed');
+    // Beds come in pairs now, at the old single bed's price per bed.
+    expect(itemPrice(state, 'doubleNurseryBed')).toBe(113);
+    buyItem({ ...state, coins: 1e6 } as GameState, 'doubleNurseryBed');
     const second = createNewGame();
     second.purchases.nurseryBed = 1;
-    expect(itemPrice(second, 'nurseryBed')).toBeLessThanOrEqual(70);
+    expect(itemPrice(second, 'doubleNurseryBed') / 2).toBeLessThanOrEqual(90);
     expect(bedCost(state, 3, 3)).toBeLessThan(160);
     expect(SHOP_ITEMS.filter((i) => i.price <= 100).length).toBeGreaterThanOrEqual(12);
   });
@@ -100,10 +101,11 @@ describe('the economy: spending', () => {
     const state = createNewGame();
     state.coins = 1e9;
     let total = 0;
-    for (let i = 0; i < 12; i++) {
-      total += itemPrice(state, 'nurseryBed');
-      buyItem(state, 'nurseryBed');
+    for (let i = 0; i < 6; i++) {
+      total += itemPrice(state, 'doubleNurseryBed');
+      buyItem(state, 'doubleNurseryBed');
     }
+    expect(state.furnitureStock.nurseryBed).toBe(12);
     expect(total).toBeGreaterThan(SHOP_ITEMS.find((i) => i.id === 'orangery')!.price);
     expect(total).toBeLessThan(15000);
   });
@@ -151,7 +153,7 @@ describe('the economy: spending', () => {
     const state = createNewGame();
     state.coins = 100_000;
     for (const item of SHOP_ITEMS) buyItem(state, item.id);
-    for (let i = 0; i < 5; i++) buyItem(state, 'nurseryBed');
+    for (let i = 0; i < 5; i++) buyItem(state, 'doubleNurseryBed');
     const loaded = migrateSave(JSON.parse(JSON.stringify(state)))!;
     expect(loaded.owned).toEqual(state.owned);
     expect(loaded.purchases).toEqual(state.purchases);

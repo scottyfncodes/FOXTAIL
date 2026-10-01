@@ -10,6 +10,7 @@ import { journalComplete, variantAllowed } from './lineage';
 import { SpatialGrid } from './spatial';
 import { bedContains, onPath } from './landscape';
 import { bedLiveliness, LIVELY_TIER } from './beds';
+import { inPond } from './koi';
 
 // Plants the player puts outdoors aren't decorations: once they're large
 // they start seeding, creeping and throwing out runners into the ground
@@ -147,6 +148,7 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
       if (zone === 'greenhouse' || isWater(tx, ty) || !isOpenGround(tx, ty)) continue;
       if (bed ? !bedContains(bed, x, y, 0.2) : state.gardenBeds.some((b) => bedContains(b, x, y, -0.2))) continue;
       if (state.paths.length && onPath(state, x, y, now, true)) continue;
+      if (inPond(state, x, y)) continue;
       if ((perZone[zone] ?? 0) >= WILD_ZONE_CAP) continue;
       if ((perSpecies[`${zone}:${parent.defId}`] ?? 0) >= WILD_SPECIES_ZONE_CAP) continue;
       const near = tooClose(grid, x, y);

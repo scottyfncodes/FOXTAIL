@@ -16,7 +16,7 @@ const BASE_SPORT_CHANCE = 0.06;
  * Chance a cutting fails to strike, by what it's taken from. The rarer
  * the plant, the harder it is to root; the rooting kit halves the odds.
  */
-export const CUTTING_FAIL: Record<Rarity, number> = { common: 0.05, uncommon: 0.12, rare: 0.22, veryRare: 0.32, extremelyRare: 0.42, unheardOf: 0.5, mythic: 0.5 };
+export const CUTTING_FAIL: Record<Rarity, number> = { common: 0.07, uncommon: 0.14, rare: 0.25, veryRare: 0.35, extremelyRare: 0.45, unheardOf: 0.53, mythic: 0.53 };
 
 export function cuttingCooldown(state: GameState): number {
   return state.owned.includes('rootingKit') ? CUTTING_COOLDOWN / 2 : CUTTING_COOLDOWN;

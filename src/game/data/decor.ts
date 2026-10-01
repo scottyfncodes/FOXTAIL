@@ -16,9 +16,23 @@ export interface DecorDef {
   rotatable?: boolean;
 }
 
+/**
+ * The flagstones down from the front door are the pattern every stepping
+ * stone is cut to: the same size, the same spacing, the same zigzag.
+ * Offsets are in tiles; `stagger` alternates stone by stone across the run.
+ */
+export const FLAGSTONE = { rx: 0.26, ry: 0.15, spacing: 0.62, stagger: [-0.1, 0.12] as const, colors: ['#b3ab96', '#a39c8a'] as const };
+/** Stones in each shop piece: even, so one piece's zigzag picks up exactly where the last left off. */
+export const STONES_PER_PIECE = 2;
+/** The ground one piece of stepping stones covers, along the run and across it. */
+export const STONE_PIECE = {
+  w: FLAGSTONE.spacing * (STONES_PER_PIECE - 1) + FLAGSTONE.rx * 2,
+  h: FLAGSTONE.ry * 2 + (FLAGSTONE.stagger[1] - FLAGSTONE.stagger[0]),
+};
+
 export const DECOR_DEFS: Record<DecorId, DecorDef> = {
   raisedBed: { id: 'raisedBed', w: RAISED_BED.w, h: RAISED_BED.h, anchor: 'centre', rotatable: true },
-  steppingStones: { id: 'steppingStones', w: 0.8, h: 0.45, anchor: 'base', rotatable: true },
+  steppingStones: { id: 'steppingStones', w: STONE_PIECE.w, h: STONE_PIECE.h, anchor: 'base', rotatable: true },
   picketFence: { id: 'picketFence', w: 1.0, h: 0.35, anchor: 'base', rotatable: true },
   gardenLantern: { id: 'gardenLantern', w: 0.4, h: 0.4, anchor: 'base' },
   birdbath: { id: 'birdbath', w: 0.6, h: 0.45, anchor: 'base' },
