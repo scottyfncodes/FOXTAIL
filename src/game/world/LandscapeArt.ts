@@ -5,6 +5,8 @@ import { TILE_SIZE, HOUSE_FOOTPRINT, HOUSE_DOOR, zoneAt } from '../data/worldMap
 import { isNight } from '../engine/Clock';
 import { encroachment, pathPairs, bedCost, matureRadius, currentRadius, type PathPreview, type PlantingCheck } from '../systems/landscape';
 import { findCuriosity } from '../data/curiosities';
+import { FLAGSTONE } from '../data/decor';
+import { drawFlagstone } from './GardenArt';
 
 // Drawing for the shaped landscape: the house, garden beds, carved paths,
 // the previews shown while the player is making them, and the fox and
@@ -143,12 +145,10 @@ export function drawHouseExterior(ctx: Ctx, camera: Camera, gameMinutes: number)
   ctx.fillStyle = night ? '#ffe2a0' : '#c9b89a';
   ctx.fillRect(door.x + tile * 0.44, door.y - tile * 1.3, tile * 0.12, tile * 0.14);
   // Flagstones down from the step.
+  // These are the pattern the shop's stepping stones are cut to (data/decor.ts FLAGSTONE).
   for (let i = 0; i < 3; i++) {
-    const s = camera.worldToScreen((HOUSE_DOOR.x + 0.5 + (i % 2 ? 0.12 : -0.1)) * TILE_SIZE, (HOUSE_DOOR.y + 0.55 + i * 0.62) * TILE_SIZE);
-    ctx.fillStyle = i % 2 ? '#a39c8a' : '#b3ab96';
-    ctx.beginPath();
-    ctx.ellipse(s.x, s.y, tile * 0.26, tile * 0.15, 0.1 * i, 0, Math.PI * 2);
-    ctx.fill();
+    const s = camera.worldToScreen((HOUSE_DOOR.x + 0.5 + FLAGSTONE.stagger[i % 2]) * TILE_SIZE, (HOUSE_DOOR.y + 0.55 + i * FLAGSTONE.spacing) * TILE_SIZE);
+    drawFlagstone(ctx, s.x, s.y, tile, i);
   }
 }
 

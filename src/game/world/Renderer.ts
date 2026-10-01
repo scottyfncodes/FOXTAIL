@@ -6,6 +6,10 @@ import { TILE_SIZE, GRID_W, GREENHOUSE_FOOTPRINT, zoneAt, isWater, type Rect } f
 import { ZONES } from '../data/zones';
 import { GREENHOUSE_GRID_W, GREENHOUSE_GRID_H, GREENHOUSE_EXIT, NURSERY_BEDS, STORAGE_CRATES, type DisplaySlot } from '../data/stations';
 import { displaySlots, climbsTrellis } from '../systems/furniture';
+import { nextPondSize } from '../systems/decor';
+import { koiInPond, pondKoiAt, pondSize, riverKoi } from '../systems/koi';
+import { drawKoi, drawMarketSign, drawSteppingStonePiece } from './GardenArt';
+import { POND_DEFAULT } from '../data/shop';
 import { occupantOf, isRarerThanStandard } from '../systems/propagation';
 import { STALL_ID, stallRect, yardFootprint, type YardPiece } from '../systems/yard';
 import { PLANTS, lookFor, specimenRarity, rarityRank } from '../data/plants';
@@ -291,6 +295,13 @@ export class Renderer {
 
     this.drawGround(camera, bounds, now, lush);
     const gm = state.clock.totalMinutes;
+    // The creek's koi, under the surface: dimmer after dark.
+    const koiAlpha = isNight(gm) ? 0.35 : 0.8;
+    for (const k of riverKoi(now)) {
+      if (!inView(k.x, k.y, 1)) continue;
+      const p = camera.worldToScreen(k.x * TILE_SIZE, k.y * TILE_SIZE);
+      drawKoi(this.ctx, p.x, p.y, k.heading, TILE_SIZE * camera.zoom * 0.5, k.variety, k.seed, now, koiAlpha);
+    }
     // Ground the player has worked: beds first, paths over them.
     for (const bed of state.gardenBeds) {
       if (!inView(bed.x, bed.y, bed.w + bed.h + 2)) continue;
@@ -328,7 +339,7 @@ export class Renderer {
     // While arranging outdoors, a piece being dragged is drawn where the finger has it.
     const yard = extras.tools.kind === 'yard' ? extras.tools : null;
     const decor: PlacedDecor[] = state.decor.map((d) => (yard?.drag?.id === d.id ? { ...d, x: yard.drag.x, y: yard.drag.y } : d));
-    if (yard?.pending) decor.push({ id: '__pending', decorId: yard.pending.decorId, x: yard.pending.x, y: yard.pending.y, rot: yard.pending.rot });
+    if (yard?.pending) decor.push({ id: '__pending', decorId: yard.pending.decorId, x: yard.pending.x, y: yard.pending.y, rot: yard.pending.rot, ...(yard.pending.decorId === 'gardenPond' ? nextPondSize(state) : {}) });
     const stall = yard?.drag?.id === STALL_ID ? { ...stallRect(state), x: yard.drag.x, y: yard.drag.y } : stallRect(state);
     for (const d of decor) {
       if (!inView(d.x, d.y)) continue;
@@ -433,7 +444,7 @@ export class Renderer {
       if (tools.points.length >= 2) drawPathPreview(this.ctx, camera, tools.points, tools.preview, PATH_WIDTH);
     }
     if (yard) {
-      const pieces: YardPiece[] = [{ id: STALL_ID, kind: 'stall', x: stall.x, y: stall.y }, ...decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y, rot: d.rot ?? 0 }))];
+      const pieces: YardPiece[] = [{ id: STALL_ID, kind: 'stall', x: stall.x, y: stall.y }, ...decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y, rot: d.rot ?? 0, size: d.w && d.h ? { w: d.w, h: d.h } : undefined }))];
       this.drawYardOverlay(camera, yard, pieces);
     }
     const nowMs = performance.now();
@@ -1086,6 +1097,8 @@ export class Renderer {
       ctx.arc(x0 + ww / 2, top + tile * 0.02, ww / 2, 0, Math.PI);
       ctx.fill();
     }
+    // The sign across the top of the canopy.
+    drawMarketSign(ctx, tl.x + w / 2, top - tile * 0.3, w + tile * 0.1, tile);
     // table
     const tableTop = tl.y + tile * 0.36;
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
@@ -1137,13 +1150,8 @@ export class Renderer {
         break;
       }
       case 'steppingStones':
-        for (let i = 0; i < 3; i++) {
-          ctx.fillStyle = lerpColor('#9a9484', '#b8b09c', hash2(d.x * 3 + i, d.y));
-          ctx.beginPath();
-          if (turned) ctx.ellipse(s.x + (i % 2) * tile * 0.12 - tile * 0.06, s.y + (i - 1) * tile * 0.22, tile * 0.13, tile * 0.08, 0.2 * i - 0.3, 0, Math.PI * 2);
-          else ctx.ellipse(s.x + (i - 1) * tile * 0.26, s.y + (i % 2) * tile * 0.12 - tile * 0.05, tile * 0.13, tile * 0.08, 0.2 * i, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        // Cut to the flagstones by the front door: same stones, same spacing.
+        drawSteppingStonePiece(ctx, s.x, s.y, tile, turned);
         break;
       case 'picketFence': {
         ctx.fillStyle = '#efe9da';
@@ -1282,16 +1290,19 @@ export class Renderer {
         break;
       }
       case 'gardenPond': {
-        // Stone rim, still water with a slow shimmer, lily pads and the odd dragonfly.
-        const rx = tile * (turned ? 0.6 : 0.95);
-        const ry = tile * (turned ? 0.95 : 0.6);
+        // Stone rim, still water with a slow shimmer, koi, lily pads and the odd dragonfly — as big as it was dug.
+        const size = pondSize(d);
+        const rx = tile * (size.w / 2 - 0.15);
+        const ry = tile * (size.h / 2 - 0.15);
+        const scale = (size.w * size.h) / (POND_DEFAULT.w * POND_DEFAULT.h);
         ctx.fillStyle = '#8f8a7a';
         ctx.beginPath();
         ctx.ellipse(s.x, s.y, rx + tile * 0.12, ry + tile * 0.1, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#a8a292';
-        for (let i = 0; i < 14; i++) {
-          const a = (i / 14) * Math.PI * 2;
+        const rim = Math.max(10, Math.round(14 * Math.sqrt(scale)));
+        for (let i = 0; i < rim; i++) {
+          const a = (i / rim) * Math.PI * 2;
           ctx.beginPath();
           ctx.ellipse(s.x + Math.cos(a) * (rx + tile * 0.06), s.y + Math.sin(a) * (ry + tile * 0.05), tile * 0.1, tile * 0.065, a, 0, Math.PI * 2);
           ctx.fill();
@@ -1301,18 +1312,34 @@ export class Renderer {
         ctx.beginPath();
         ctx.ellipse(s.x, s.y, rx, ry, 0, 0, Math.PI * 2);
         ctx.fill();
+        // Koi, under the surface: clipped to the water, a little faded by it.
+        const fish = koiInPond(state, d);
+        if (fish.length) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(s.x, s.y, rx, ry, 0, 0, Math.PI * 2);
+          ctx.clip();
+          fish.forEach((k, i) => {
+            const at = pondKoiAt(d, i, now);
+            const p = camera.worldToScreen(at.x * TILE_SIZE, at.y * TILE_SIZE);
+            drawKoi(ctx, p.x, p.y, at.heading, tile * 0.42, k.variety, k.seed, now, night ? 0.45 : 0.85);
+          });
+          ctx.restore();
+        }
         ctx.strokeStyle = 'rgba(255,255,255,0.22)';
         ctx.lineWidth = Math.max(1, tile * 0.02);
         for (let i = 0; i < 3; i++) {
           const t = ((now * 0.0004 + i * 0.33 + d.y * 0.1) % 1);
           ctx.beginPath();
-          ctx.ellipse(s.x + (i - 1) * tile * 0.3, s.y + (i % 2 ? -1 : 1) * tile * 0.12, rx * 0.25 * t, ry * 0.25 * t, 0, 0, Math.PI * 2);
+          ctx.ellipse(s.x + (i - 1) * rx * 0.32, s.y + (i % 2 ? -1 : 1) * ry * 0.2, rx * 0.25 * t, ry * 0.25 * t, 0, 0, Math.PI * 2);
           ctx.stroke();
         }
         ctx.fillStyle = '#3f8a4c';
-        for (let i = 0; i < 5; i++) {
-          const px = s.x + Math.cos(i * 2.1 + d.x) * rx * 0.55;
-          const py = s.y + Math.sin(i * 2.1 + d.x) * ry * 0.55;
+        const pads = Math.max(3, Math.min(14, Math.round(5 * scale)));
+        for (let i = 0; i < pads; i++) {
+          const k = 0.35 + 0.3 * ((i * 0.618) % 1);
+          const px = s.x + Math.cos(i * 2.1 + d.x) * rx * (0.55 + (k - 0.5) * 0.4);
+          const py = s.y + Math.sin(i * 2.1 + d.x) * ry * (0.55 + (k - 0.5) * 0.4);
           ctx.beginPath();
           ctx.ellipse(px, py, tile * 0.12, tile * 0.085, 0, 0.3, Math.PI * 2 - 0.3);
           ctx.lineTo(px, py);
@@ -3431,7 +3458,7 @@ export class Renderer {
     const tile = TILE_SIZE * camera.zoom;
     const now = performance.now();
     for (const p of pieces) {
-      const fp = yardFootprint(p.kind, p.x, p.y, p.rot ?? 0);
+      const fp = yardFootprint(p.kind, p.x, p.y, p.rot ?? 0, p.size);
       const a = camera.worldToScreen(fp.x * TILE_SIZE, fp.y * TILE_SIZE);
       const isPending = p.id === '__pending';
       const dragging = m.drag?.id === p.id;

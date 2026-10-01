@@ -24,7 +24,9 @@ describe('market Buy tab', () => {
     const subheads = Array.from(body.querySelectorAll('.shop-subhead')).map((h) => h.textContent);
     expect(subheads).toEqual(['🌱Production', '🏡Space', '🪴Display']);
     const production = Array.from(body.querySelectorAll('.shop-row.purpose-production .entry-name')).map((n) => n.textContent);
-    expect(production).toEqual(expect.arrayContaining(['Extra Nursery Beds', 'Nursery Bed', 'Grow Lights', 'Grow Lamp']));
+    expect(production).toEqual(expect.arrayContaining(['Double Nursery Bed', 'Grow Lights', 'Grow Lamp']));
+    expect(production).not.toContain('Nursery Bed');
+    expect(production).not.toContain('Extra Nursery Beds');
     for (const row of Array.from(body.querySelectorAll('.shop-row[class*="purpose-"]'))) {
       const badge = row.querySelector('.purpose-badge')!;
       // Not colour alone: every badge has an icon and an accessible label.
@@ -40,10 +42,10 @@ describe('market Buy tab', () => {
     const { state, market, body } = setup();
     state.coins = 10_000;
     market.refresh();
-    const bedRow = () => Array.from(body.querySelectorAll('.shop-row')).find((r) => r.querySelector('.entry-name')!.textContent!.startsWith('Nursery Bed'))!;
-    expect(bedRow().querySelector('button')!.textContent).toBe('45 coins');
+    const bedRow = () => Array.from(body.querySelectorAll('.shop-row')).find((r) => r.querySelector('.entry-name')!.textContent!.startsWith('Double Nursery Bed'))!;
+    expect(bedRow().querySelector('button')!.textContent).toBe('113 coins');
     (bedRow().querySelector('button') as HTMLButtonElement).click();
-    expect(bedRow().querySelector('button')!.textContent).toBe('68 coins');
+    expect(bedRow().querySelector('button')!.textContent).toBe('253 coins');
     const shelf = Array.from(body.querySelectorAll('.shop-row')).find((r) => r.querySelector('.entry-name')!.textContent === 'Wall Shelf')!;
     (shelf.querySelector('button') as HTMLButtonElement).click();
     const shelfAfter = Array.from(body.querySelectorAll('.shop-row')).find((r) => r.querySelector('.entry-name')!.textContent!.startsWith('Wall Shelf'))!;

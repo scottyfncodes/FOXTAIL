@@ -23,7 +23,7 @@ describe('market organisation', () => {
   });
 
   it('classes growing capacity as production', () => {
-    for (const id of ['nurseryBeds', 'moreNurseryBeds', 'nurseryBed', 'growLights', 'growLamp']) expect(findShopItem(id)!.purpose, id).toBe('production');
+    for (const id of ['doubleNurseryBed', 'growLights', 'growLamp']) expect(findShopItem(id)!.purpose, id).toBe('production');
   });
 
   it('classes stands, shelves, hooks and decor as display, and the sun room as space', () => {
@@ -46,10 +46,11 @@ describe('market organisation', () => {
 describe('prices and formulas are unchanged', () => {
   it('keeps every fixed shop price', () => {
     const expected: Record<string, number> = {
-      hangingHooks: 90, plantShelf: 120, nurseryBeds: 160, moreNurseryBeds: 280, tieredStand: 240, growLights: 360, plantStand: 45, ironPedestal: 80, ceilingHook: 40,
+      hangingHooks: 90, plantShelf: 120, tieredStand: 240, growLights: 360, plantStand: 45, ironPedestal: 80, ceilingHook: 40,
       wallTrellis: 95, pottingTable: 85, floorPlanter: 110, growLamp: 150, wateringCan: 15, houseRug: 40, sunRoom: 700, pottingAnnex: 3500, orangery: 6000, roofLights: 9000,
       potGlazed: 25, potSpeckled: 35, potBasket: 40, potCopper: 70, potPorcelain: 140, potGilded: 900, potMidnight: 2400, weathervane: 1200, pergola: 1800, gardenPond: 3000,
       raisedBed: 90, steppingStones: 6, picketFence: 12, gardenLantern: 30, birdbath: 45, gardenBench: 60, gardenTrellis: 55,
+      koi: 120,
       basketMedium: 80, basketLarge: 340, rootingKit: 260, miniTruck: 2800, stallAwning: 120, stallCrates: 260,
     };
     const state = createNewGame();
@@ -74,27 +75,39 @@ describe('prices and formulas are unchanged', () => {
 });
 
 describe('nursery beds', () => {
-  it('can be bought without limit, each costing half again what the last did', () => {
+  it('are sold only in pairs: one unlimited double bed, no single bed and no one-off two-bed upgrades', () => {
+    const beds = SHOP_ITEMS.filter((s) => (s.stock ?? s.id).toLowerCase().includes('nurserybed'));
+    expect(beds.map((b) => b.id)).toEqual(['doubleNurseryBed']);
+    expect(findShopItem('nurseryBed')).toBeUndefined();
+    expect(findShopItem('nurseryBeds')).toBeUndefined();
+    expect(findShopItem('moreNurseryBeds')).toBeUndefined();
+    expect(findShopItem('doubleNurseryBed')!.repeatable).toBe(true);
+  });
+
+  it('can be bought without limit, two planting spaces at a time, each pair costing what two single beds did', () => {
     const state = createNewGame();
     state.coins = 100_000;
     const prices: number[] = [];
-    for (let i = 0; i < 6; i++) {
-      prices.push(itemPrice(state, 'nurseryBed'));
-      expect(buyItem(state, 'nurseryBed')).toBe(true);
+    for (let i = 0; i < 3; i++) {
+      prices.push(itemPrice(state, 'doubleNurseryBed'));
+      expect(buyItem(state, 'doubleNurseryBed')).toBe(true);
     }
-    expect(prices).toEqual([45, 68, 101, 152, 228, 342]);
+    // The old singles were 45, 68, 101, 152, 228, 342: each pair is two of them in turn.
+    expect(prices).toEqual([113, 253, 570]);
     expect(state.furnitureStock.nurseryBed).toBe(6);
-    expect(buyBlockReason(state, 'nurseryBed')).toBeNull();
+    expect(state.purchases.nurseryBed).toBe(6);
+    expect(buyBlockReason(state, 'doubleNurseryBed')).toBeNull();
   });
 
-  it('charges the escalated price and refuses when it cannot be afforded', () => {
+  it('prices on from singles bought before, and refuses when it cannot be afforded', () => {
     const state = createNewGame();
     state.purchases.nurseryBed = 3;
-    state.coins = 151;
-    expect(buyBlockReason(state, 'nurseryBed')).toBe('coins');
-    state.coins = 152;
-    expect(buyItem(state, 'nurseryBed')).toBe(true);
+    state.coins = 379;
+    expect(buyBlockReason(state, 'doubleNurseryBed')).toBe('coins');
+    state.coins = 380;
+    expect(buyItem(state, 'doubleNurseryBed')).toBe(true);
     expect(state.coins).toBe(0);
+    expect(state.furnitureStock.nurseryBed).toBe(2);
   });
 });
 
@@ -108,8 +121,9 @@ describe('purchase and unlock behaviour', () => {
     expect(buyItem(state, 'plantStand')).toBe(true);
     expect(buyItem(state, 'plantStand')).toBe(true);
     expect(state.furnitureStock.plantStand).toBe(2);
-    expect(buyItem(state, 'nurseryBeds')).toBe(true);
-    expect(nurserySpots(state).length).toBe(6);
+    expect(buyItem(state, 'doubleNurseryBed')).toBe(true);
+    expect(state.furnitureStock.nurseryBed).toBe(2);
+    expect(nurserySpots(state).length).toBe(4);
   });
 
   it('keeps the existing prerequisite chains', () => {
@@ -168,7 +182,7 @@ describe('older saves', () => {
     const state = migrateSave(JSON.parse(JSON.stringify(raw)))!;
     expect(state.version).toBe(SAVE_VERSION);
     expect(state.purchases).toEqual({});
-    expect(isShopItemNew(state, 'nurseryBed')).toBe(true);
+    expect(isShopItemNew(state, 'doubleNurseryBed')).toBe(true);
     expect(isShopItemNew(state, 'plantStand')).toBe(false);
     expect(isShopItemNew(state, 'basketLarge')).toBe(false);
     expect(isShopItemNew(state, 'stallCrates')).toBe(false);
@@ -186,7 +200,7 @@ describe('older saves', () => {
     expect(state.furnitureStock).toEqual({ nurseryBed: 2, plantStand: 1 });
     expect(state.plants.p.location).toEqual({ kind: 'nursery', bedId: 'furniture-t1' });
     expect(nurserySpots(state).some((b) => b.id === 'furniture-t1')).toBe(true);
-    expect(itemPrice(state, 'nurseryBed')).toBe(152);
+    expect(itemPrice(state, 'doubleNurseryBed')).toBe(380);
   });
 
   it('a current save round-trips its purchases', () => {

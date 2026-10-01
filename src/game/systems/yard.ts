@@ -22,6 +22,8 @@ export interface YardPiece {
   y: number;
   /** Decor: quarter-turns (0 or 1). */
   rot?: number;
+  /** A pond: its size as dug, at rotation 0. */
+  size?: { w: number; h: number };
 }
 
 export type YardBlock = 'none-left' | 'ground' | 'occupied';
@@ -40,7 +42,7 @@ export function stallRect(state: Pick<GameState, 'stall'>): Rect {
 /** Every movable piece outdoors. */
 export function yardPieces(state: GameState): YardPiece[] {
   const s = stallPos(state);
-  return [{ id: STALL_ID, kind: 'stall', x: s.x, y: s.y }, ...state.decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y, rot: d.rot ?? 0 }))];
+  return [{ id: STALL_ID, kind: 'stall', x: s.x, y: s.y }, ...state.decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y, rot: d.rot ?? 0, size: d.w && d.h ? { w: d.w, h: d.h } : undefined }))];
 }
 
 export function findYardPiece(state: GameState, id: string): YardPiece | undefined {
@@ -48,9 +50,11 @@ export function findYardPiece(state: GameState, id: string): YardPiece | undefin
 }
 
 /** The ground a piece stands on (for grabbing and outlines), turned `rot` quarter-turns. */
-export function yardFootprint(kind: YardPiece['kind'], x: number, y: number, rot = 0): Rect {
+export function yardFootprint(kind: YardPiece['kind'], x: number, y: number, rot = 0, size?: { w: number; h: number }): Rect {
   if (kind === 'stall') return { x, y, w: MARKET_STALL.w, h: MARKET_STALL.h };
-  const { w, h } = decorSize(kind, rot);
+  // A pond is as big as it was dug.
+  const turned = rot % 2 === 1;
+  const { w, h } = size ? (turned ? { w: size.h, h: size.w } : size) : decorSize(kind, rot);
   const centred = DECOR_DEFS[kind].anchor === 'centre';
   return { x: x - w / 2, y: centred ? y - h / 2 : y - h * 0.6, w, h };
 }

@@ -2,6 +2,7 @@ import type { GameState, PlacedDecor } from '../state';
 import { makeUid } from '../state';
 import type { DecorId } from '../data/shop';
 import { decorRotatable } from '../data/decor';
+import { POND_DEFAULT } from '../data/shop';
 import { occupantOf } from './propagation';
 
 /**
@@ -25,6 +26,13 @@ export function placeDecor(state: GameState, decorId: DecorId, x: number, y: num
   state.decorStock[decorId] = (state.decorStock[decorId] ?? 0) - 1;
   const placed: PlacedDecor = { id: makeUid('decor'), decorId, x, y };
   if (rot % 2 === 1 && decorRotatable(decorId)) placed.rot = 1;
+  if (decorId === 'gardenPond') {
+    // Dug to the size it was bought at (the original size for one bought before ponds came in sizes).
+    const size = nextPondSize(state);
+    if (state.pondStock.length) state.pondStock.shift();
+    placed.w = size.w;
+    placed.h = size.h;
+  }
   state.decor.push(placed);
   return placed;
 }
@@ -70,5 +78,12 @@ export function pickUpDecor(state: GameState, id: string): boolean {
   if (idx === -1 || occupantOf(state, { slotId: id })) return false;
   const [d] = state.decor.splice(idx, 1);
   state.decorStock[d.decorId] = (state.decorStock[d.decorId] ?? 0) + 1;
+  // A pond keeps its size in stock; its koi go back in their bags.
+  if (d.decorId === 'gardenPond') state.pondStock.unshift({ w: d.w ?? POND_DEFAULT.w, h: d.h ?? POND_DEFAULT.h });
   return true;
+}
+
+/** The size the next pond set down will be dug at. */
+export function nextPondSize(state: Pick<GameState, 'pondStock'>): { w: number; h: number } {
+  return state.pondStock[0] ? { ...state.pondStock[0] } : { ...POND_DEFAULT };
 }

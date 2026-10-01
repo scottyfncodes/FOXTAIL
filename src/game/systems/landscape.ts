@@ -1,3 +1,4 @@
+import { inPond } from './koi';
 import type { GameState, GardenBed, GardenPath, OwnedPlant } from '../state';
 import { makeUid } from '../state';
 import type { OutdoorZoneId } from '../types';
@@ -628,7 +629,7 @@ export function checkPlanting(
   if (world.obstacleAt(tx, ty) && world.obstacleAt(tx, ty) !== 'flower') return { block: 'obstacle', zone: oz };
   if (world.isSpot(tx, ty)) return { block: 'spot', zone: oz };
   if (onPath(state, x, y, now)) return { block: 'path', zone: oz };
-  if (state.decor.some((d) => Math.hypot(d.x - x, d.y - y) < 0.55)) return { block: 'decor', zone: oz };
+  if (state.decor.some((d) => Math.hypot(d.x - x, d.y - y) < 0.55) || inPond(state, x, y)) return { block: 'decor', zone: oz };
   const mine = matureRadius(defId) * 0.4;
   let blocker: OwnedPlant | undefined;
   const test = (p: OwnedPlant) => {
