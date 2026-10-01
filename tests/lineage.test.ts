@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { createNewGame, type GameState, type OwnedPlant } from '../src/game/state';
 import { PLANTS, PLANT_LIST } from '../src/game/data/plants';
+import { collectionTotals } from '../src/game/systems/collection';
 import { DISCOVERY_SPOTS } from '../src/game/data/discoveryPoints';
-import { variantIndex, nextInLine, nextVariantIndex, variantAllowed, variantsAhead, everythingFound, listedSpecies, formsFound } from '../src/game/systems/lineage';
+import { variantIndex, nextInLine, nextVariantIndex, variantAllowed, variantsAhead, everythingFound, journalComplete, listedSpecies, formsFound } from '../src/game/systems/lineage';
 import { rollSport, takeCutting } from '../src/game/systems/propagation';
 import { spotContent } from '../src/game/systems/spots';
 import { pickFoxPlant, createFoxFinds } from '../src/game/systems/foxFinds';
@@ -157,5 +158,22 @@ describe('everything found', () => {
     state.collection.pothos.variants.pop();
     expect(everythingFound(state)).toBe(false);
     expect(formsFound(state).found).toBe(f.total - 1);
+  });
+});
+
+describe('the journal complete', () => {
+  it('means every listed form grown, exactly when the journal’s own count is full — finding them isn’t enough', () => {
+    const state = createNewGame();
+    for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
+    expect(everythingFound(state)).toBe(true);
+    expect(journalComplete(state)).toBe(false);
+    for (const p of listedSpecies()) state.collection[p.id].grownVariants = p.variants.map((v) => v.id);
+    expect(journalComplete(state)).toBe(true);
+    const t = collectionTotals(state);
+    expect(t.species).toBe(t.totalSpecies);
+    expect(t.variants).toBe(t.totalVariants);
+    state.collection.flyAgaric.grownVariants!.pop();
+    expect(journalComplete(state)).toBe(false);
+    expect(collectionTotals(state).variants).toBe(t.totalVariants - 1);
   });
 });

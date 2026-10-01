@@ -6,7 +6,7 @@ import { GRID_W, GRID_H, zoneAt, isWater } from '../data/worldMap';
 import { stageFloat, stageIndexOf, tickGrowth, type StageUp } from './growth';
 import { rollSport, crossOf } from './propagation';
 import { hasFound } from './collection';
-import { everythingFound, variantAllowed } from './lineage';
+import { journalComplete, variantAllowed } from './lineage';
 import { SpatialGrid } from './spatial';
 import { bedContains, onPath } from './landscape';
 import { bedLiveliness, LIVELY_TIER } from './beds';
@@ -40,7 +40,7 @@ export const VOLUNTEER_POOL = ['cannabisSativa', 'cannabisIndica'];
 export const CROSS_SEEDLING_CHANCE = 0.25;
 const CROSS_RADIUS = 3;
 /**
- * Once every listed plant has been found, the valley's own cannabis starts
+ * Once the field journal is complete, the valley's own cannabis starts
  * coming up wild on open ground in its home regions: slowly, one seedling
  * every couple of days on average, and only until a few have taken hold.
  * After that they spread (or don't) like anything else outdoors.
@@ -112,8 +112,8 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
   // How lively each bed is, worked out once: a varied bed is a livelier ecosystem.
   const bedTier = new Map<string, number>();
   for (const bed of state.gardenBeds) bedTier.set(bed.id, bedLiveliness(state, bed.id).tier);
-  // Nothing nobody planted comes up until every listed plant, in every form, has been found.
-  const gateOpen = everythingFound(state);
+  // Nothing nobody planted comes up until the field journal is complete: every listed plant, in every form, grown.
+  const gateOpen = journalComplete(state);
 
   for (const parent of wild) {
     if (parent.location.kind !== 'wild') continue;
@@ -210,7 +210,7 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
  * sparkle: it's just there, for whoever walks past.
  */
 export function selfSowStep(state: GameState, isOpenGround: GroundCheck, now: number, rand: () => number): OwnedPlant | null {
-  if (!everythingFound(state) || rand() >= SELF_SOW_CHANCE) return null;
+  if (!journalComplete(state) || rand() >= SELF_SOW_CHANCE) return null;
   const wild = wildPlants(state);
   if (wild.length >= WILD_TOTAL_CAP) return null;
   if (wild.filter((p) => VOLUNTEER_POOL.includes(p.defId)).length >= SELF_SOW_MAX) return null;

@@ -33,7 +33,7 @@ grow in patches all over it.
   and the fox has never seen it; it can only come up as a sport, from a
   large plant's cutting or a lively bed's seedling, and it glows after
   dark. A few plants are not listed at all, and nothing of theirs turns up
-  until every listed plant, in every form, has been found.
+  until the field journal is complete: every listed plant, in every form, grown.
 - **Establish, then choose.** Once you've raised two of a species, it's
   established and you choose what each plant is for: a pot in the
   greenhouse gallery (it stays and keeps growing), or a place out in the wild.
