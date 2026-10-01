@@ -6,6 +6,8 @@ import { PLANTS } from '../data/plants';
 import { FURNITURE_DEFS } from '../data/furniture';
 import { SHOP_ITEMS, INTRODUCED_IN_V7 } from '../data/shop';
 import { HOUSE_FOOTPRINT, HOUSE_DOOR } from '../data/worldMap';
+import { CURIOSITY_SPECIES } from '../data/curiosities';
+import { recordFound } from '../systems/collection';
 
 // Older builds stored each schema version under its own key; they're read
 // once as a fallback so those players' progress is recovered, not lost.
@@ -118,6 +120,23 @@ export function migrateSave(raw: unknown): GameState | null {
   state.gardenBeds = state.gardenBeds.filter((b) => isRecord(b) && [b.x, b.y, b.w, b.h].every(Number.isFinite));
   state.paths = state.paths.filter((p) => isRecord(p) && Array.isArray(p.points) && p.points.length >= 4);
   state.foxFinds = state.foxFinds.filter((f) => isRecord(f) && (f.kind === 'curiosity' || !!PLANTS[f.defId ?? '']));
+  // Mushrooms used to be curiosities; they're species of their own now. A
+  // note of one counts as having found it, and one still waiting at the end
+  // of a trail is waiting there as a plant.
+  for (const [id, sp] of Object.entries(CURIOSITY_SPECIES)) {
+    const rec = state.curiosities[id];
+    if (!rec) continue;
+    recordFound(state, sp.defId, sp.variantId, typeof rec.foundAt === 'number' ? rec.foundAt : state.clock.totalMinutes);
+    delete state.curiosities[id];
+  }
+  for (const f of state.foxFinds) {
+    const sp = f.kind === 'curiosity' && f.curiosityId ? CURIOSITY_SPECIES[f.curiosityId] : undefined;
+    if (!sp) continue;
+    f.kind = 'plant';
+    f.defId = sp.defId;
+    f.variantId = sp.variantId;
+    delete f.curiosityId;
+  }
   for (const p of Object.values(state.plants)) {
     const loc = p.location;
     if (loc.kind === 'wild' && loc.bedId && !state.gardenBeds.some((b) => b.id === loc.bedId)) delete loc.bedId;

@@ -50,7 +50,13 @@ export type PlantForm =
   | 'fig' // a little indoor tree: a woody trunk hung with big leathery leaves (fiddle leaf fig, rubber plant)
   | 'fan' // long-stalked paddle leaves fanning up from the base in one plane, crane-headed flowers (bird of paradise)
   | 'palm' // a clump of slender ringed canes, each crowned with arching pinnate fronds (parlour palm)
-  | 'cane'; // a bare stem or trunk topped with a tuft of ribbon leaves (dragon tree, ponytail palm)
+  | 'cane' // a bare stem or trunk topped with a tuft of ribbon leaves (dragon tree, ponytail palm)
+  | 'mushroom' // a little cluster of capped fruiting bodies on stems (fly agaric, chanterelle, morel)
+  | 'bracket' // shelves stacked up a mossy stump (oyster mushroom, turkey tail)
+  | 'coral'; // branching fingers, or a shaggy mass of hanging spines (coral fungus, lion's mane)
+
+/** How a mushroom's cap is shaped. */
+export type CapShape = 'dome' | 'flat' | 'funnel' | 'shaggy' | 'honeycomb' | 'nodding';
 
 /**
  * What kind of landscape a species pushes an area toward once it's
@@ -92,6 +98,18 @@ export interface PlantLook {
   fiddle?: boolean;
   /** Canes: a swollen, water-storing base under the trunk, and a long drooping fountain of leaves (ponytail palm). */
   bulb?: boolean;
+  /** Mushrooms: the cap's shape (dome if unset). Its colour is the look's hue; the gills are the accent. */
+  cap?: CapShape;
+  /** Mushrooms: flecks on the cap, as `h s l` (a fly agaric's white warts). */
+  warts?: [number, number, number];
+  /** Mushrooms: the stem's colour, as `h s l` (pale cream if unset). */
+  stipe?: [number, number, number];
+  /** Mushrooms: come up in a ring rather than a clump. */
+  ring?: boolean;
+  /** Brackets: concentric bands of colour across each shelf (turkey tail). */
+  zoned?: boolean;
+  /** Coral form: a rounded mass hung with soft spines instead of branching fingers (lion's mane). */
+  icicles?: boolean;
 }
 
 export interface VariantDef {

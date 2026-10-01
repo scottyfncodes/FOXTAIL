@@ -169,7 +169,7 @@ describe('the world the player made persists', () => {
     state.plants.w = { id: 'w', defId: 'pothos', variantId: 'golden', seed: 1, growth: 700, location: { kind: 'wild', x: 51.35, y: 21.05, zone: 'meadow', bedId: 'gb' }, plantedAt: 0, lastCuttingAt: null, generation: 0, bornWild: false };
     state.foxLog.trailsFollowed = 3;
     state.foxFinds.push({ id: 'f', kind: 'curiosity', x: 20, y: 20, zone: 'woodland', seed: 1, curiosityId: 'lunaMoth', createdAt: 0, expiresAt: 9999 });
-    state.curiosities.flyAgaric = { foundAt: 5, count: 2 };
+    state.curiosities.treeFrog = { foundAt: 5, count: 2 };
     saveGame(state);
     const loaded = loadGame()!;
     expect(loaded.furniture).toEqual(state.furniture);
@@ -180,7 +180,7 @@ describe('the world the player made persists', () => {
     expect(loaded.plants.w.location).toEqual({ kind: 'wild', x: 51.35, y: 21.05, zone: 'meadow', bedId: 'gb' });
     expect(loaded.foxLog.trailsFollowed).toBe(3);
     expect(loaded.foxFinds).toHaveLength(1);
-    expect(loaded.curiosities.flyAgaric.count).toBe(2);
+    expect(loaded.curiosities.treeFrog.count).toBe(2);
   });
 
   it('upgrades a save from before the house: new fields filled, and nothing left standing inside the house', () => {

@@ -39,6 +39,15 @@ export const VOLUNTEER_POOL = ['cannabisSativa', 'cannabisIndica'];
 /** Chance a seedling of one cannabis parent, with the other growing close by, comes up a cross. */
 export const CROSS_SEEDLING_CHANCE = 0.25;
 const CROSS_RADIUS = 3;
+/**
+ * Once every listed plant has been found, the valley's own cannabis starts
+ * coming up wild on open ground in its home regions: slowly, one seedling
+ * every couple of days on average, and only until a few have taken hold.
+ * After that they spread (or don't) like anything else outdoors.
+ */
+export const SELF_SOW_CHANCE = 0.02;
+/** No new self-sown seedlings while this many cannabis plants already grow wild. */
+export const SELF_SOW_MAX = 5;
 const MIN_SPACING = 0.85;
 const CROWD_RADIUS = 2;
 const CROWD_LIMIT = 7;
@@ -194,9 +203,57 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
   return events;
 }
 
+/**
+ * One self-sowing check (an in-game hour). Returns the new seedling, if
+ * one came up: somewhere open in the species' home regions, out of the
+ * player's beds and off their paths. It isn't announced, and it doesn't
+ * sparkle: it's just there, for whoever walks past.
+ */
+export function selfSowStep(state: GameState, isOpenGround: GroundCheck, now: number, rand: () => number): OwnedPlant | null {
+  if (!everythingFound(state) || rand() >= SELF_SOW_CHANCE) return null;
+  const wild = wildPlants(state);
+  if (wild.length >= WILD_TOTAL_CAP) return null;
+  if (wild.filter((p) => VOLUNTEER_POOL.includes(p.defId)).length >= SELF_SOW_MAX) return null;
+  const defId = VOLUNTEER_POOL[Math.floor(rand() * VOLUNTEER_POOL.length) % VOLUNTEER_POOL.length];
+  const def = PLANTS[defId];
+  if (!def) return null;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const x = 1 + rand() * (GRID_W - 2);
+    const y = 1 + rand() * (GRID_H - 2);
+    const tx = Math.floor(x);
+    const ty = Math.floor(y);
+    const zone = zoneAt(tx, ty);
+    if (zone === 'greenhouse' || !def.habitat.includes(zone)) continue;
+    if (isWater(tx, ty) || !isOpenGround(tx, ty)) continue;
+    if (state.gardenBeds.some((b) => bedContains(b, x, y, -0.5))) continue;
+    if (state.paths.length && onPath(state, x, y, now, true)) continue;
+    const near = tooClose(wild, x, y);
+    if (near.tooClose || near.crowd >= CROWD_LIMIT) continue;
+    const variantId = def.variants[0].id;
+    const plant: OwnedPlant = {
+      id: makeUid('plant'),
+      defId,
+      variantId,
+      seed: Math.floor(rand() * 1e9),
+      growth: 0,
+      location: { kind: 'wild', x, y, zone },
+      plantedAt: now,
+      lastCuttingAt: null,
+      generation: 0,
+      bornWild: true,
+      unnoticed: !hasFound(state, defId, variantId),
+    };
+    state.plants[plant.id] = plant;
+    return plant;
+  }
+  return null;
+}
+
 export interface WorldAdvance {
   ups: StageUp[];
   spreads: SpreadEvent[];
+  /** Plants that came up wild by themselves, from no plant of the player's. */
+  sown: string[];
   carry: number;
 }
 
@@ -214,6 +271,7 @@ export function advanceWorld(
 ): WorldAdvance {
   const ups: StageUp[] = [];
   const spreads: SpreadEvent[] = [];
+  const sown: string[] = [];
   let left = minutes;
   let c = carry;
   const startNow = state.clock.totalMinutes - minutes;
@@ -224,10 +282,13 @@ export function advanceWorld(
     left -= dt;
     if (c >= SPREAD_STEP - 1e-9) {
       c = 0;
-      spreads.push(...spreadStep(state, isOpenGround, startNow + (minutes - left), rand));
+      const at = startNow + (minutes - left);
+      spreads.push(...spreadStep(state, isOpenGround, at, rand));
+      const seedling = selfSowStep(state, isOpenGround, at, rand);
+      if (seedling) sown.push(seedling.id);
     }
   }
-  return { ups, spreads, carry: c };
+  return { ups, spreads, sown, carry: c };
 }
 
 // ---------------------------------------------------------------- Lushness

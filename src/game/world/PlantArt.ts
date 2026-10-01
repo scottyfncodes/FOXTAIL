@@ -1922,6 +1922,586 @@ function drawCane(p: Paint) {
   }
 }
 
+// ------------------------------------------------------------ fungi
+
+function stipeColor(look: PlantLook, dl = 0, a = 1): string {
+  const [h, s, l] = look.stipe ?? [40, 22, 88];
+  return hsl(h, s, l + dl, a);
+}
+
+function glowing(look: PlantLook): boolean {
+  return look.variegation === 'glow' && !!look.variegationColor;
+}
+
+/** Strokes the current path in the look's glow colour, blurred into a halo. Does nothing for a form that doesn't glow. */
+function glowStroke(p: Paint, width: number) {
+  const { ctx, look } = p;
+  if (!glowing(look)) return;
+  const [h, s, l] = look.variegationColor!;
+  ctx.save();
+  ctx.shadowColor = hsl(h, s, l);
+  ctx.shadowBlur = Math.max(2, width * 4);
+  ctx.strokeStyle = hsl(h, s, l, 0.95);
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.restore();
+}
+
+function capFill(p: Paint, top: number, bottom: number): CanvasGradient {
+  const { look } = p;
+  const g = p.ctx.createLinearGradient(0, top, 0, bottom);
+  g.addColorStop(0, hsl(look.hue, look.sat, look.light + 10));
+  g.addColorStop(0.55, hsl(look.hue, look.sat, look.light));
+  g.addColorStop(1, hsl(look.hue, look.sat - 4, look.light - 12));
+  return g;
+}
+
+function gillColor(look: PlantLook, dl = 0, a = 1): string {
+  return hsl(look.accentHue, look.accentSat ?? 30, (look.accentLight ?? 85) + dl, a);
+}
+
+/** A tapering stem from (0,0) up to (tx, -h). */
+function stipe(p: Paint, h: number, w: number, tx: number) {
+  const { ctx, look } = p;
+  const body = () => {
+    ctx.beginPath();
+    ctx.moveTo(-w, 0);
+    ctx.quadraticCurveTo(-w * 1.05 + tx * 0.3, -h * 0.5, -w * 0.72 + tx, -h);
+    ctx.lineTo(w * 0.72 + tx, -h);
+    ctx.quadraticCurveTo(w * 1.05 + tx * 0.3, -h * 0.5, w, 0);
+    ctx.closePath();
+  };
+  const g = ctx.createLinearGradient(-w, 0, w, 0);
+  g.addColorStop(0, stipeColor(look, -14));
+  g.addColorStop(0.45, stipeColor(look, 4));
+  g.addColorStop(1, stipeColor(look, -8));
+  body();
+  ctx.fillStyle = g;
+  ctx.fill();
+  body();
+  ctx.strokeStyle = stipeColor(look, -30, 0.45);
+  ctx.lineWidth = Math.max(0.4, w * 0.12);
+  ctx.stroke();
+}
+
+/** Scatters the cap's warts or patches over the current (already built) cap path. */
+function warts(p: Paint, cx: number, cy: number, rx: number, ry: number) {
+  const { ctx, look, rand } = p;
+  if (!look.warts) return;
+  const [h, s, l] = look.warts;
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = hsl(h, s, l, 0.95);
+  if (glowing(look)) {
+    ctx.shadowColor = hsl(h, s, l);
+    ctx.shadowBlur = Math.max(1.5, rx * 0.25);
+  }
+  const n = 7 + Math.floor(rand() * 5);
+  for (let i = 0; i < n; i++) {
+    const a = rand() * Math.PI;
+    const d = Math.sqrt(rand());
+    const x = cx + Math.cos(a) * rx * d * 0.92;
+    const y = cy - Math.sin(a) * ry * d * 0.9;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx * (0.06 + rand() * 0.06), ry * (0.05 + rand() * 0.05), rand(), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** One fruiting body with its base at the origin. `open` runs from a closed button (0) to a spread cap (1). */
+function mushroomBody(p: Paint, h: number, r: number, open: number, lean: number) {
+  const { ctx, look, rand } = p;
+  const shape = look.cap ?? 'dome';
+  const w = r * 0.24 * (look.leafWidth ?? 1);
+  const tx = lean * r * 0.5;
+  const top = -h;
+
+  if (shape === 'funnel') {
+    // Stem and cap are one piece: flaring up into a wavy-rimmed vase, ridges running down.
+    const rw = r * (0.55 + open * 0.45);
+    const flare = () => {
+      ctx.beginPath();
+      ctx.moveTo(-w, 0);
+      ctx.bezierCurveTo(-w, top * 0.5, -rw * 0.6 + tx, top * 0.85, -rw + tx, top);
+      ctx.lineTo(rw + tx, top);
+      ctx.bezierCurveTo(rw * 0.6 + tx, top * 0.85, w, top * 0.5, w, 0);
+      ctx.closePath();
+    };
+    flare();
+    ctx.fillStyle = capFill(p, top, 0);
+    ctx.fill();
+    ctx.save();
+    flare();
+    ctx.clip();
+    ctx.strokeStyle = gillColor(look, -8, 0.8);
+    ctx.lineWidth = Math.max(0.4, r * 0.03);
+    ctx.beginPath();
+    for (let i = -4; i <= 4; i++) {
+      ctx.moveTo((i / 4) * rw * 0.95 + tx, top);
+      ctx.quadraticCurveTo((i / 4) * rw * 0.4 + tx * 0.5, top * 0.7, (i / 4) * w * 0.6, top * 0.35);
+    }
+    ctx.stroke();
+    if (glowing(look)) {
+      ctx.beginPath();
+      for (let i = -4; i <= 4; i++) {
+        ctx.moveTo((i / 4) * rw * 0.95 + tx, top);
+        ctx.quadraticCurveTo((i / 4) * rw * 0.4 + tx * 0.5, top * 0.7, (i / 4) * w * 0.6, top * 0.35);
+      }
+      glowStroke(p, Math.max(0.5, r * 0.035));
+    }
+    ctx.restore();
+    // The wavy rim, seen from a little above: the cap's dished top.
+    ctx.beginPath();
+    const steps = 18;
+    for (let i = 0; i <= steps; i++) {
+      const a = (i / steps) * Math.PI * 2;
+      const wob = 1 + Math.sin(a * 5 + rand()) * 0.06;
+      const x = tx + Math.cos(a) * rw * wob;
+      const y = top + Math.sin(a) * rw * 0.3 * wob;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    const g = ctx.createRadialGradient(tx, top, 0, tx, top, rw);
+    g.addColorStop(0, hsl(look.hue, look.sat, look.light - 14));
+    g.addColorStop(1, hsl(look.hue, look.sat, look.light + 8));
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 20, 0.6);
+    ctx.lineWidth = Math.max(0.4, r * 0.035);
+    ctx.stroke();
+    return;
+  }
+
+  if (shape === 'nodding') {
+    // A waxy stem that bows over at the top into a downturned bell.
+    const sw = r * 0.14;
+    const ex = tx + r * 0.55;
+    const ey = top * 0.9;
+    stroke(ctx, stipeColor(look, -10), sw * 2, () => {
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(0, top * 0.6, tx + r * 0.05, top * 1.08, ex, ey);
+    });
+    stroke(ctx, stipeColor(look, 4), sw * 1.1, () => {
+      ctx.moveTo(-sw * 0.3, 0);
+      ctx.bezierCurveTo(-sw * 0.3, top * 0.6, tx, top * 1.05, ex - sw * 0.2, ey - sw * 0.3);
+    });
+    withTransform(ctx, ex, ey, 2.5, () => {
+      const bl = r * 0.75;
+      const bw = r * 0.3;
+      ctx.beginPath();
+      ctx.moveTo(-sw, 0);
+      ctx.bezierCurveTo(-bw * 1.3, -bl * 0.3, -bw * 1.2, -bl * 0.9, -bw * 0.9, -bl);
+      ctx.quadraticCurveTo(0, -bl * 0.9, bw * 0.9, -bl);
+      ctx.bezierCurveTo(bw * 1.2, -bl * 0.9, bw * 1.3, -bl * 0.3, sw, 0);
+      ctx.closePath();
+      ctx.fillStyle = capFill(p, 0, -bl);
+      ctx.fill();
+      ctx.strokeStyle = gillColor(look, -40, 0.5);
+      ctx.lineWidth = Math.max(0.4, r * 0.03);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-bw * 0.9, -bl);
+      ctx.quadraticCurveTo(0, -bl * 0.9, bw * 0.9, -bl);
+      glowStroke(p, Math.max(0.6, r * 0.06));
+    });
+    return;
+  }
+
+  stipe(p, h, w, tx);
+
+  if (shape === 'shaggy' || shape === 'honeycomb') {
+    // A tall cap that hangs down over the top of the stem.
+    const rw = r * (shape === 'shaggy' ? 0.6 : 0.52) * (shape === 'honeycomb' ? look.leafWidth ?? 1 : 1) * (shape === 'honeycomb' ? 0.75 : 1);
+    const ch = r * (shape === 'shaggy' ? 1.7 + (1 - open) * 0.3 : 1.55);
+    const hem = shape === 'shaggy' ? r * 0.35 : r * 0.05;
+    const cap = () => {
+      ctx.beginPath();
+      ctx.moveTo(tx - rw, top + hem);
+      ctx.bezierCurveTo(tx - rw * 1.08, top - ch * 0.55, tx - rw * 0.55, top - ch * 0.98, tx, top - ch);
+      ctx.bezierCurveTo(tx + rw * 0.55, top - ch * 0.98, tx + rw * 1.08, top - ch * 0.55, tx + rw, top + hem);
+      ctx.quadraticCurveTo(tx, top + hem * 1.3, tx - rw, top + hem);
+      ctx.closePath();
+    };
+    cap();
+    ctx.fillStyle = capFill(p, top - ch, top + hem);
+    ctx.fill();
+    ctx.save();
+    cap();
+    ctx.clip();
+    if (shape === 'shaggy') {
+      // Upturned scales in rows, and the hem running to ink.
+      ctx.strokeStyle = hsl(look.hue, look.sat + 10, look.light - 22, 0.55);
+      ctx.lineWidth = Math.max(0.4, r * 0.035);
+      ctx.beginPath();
+      for (let row = 0; row < 5; row++) {
+        const y = top - ch * (0.12 + row * 0.17);
+        const k = Math.sin(Math.acos(Math.min(1, Math.abs(y - (top - ch * 0.45)) / (ch * 0.62))));
+        for (let i = -2; i <= 2; i++) {
+          const x = tx + (i + (row % 2) * 0.5) * rw * 0.38 * k;
+          ctx.moveTo(x - r * 0.06, y - r * 0.06);
+          ctx.lineTo(x, y);
+          ctx.lineTo(x + r * 0.06, y - r * 0.06);
+        }
+      }
+      ctx.stroke();
+      const ink = ctx.createLinearGradient(0, top - ch * 0.35, 0, top + hem * 1.3);
+      ink.addColorStop(0, gillColor(look, 0, 0));
+      ink.addColorStop(1, gillColor(look, 0, 0.95));
+      ctx.fillStyle = ink;
+      ctx.fillRect(tx - rw * 1.2, top - ch * 0.35, rw * 2.4, ch * 0.35 + hem * 1.4);
+      warts(p, tx, top + hem, rw, ch);
+    } else {
+      // Pits between pale ridges.
+      ctx.fillStyle = gillColor(look, 0, 0.9);
+      if (glowing(look)) {
+        const [gh, gs, gl] = look.variegationColor!;
+        ctx.fillStyle = hsl(gh, gs, gl);
+        ctx.shadowColor = hsl(gh, gs, gl);
+        ctx.shadowBlur = Math.max(1.5, r * 0.15);
+      }
+      const rows = 6;
+      for (let row = 0; row < rows; row++) {
+        const y = top - ch * (0.08 + (row / rows) * 0.86);
+        for (let i = -3; i <= 3; i++) {
+          const x = tx + (i + (row % 2) * 0.5) * rw * 0.3;
+          ctx.beginPath();
+          ctx.ellipse(x + (rand() - 0.5) * r * 0.04, y, rw * 0.11, ch * 0.055, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
+    cap();
+    ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 24, 0.55);
+    ctx.lineWidth = Math.max(0.4, r * 0.035);
+    ctx.stroke();
+    if (shape === 'shaggy') {
+      ctx.beginPath();
+      ctx.moveTo(tx - rw, top + hem);
+      ctx.quadraticCurveTo(tx, top + hem * 1.3, tx + rw, top + hem);
+      glowStroke(p, Math.max(0.6, r * 0.06));
+    }
+    return;
+  }
+
+  // Dome or flat: gills underneath, then the cap over them.
+  const rx = r * (0.62 + open * 0.38);
+  const ry = r * (shape === 'flat' ? 0.95 - open * 0.6 : 1.0 - open * 0.3) * (look.leafWidth && look.leafWidth > 1.5 ? 0.85 : 1);
+  ctx.beginPath();
+  ctx.ellipse(tx, top, rx * 0.96, rx * 0.2 * open + r * 0.03, 0, 0, Math.PI * 2);
+  ctx.fillStyle = gillColor(look, -6);
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = gillColor(look, -24, 0.6);
+  ctx.lineWidth = Math.max(0.3, r * 0.02);
+  ctx.beginPath();
+  for (let i = -6; i <= 6; i++) {
+    ctx.moveTo(tx, top + rx * 0.05);
+    ctx.lineTo(tx + (i / 6) * rx, top + rx * 0.2);
+  }
+  ctx.stroke();
+  ctx.restore();
+  if (glowing(look)) {
+    ctx.beginPath();
+    ctx.ellipse(tx, top + rx * 0.04, rx * 0.8, rx * 0.12 * open + r * 0.02, 0, 0, Math.PI);
+    glowStroke(p, Math.max(0.6, r * 0.07));
+  }
+  const cap = () => {
+    ctx.beginPath();
+    ctx.moveTo(tx - rx, top);
+    if (shape === 'flat') {
+      ctx.bezierCurveTo(tx - rx, top - ry * 0.9, tx - rx * 0.35, top - ry, tx - rx * 0.18, top - ry * 1.05);
+      ctx.quadraticCurveTo(tx, top - ry * 1.35, tx + rx * 0.18, top - ry * 1.05);
+      ctx.bezierCurveTo(tx + rx * 0.35, top - ry, tx + rx, top - ry * 0.9, tx + rx, top);
+    } else {
+      ctx.bezierCurveTo(tx - rx * 1.02, top - ry * 1.3, tx + rx * 1.02, top - ry * 1.3, tx + rx, top);
+    }
+    ctx.quadraticCurveTo(tx, top + rx * 0.12, tx - rx, top);
+    ctx.closePath();
+  };
+  cap();
+  ctx.fillStyle = capFill(p, top - ry, top);
+  ctx.fill();
+  // A soft shine on the crown.
+  ctx.save();
+  cap();
+  ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  ctx.beginPath();
+  ctx.ellipse(tx - rx * 0.3, top - ry * 0.7, rx * 0.35, ry * 0.22, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  cap();
+  warts(p, tx, top, rx, ry);
+  cap();
+  ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 22, 0.6);
+  ctx.lineWidth = Math.max(0.4, r * 0.035);
+  ctx.stroke();
+}
+
+/** A clump of mushrooms (or a fairy ring of them) that thickens as it grows. */
+function drawMushroom(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const shape = look.cap ?? 'dome';
+  const ring = !!look.ring;
+  const n = Math.min(ring ? 11 : 7, Math.round(1 + sf * (ring ? 2.4 : 1.4)));
+  const open = Math.min(1, 0.2 + sf * 0.3);
+  const tall = shape === 'nodding' ? 1.5 : shape === 'shaggy' ? 1.0 : shape === 'honeycomb' ? 0.6 : shape === 'funnel' ? 0.85 : 0.8;
+  const bodies = Array.from({ length: n }, (_, i) => {
+    if (ring && n > 3) {
+      const a = (i / n) * Math.PI * 2 + (rand() - 0.5) * 0.3;
+      const R = S * (0.3 + Math.min(4, sf) * 0.14);
+      return { x: Math.cos(a) * R, y: Math.sin(a) * R * 0.42, k: 0.7 + rand() * 0.35 };
+    }
+    return i === 0 ? { x: 0, y: 0, k: 1 } : { x: (rand() - 0.5) * S * 0.75, y: (rand() - 0.5) * S * 0.18, k: 0.45 + rand() * 0.45 };
+  }).sort((a, b) => a.y - b.y);
+  for (const b of bodies) {
+    const lean = (rand() - 0.5) * 0.6 + (b.x / S) * 0.4;
+    withTransform(ctx, b.x, b.y, 0, () => mushroomBody(p, S * 0.62 * tall * b.k, S * 0.3 * b.k, open * (0.75 + b.k * 0.25), lean));
+  }
+}
+
+/** One shelf fanning out sideways from the wood at the origin, seen a little from above: cap on top, gills (or pores) peeping out beneath. */
+function shelf(p: Paint, rw: number, rd: number, side: number) {
+  const { ctx, look, rand } = p;
+  const wobs = Array.from({ length: 5 }, () => rand() * Math.PI * 2);
+  const fan = (dy: number, k: number) => {
+    ctx.beginPath();
+    ctx.moveTo(0, dy - rd * 0.55 * k);
+    const steps = 20;
+    for (let i = 0; i <= steps; i++) {
+      const a = -Math.PI / 2 + (i / steps) * Math.PI;
+      const wob = 1 + Math.sin(a * 7 + wobs[0]) * 0.04 + Math.sin(a * 3 + wobs[1]) * 0.05;
+      ctx.lineTo(side * Math.cos(a) * rw * k * wob, dy + Math.sin(a) * rd * k * wob);
+    }
+    ctx.lineTo(0, dy + rd * 0.55 * k);
+    ctx.closePath();
+  };
+  // The underside, a little below the cap's edge.
+  fan(rd * 0.32, 0.97);
+  ctx.fillStyle = gillColor(look, -8);
+  ctx.fill();
+  ctx.save();
+  fan(rd * 0.32, 0.97);
+  ctx.clip();
+  ctx.strokeStyle = gillColor(look, -26, 0.55);
+  ctx.lineWidth = Math.max(0.3, rw * 0.025);
+  ctx.beginPath();
+  for (let i = 1; i < 10; i++) {
+    const a = -Math.PI / 2 + (i / 10) * Math.PI;
+    ctx.moveTo(0, rd * 0.32);
+    ctx.lineTo(side * Math.cos(a) * rw, rd * 0.32 + Math.sin(a) * rd);
+  }
+  ctx.stroke();
+  ctx.restore();
+  if (glowing(look)) {
+    fan(rd * 0.32, 0.97);
+    glowStroke(p, Math.max(0.6, rw * 0.06));
+  }
+  // The cap.
+  fan(0, 1);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rw * 1.05);
+  g.addColorStop(0, hsl(look.hue, look.sat, look.light - 14));
+  g.addColorStop(0.75, hsl(look.hue, look.sat, look.light));
+  g.addColorStop(1, hsl(look.hue, look.sat - 6, look.light + 12));
+  ctx.fillStyle = g;
+  ctx.fill();
+  if (look.zoned) {
+    // Bands out from where it holds on, alternating with the accent.
+    ctx.save();
+    fan(0, 1);
+    ctx.clip();
+    ctx.lineWidth = Math.max(0.6, rw * 0.1);
+    for (let i = 6; i >= 1; i--) {
+      ctx.strokeStyle = i % 2 ? hsl(look.accentHue, look.accentSat ?? 25, look.accentLight ?? 60, 0.85) : hsl(look.hue, look.sat + 8, look.light - 18, 0.8);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rw * (i / 6.3), rd * (i / 6.3), 0, -Math.PI / 2, Math.PI / 2, side < 0);
+      ctx.stroke();
+      if (glowing(look) && i % 2) glowStroke(p, Math.max(0.5, rw * 0.05));
+    }
+    ctx.restore();
+  } else {
+    // Fine radial streaks across the cap.
+    ctx.save();
+    fan(0, 1);
+    ctx.clip();
+    ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 10, 0.35);
+    ctx.lineWidth = Math.max(0.3, rw * 0.02);
+    ctx.beginPath();
+    for (let i = 1; i < 8; i++) {
+      const a = -Math.PI / 2 + (i / 8) * Math.PI;
+      ctx.moveTo(0, 0);
+      ctx.lineTo(side * Math.cos(a) * rw, Math.sin(a) * rd);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  fan(0, 1);
+  ctx.strokeStyle = hsl(look.hue, look.sat - 10, Math.min(96, look.light + 24), 0.85);
+  ctx.lineWidth = Math.max(0.5, rw * 0.045);
+  ctx.stroke();
+}
+
+/** A mossy stump with shelves of fungus tiered up it. */
+function drawBracket(p: Paint) {
+  const { ctx, rand, S, sf } = p;
+  const sw = S * 0.22;
+  const sh = S * (0.42 + Math.min(4, sf) * 0.1);
+  const n = Math.min(9, Math.round(1 + sf * 1.8));
+  // Higher shelves are drawn last: seen from a little above, each one lies over the one below.
+  const shelves = Array.from({ length: n }, (_, i) => ({
+    side: i % 2 ? 1 : -1,
+    y: -sh * (0.12 + rand() * 0.8),
+    rw: S * (0.24 + rand() * 0.12) * (0.8 + Math.min(4, sf) * 0.06),
+  })).sort((a, b) => b.y - a.y);
+  // They grow out from behind the stump, so it hides where they hold on.
+  for (const s of shelves) withTransform(ctx, s.side * sw * 0.3, s.y, -s.side * 0.1, () => shelf(p, s.rw + sw * 0.7, (s.rw + sw * 0.7) * 0.38, s.side));
+  // The stump: bark sides and a pale cut top with its rings.
+  const g = ctx.createLinearGradient(-sw, 0, sw, 0);
+  g.addColorStop(0, hsl(26, 28, 20));
+  g.addColorStop(0.5, hsl(28, 30, 32));
+  g.addColorStop(1, hsl(26, 28, 22));
+  ctx.beginPath();
+  ctx.moveTo(-sw * 1.2, 0);
+  ctx.quadraticCurveTo(-sw, -sh * 0.2, -sw, -sh);
+  ctx.lineTo(sw, -sh);
+  ctx.quadraticCurveTo(sw, -sh * 0.2, sw * 1.25, 0);
+  ctx.closePath();
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = hsl(25, 25, 14, 0.5);
+  ctx.lineWidth = Math.max(0.5, S * 0.012);
+  ctx.beginPath();
+  for (let i = -2; i <= 2; i++) {
+    ctx.moveTo(i * sw * 0.36, -sh * 0.95);
+    ctx.lineTo(i * sw * 0.4 + (rand() - 0.5) * sw * 0.2, -sh * 0.05);
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(0, -sh, sw, sw * 0.32, 0, 0, Math.PI * 2);
+  ctx.fillStyle = hsl(34, 35, 58);
+  ctx.fill();
+  ctx.strokeStyle = hsl(30, 30, 42, 0.7);
+  for (let i = 1; i <= 3; i++) {
+    ctx.beginPath();
+    ctx.ellipse(0, -sh, sw * (i / 3.6), sw * 0.32 * (i / 3.6), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // Moss at the foot.
+  ctx.fillStyle = hsl(95, 40, 34, 0.85);
+  for (let i = 0; i < 6; i++) {
+    ctx.beginPath();
+    ctx.ellipse((rand() - 0.5) * sw * 2.2, -rand() * sh * 0.15, sw * (0.25 + rand() * 0.2), sw * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** One branch of coral fungus, forking until it ends in blunt tips. */
+function coralBranch(p: Paint, len: number, w: number, depth: number) {
+  const { ctx, look, rand } = p;
+  const t = depth / 3;
+  const col = hsl(look.hue, look.sat * (1 - t * 0.6), look.light + t * 18);
+  stroke(ctx, col, w, () => {
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, -len);
+  });
+  if (depth === 0) {
+    ctx.fillStyle = hsl(look.hue, look.sat, Math.min(94, look.light + 10));
+    ctx.beginPath();
+    ctx.arc(0, -len, w * 0.62, 0, Math.PI * 2);
+    ctx.fill();
+    if (glowing(look)) {
+      ctx.beginPath();
+      ctx.arc(0, -len, w * 0.4, 0, Math.PI * 2);
+      glowStroke(p, Math.max(0.6, w * 0.6));
+    }
+    return;
+  }
+  const forks = 2 + (rand() < 0.4 ? 1 : 0);
+  for (let i = 0; i < forks; i++) {
+    const a = (forks === 2 ? (i ? 1 : -1) * 0.38 : (i - 1) * 0.45) + (rand() - 0.5) * 0.2;
+    withTransform(ctx, 0, -len, a, () => coralBranch(p, len * (0.68 + rand() * 0.12), w * 0.72, depth - 1));
+  }
+}
+
+/** Lion's mane: a rounded mass with soft spines hanging in tiers from it. */
+function maneLobe(p: Paint, r: number) {
+  const { ctx, look, rand } = p;
+  ctx.beginPath();
+  ctx.ellipse(0, -r, r, r * 0.8, 0, 0, Math.PI * 2);
+  const g = ctx.createRadialGradient(-r * 0.3, -r * 1.3, 0, 0, -r, r * 1.2);
+  g.addColorStop(0, hsl(look.hue, look.sat, Math.min(98, look.light + 6)));
+  g.addColorStop(1, hsl(look.accentHue, look.accentSat ?? 25, look.accentLight ?? 80));
+  ctx.fillStyle = g;
+  ctx.fill();
+  const rows = 4;
+  for (let row = 0; row < rows; row++) {
+    const y = -r * (1.25 - row * 0.32);
+    const half = r * Math.sqrt(Math.max(0, 1 - Math.pow((y + r) / (r * 0.8), 2))) * 0.95;
+    const n = 6 + row * 2;
+    ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 4 - row * 3, 0.95);
+    ctx.lineWidth = Math.max(0.5, r * 0.05);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    const tips: [number, number][] = [];
+    for (let i = 0; i < n; i++) {
+      const x = -half + (2 * half * (i + 0.5)) / n;
+      const L = r * (0.28 + rand() * 0.18 + row * 0.04);
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + (rand() - 0.5) * r * 0.04, y + L);
+      tips.push([x, y + L]);
+    }
+    ctx.stroke();
+    if (glowing(look)) {
+      const [gh, gs, gl] = look.variegationColor!;
+      ctx.save();
+      ctx.fillStyle = hsl(gh, gs, gl);
+      ctx.shadowColor = hsl(gh, gs, gl);
+      ctx.shadowBlur = Math.max(1.5, r * 0.12);
+      for (const [x, y] of tips) {
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(0.5, r * 0.035), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+}
+
+/** Coral fungus (branching fingers) or lion's mane (hanging spines), clumping as it grows. */
+function drawCoral(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  if (look.icicles) {
+    const n = Math.min(4, 1 + Math.floor(sf * 0.8));
+    const lobes = Array.from({ length: n }, (_, i) =>
+      i === 0 ? { x: 0, y: 0, k: 1 } : { x: (rand() - 0.5) * S * 0.7, y: (rand() - 0.5) * S * 0.14, k: 0.55 + rand() * 0.3 }
+    ).sort((a, b) => a.y - b.y);
+    for (const l of lobes) withTransform(ctx, l.x, l.y - S * 0.08 * l.k, 0, () => maneLobe(p, S * 0.32 * l.k));
+    return;
+  }
+  const n = Math.min(6, 1 + Math.round(sf * 1.1));
+  const clumps = Array.from({ length: n }, (_, i) =>
+    i === 0 ? { x: 0, y: 0, k: 1 } : { x: (rand() - 0.5) * S * 0.7, y: (rand() - 0.5) * S * 0.14, k: 0.55 + rand() * 0.35 }
+  ).sort((a, b) => a.y - b.y);
+  for (const c of clumps) {
+    withTransform(ctx, c.x, c.y, 0, () => {
+      // A thick pale base, branching up into the colour.
+      stroke(ctx, gillColor(look, 0), S * 0.12 * c.k, () => {
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -S * 0.1 * c.k);
+      });
+      const trunks = 3;
+      for (let i = 0; i < trunks; i++) {
+        withTransform(ctx, 0, -S * 0.08 * c.k, (i - 1) * 0.42 + (rand() - 0.5) * 0.2, () => coralBranch(p, S * 0.22 * c.k, S * 0.07 * c.k, 3));
+      }
+    });
+  }
+}
+
 const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   fern: drawFern,
   splitleaf: drawSplitleaf,
@@ -1949,6 +2529,9 @@ const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   fan: drawFan,
   palm: drawPalm,
   cane: drawCane,
+  mushroom: drawMushroom,
+  bracket: drawBracket,
+  coral: drawCoral,
 };
 
 /**
@@ -1985,6 +2568,9 @@ function extent(form: PlantForm, mode: PlantMode): { w: number; up: number; down
   if (form === 'fan') return { w: 1.7, up: 2.4, down: 0.4 };
   if (form === 'palm') return { w: 1.9, up: 2.3, down: 0.4 };
   if (form === 'cane') return { w: 2.0, up: 2.3, down: 0.5 };
+  if (form === 'mushroom') return { w: 1.5, up: 1.8, down: 0.5 };
+  if (form === 'bracket') return { w: 1.5, up: 1.4, down: 0.4 };
+  if (form === 'coral') return { w: 1.3, up: 1.4, down: 0.4 };
   return { w: 1.35, up: 1.6, down: 0.5 };
 }
 

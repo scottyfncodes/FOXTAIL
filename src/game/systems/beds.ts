@@ -15,9 +15,9 @@ import { isRooted } from './growth';
 // curiosity of their own.
 
 /** The kinds of plant a bed can be made up of. */
-export type BedRole = 'trailer' | 'flowerer' | 'fern' | 'broadleaf' | 'succulent' | 'carnivore';
+export type BedRole = 'trailer' | 'flowerer' | 'fern' | 'broadleaf' | 'succulent' | 'carnivore' | 'fungus';
 
-export const BED_ROLES: BedRole[] = ['trailer', 'flowerer', 'fern', 'broadleaf', 'succulent', 'carnivore'];
+export const BED_ROLES: BedRole[] = ['trailer', 'flowerer', 'fern', 'broadleaf', 'succulent', 'carnivore', 'fungus'];
 
 /** How each is named when the bed has it. */
 export const ROLE_HAS: Record<BedRole, string> = {
@@ -27,6 +27,7 @@ export const ROLE_HAS: Record<BedRole, string> = {
   broadleaf: 'a broad-leaved plant',
   succulent: 'a succulent',
   carnivore: 'a carnivore',
+  fungus: 'mushrooms',
 };
 
 /** How each is asked for, on the bed's card. */
@@ -37,6 +38,7 @@ export const ROLE_WANT: Record<BedRole, string> = {
   broadleaf: 'a broad-leaved plant',
   succulent: 'a succulent',
   carnivore: 'a carnivore',
+  fungus: 'some mushrooms',
 };
 
 const FORM_ROLE: Record<PlantForm, BedRole> = {
@@ -66,6 +68,9 @@ const FORM_ROLE: Record<PlantForm, BedRole> = {
   dew: 'carnivore',
   pitcher: 'carnivore',
   cups: 'carnivore',
+  mushroom: 'fungus',
+  bracket: 'fungus',
+  coral: 'fungus',
 };
 
 /** What a plant brings to a bed. A flowering broadleaf counts as both. */

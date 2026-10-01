@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createNewGame, type GameState } from '../src/game/state';
 import { SHOP_ITEMS, POT_STYLES } from '../src/game/data/shop';
 import { PLANT_LIST, RARITY_ORDER, specimenRarity } from '../src/game/data/plants';
-import { priceOf, itemPrice, buyItem, buyBlockReason, sellItem, glutFactor, RARITY_PRICE, STAGE_PRICE_MULT } from '../src/game/systems/market';
+import { priceOf, demandSpecies, itemPrice, buyItem, buyBlockReason, sellItem, glutFactor, RARITY_PRICE, STAGE_PRICE_MULT } from '../src/game/systems/market';
 import { commissionPay, COMMISSION_MULT } from '../src/game/systems/commissions';
 import { STAGE_AT, STAGES } from '../src/game/systems/growth';
 import { addToBasket } from '../src/game/systems/basket';
@@ -49,6 +49,8 @@ describe('the economy: earning', () => {
     expect(COMMISSION_MULT).toBe(3);
     const ids = oneOfEach();
     const item = { ...ids.common, growth: STAGE_AT.large };
+    // Not on a day the market is after this one anyway: that bonus is the market's, not the request's.
+    while (demandSpecies(state) === item.defId) state.clock.totalMinutes += 1440;
     expect(commissionPay(state, item)).toBe(Math.round(priceOf(state, item) * 3));
   });
 

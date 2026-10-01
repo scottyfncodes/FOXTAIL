@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createNewGame } from '../src/game/state';
 import { addToBasket } from '../src/game/systems/basket';
 import { MINUTES_PER_DAY } from '../src/game/engine/Clock';
-import { priceOf } from '../src/game/systems/market';
+import { priceOf, demandSpecies } from '../src/game/systems/market';
 import { migrateSave } from '../src/game/engine/SaveManager';
 import { liftPlant } from '../src/game/systems/propagation';
 import { PLANTS } from '../src/game/data/plants';
@@ -70,6 +70,8 @@ describe('the board by the stall', () => {
   it('pays three times the plant’s own worth and leaves a note the stall keeps', () => {
     const state = createNewGame();
     state.commission = { id: 'r1', defId: 'pothos', minStage: 'large', postedAt: 0, expiresAt: 9999, seen: true };
+    // Not on a day the market is after pothos anyway: that would price the plant itself above the request.
+    while (demandSpecies(state) === 'pothos') state.clock.totalMinutes += MINUTES_PER_DAY;
     const big = addToBasket(state, item('pothos', 1500))!;
     addToBasket(state, item('pothos', 3600));
     expect(fittingItem(state, state.commission)!.uid).toBe(big.uid);
