@@ -4,7 +4,7 @@ import type { OutdoorZoneId, PlantDef, Rarity } from '../types';
 import { PLANTS, PLANT_LIST, rarityRank } from '../data/plants';
 import { CURIOSITIES, findCuriosity, type CuriosityDef } from '../data/curiosities';
 import { weightedPick } from '../engine/Random';
-import { everythingFound, variantAllowed } from './lineage';
+import { journalComplete, variantAllowed } from './lineage';
 import { addToBasket, basketFull } from './basket';
 import { hasFound, recordFound } from './collection';
 
@@ -29,8 +29,8 @@ export interface FindConditions {
 export function pickFoxPlant(state: GameState, zone: OutdoorZoneId, rand: () => number): { defId: string; variantId: string } | null {
   const secrets = PLANT_LIST.filter((p) => p.secret && !p.parents && p.habitat.includes(zone));
   const secret = secrets.length ? secrets[Math.floor(rand() * secrets.length) % secrets.length] : undefined;
-  // The fox's own plants only once every listed plant, in every form, has been found.
-  if (secret && everythingFound(state) && rand() < SECRET_FIND_CHANCE) {
+  // The fox's own plants only once the field journal is complete: every listed plant, in every form, grown.
+  if (secret && journalComplete(state) && rand() < SECRET_FIND_CHANCE) {
     return { defId: secret.id, variantId: secret.variants[0].id };
   }
   const options: { def: PlantDef; variantId: string; w: number }[] = [];

@@ -18,7 +18,7 @@ const ID = 'cannabisSativa';
 
 /** Every listed plant, in every form, found: the only state in which anything unlisted turns up. */
 function findEverything(state: GameState) {
-  for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
+  for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grownVariants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
 }
 
 describe('the rarity ladder', () => {
@@ -102,10 +102,10 @@ describe('Cannabis sativa', () => {
       return n;
     };
     expect(tally('meadow')).toBe(0);
-    // Nearly everything isn't enough.
+    // Nearly everything isn't enough: one form found but not yet grown into the journal.
     findEverything(state);
     const last = listedSpecies()[listedSpecies().length - 1];
-    state.collection[last.id].variants.pop();
+    state.collection[last.id].grownVariants!.pop();
     expect(tally('meadow')).toBe(0);
     findEverything(state);
     const meadow = tally('meadow');

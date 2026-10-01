@@ -1,7 +1,7 @@
 import type { GameState } from '../state';
 import type { VariantDef } from '../types';
 import { PLANTS, PLANT_LIST } from '../data/plants';
-import { hasFound } from './collection';
+import { hasFound, hasGrown } from './collection';
 
 /**
  * Every species' variants form a line: the everyday form first, then
@@ -52,6 +52,15 @@ export function listedSpecies() {
 /** Every listed species, and every form of each, has been found. Only then does anything else grow here. */
 export function everythingFound(state: GameState): boolean {
   return listedSpecies().every((p) => p.variants.every((v) => hasFound(state, p.id, v.id)));
+}
+
+/**
+ * The field journal is complete: every listed species, in every form, has
+ * been grown (the journal only records a find once a plant of it has
+ * rooted in your care). Only then does anything unlisted turn up.
+ */
+export function journalComplete(state: GameState): boolean {
+  return listedSpecies().every((p) => p.variants.every((v) => hasGrown(state, p.id, v.id)));
 }
 
 /** How far along the whole collection is, by forms found, for the journal's quiet line. */

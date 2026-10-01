@@ -16,7 +16,7 @@ import { mulberry32 } from '../src/game/engine/Random';
 const FUNGI = PLANT_LIST.filter((p) => p.form === 'mushroom' || p.form === 'bracket' || p.form === 'coral');
 
 function findEverything(state: GameState) {
-  for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
+  for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grownVariants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
 }
 
 describe('the mushroom family', () => {
@@ -78,6 +78,13 @@ describe('the valley’s own cannabis', () => {
   it('never self-sows until every listed plant, in every form, has been found', () => {
     const state = createNewGame();
     const rand = mulberry32(1);
+    for (let i = 0; i < 2000; i++) expect(selfSowStep(state, () => true, 0, rand)).toBeNull();
+  });
+
+  it('stays locked while forms have only been found, not yet grown into the journal', () => {
+    const state = createNewGame();
+    for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
+    const rand = mulberry32(4);
     for (let i = 0; i < 2000; i++) expect(selfSowStep(state, () => true, 0, rand)).toBeNull();
   });
 
