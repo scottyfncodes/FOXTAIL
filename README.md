@@ -10,10 +10,17 @@ grow in patches all over it.
 
 - **Discover.** Every wild patch shows the actual plant growing there, and
   re-rolls what grows in it over time, weighted by rarity (Common → Uncommon →
-  Rare → Very Rare → Extremely Rare). 48 species, nearly 200 variants: variegated,
+  Rare → Very Rare → Extremely Rare). 60 species, nearly 250 variants: variegated,
   dark-leaved, crested, glowing… and, down in the creek bogs and the damp
   forest, carnivores: sundews, flytraps and pitcher plants. Some only appear in the rain, some only by
   lantern light, and a few only where the fox leads you.
+- **Mushrooms.** A whole family of fungi grows wild alongside the plants and
+  is gathered, grown on, propagated and planted out the same way:
+  chanterelles, shaggy ink caps, fly agarics, porcini, morels, fairy rings
+  (after rain), oyster mushrooms and turkey tails tiering up mossy stumps,
+  coral fungus, lion's mane, ghost pipes and, by lantern light after dark,
+  the glowing ghost fungus. Each has its own line of rarer forms, and in a
+  garden bed they count as a kind of their own.
 - **Propagate.** Pot a cutting in a nursery bed; it roots, then grows from
   *cutting → young → established → large → specimen*. Rooted plants give
   cuttings of their own — one a day from each plant, and not every cutting

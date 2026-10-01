@@ -173,14 +173,14 @@ export class JournalPanel {
     }
   }
 
-  /** Mushrooms, insects and oddities — the things at the end of a fox's trail. */
+  /** Insects, creatures and oddities — the things at the end of a fox's trail. */
   private renderCuriosities() {
     const state = this.game.state;
     const body = this.panel.body;
     const found = CURIOSITIES.filter((c) => state.curiosities[c.id]).length;
     body.appendChild(el('div', 'collection-summary', `${found} of ${CURIOSITIES.length} noted`));
     const list = el('div', 'entry-list');
-    const glyph = { fungus: '\u{1F344}', insect: '\u{1F98B}', oddity: '\u{1FAA8}' } as const;
+    const glyph = { creature: '\u{1F438}', insect: '\u{1F98B}', oddity: '\u{1FAA8}' } as const;
     for (const c of [...CURIOSITIES].sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity))) {
       const rec = state.curiosities[c.id];
       const row = el('div', `entry-row${rec ? '' : ' missing'}`);

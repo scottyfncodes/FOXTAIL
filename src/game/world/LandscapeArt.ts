@@ -692,42 +692,59 @@ export function drawFoxFindCuriosity(ctx: Ctx, camera: Camera, find: { x: number
   const id = c?.id ?? '';
   ctx.save();
   switch (id) {
-    case 'flyAgaric':
-    case 'fairyRing':
-    case 'coralFungus':
-    case 'ghostPipe': {
-      const n = id === 'fairyRing' ? 9 : 4;
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2;
-        const rr = id === 'fairyRing' ? tile * 0.45 : tile * 0.14 * (i % 2 ? 1 : 0.4);
-        const x = s.x + Math.cos(a) * rr;
-        const y = s.y + Math.sin(a) * rr * 0.5;
-        const h = tile * (0.12 + hash2(i, find.seed % 97) * 0.08);
-        if (id === 'coralFungus') {
-          ctx.strokeStyle = '#f0c85a';
-          ctx.lineWidth = Math.max(1.5, tile * 0.035);
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(x - tile * 0.05, y - h);
-          ctx.moveTo(x, y);
-          ctx.lineTo(x + tile * 0.05, y - h * 0.9);
-          ctx.moveTo(x, y - h * 0.5);
-          ctx.lineTo(x, y - h * 1.1);
-          ctx.stroke();
-          continue;
-        }
-        ctx.fillStyle = id === 'ghostPipe' ? '#eeeef0' : '#efe6d4';
-        ctx.fillRect(x - tile * 0.02, y - h, tile * 0.04, h);
-        ctx.fillStyle = id === 'flyAgaric' ? '#c8322a' : id === 'ghostPipe' ? '#f4f4f6' : '#e8dcc0';
+    case 'treeFrog': {
+      hidingLeaves(ctx, s.x, s.y, tile, find.seed % 50);
+      const y = s.y - tile * 0.16;
+      ctx.fillStyle = '#4cc04a';
+      ctx.beginPath();
+      ctx.ellipse(s.x, y, tile * 0.075, tile * 0.055, 0, 0, Math.PI * 2);
+      ctx.ellipse(s.x + tile * 0.06, y - tile * 0.035, tile * 0.04, tile * 0.032, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#e8402a';
+      ctx.beginPath();
+      ctx.arc(s.x + tile * 0.075, y - tile * 0.06, tile * 0.016, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'hedgehog': {
+      const y = s.y - tile * 0.04;
+      ctx.fillStyle = '#6a5038';
+      ctx.beginPath();
+      ctx.ellipse(s.x, y, tile * 0.13, tile * 0.08, 0, Math.PI, 0);
+      ctx.fill();
+      ctx.strokeStyle = '#3e2c1c';
+      ctx.lineWidth = Math.max(1, tile * 0.012);
+      ctx.beginPath();
+      for (let i = 0; i < 9; i++) {
+        const a = Math.PI + (i / 8) * Math.PI;
+        ctx.moveTo(s.x + Math.cos(a) * tile * 0.1, y + Math.sin(a) * tile * 0.06);
+        ctx.lineTo(s.x + Math.cos(a) * tile * 0.16, y + Math.sin(a) * tile * 0.11);
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#c8a888';
+      ctx.beginPath();
+      ctx.ellipse(s.x + tile * 0.13, y - tile * 0.01, tile * 0.045, tile * 0.03, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1a1008';
+      ctx.beginPath();
+      ctx.arc(s.x + tile * 0.17, y - tile * 0.005, tile * 0.012, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'fireSalamander': {
+      const y = s.y - tile * 0.02;
+      ctx.strokeStyle = '#151210';
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(2, tile * 0.05);
+      ctx.beginPath();
+      ctx.moveTo(s.x - tile * 0.18, y + tile * 0.02);
+      ctx.quadraticCurveTo(s.x - tile * 0.05, y - tile * 0.05, s.x + tile * 0.14, y);
+      ctx.stroke();
+      ctx.fillStyle = '#f2c41a';
+      for (let i = 0; i < 4; i++) {
         ctx.beginPath();
-        if (id === 'ghostPipe') ctx.ellipse(x + tile * 0.03, y - h, tile * 0.04, tile * 0.025, 0.8, 0, Math.PI * 2);
-        else ctx.ellipse(x, y - h, tile * 0.08, tile * 0.05, 0, Math.PI, 0);
+        ctx.arc(s.x - tile * 0.12 + i * tile * 0.075, y - tile * 0.015 * (i % 2 ? 1 : -0.4), tile * 0.016, 0, Math.PI * 2);
         ctx.fill();
-        if (id === 'flyAgaric') {
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(x - tile * 0.03, y - h - tile * 0.03, tile * 0.015, tile * 0.015);
-          ctx.fillRect(x + tile * 0.02, y - h - tile * 0.02, tile * 0.015, tile * 0.015);
-        }
       }
       break;
     }

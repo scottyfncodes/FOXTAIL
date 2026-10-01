@@ -207,6 +207,8 @@ export interface WorldFlourish {
 }
 const INTERACT_RANGE = 1.3;
 const NOTICE_RANGE = 2.2;
+/** A secret plant has nothing about it to catch the eye: you have to walk right up to it. */
+const SECRET_NOTICE_RANGE = 1.0;
 const LUSH_REFRESH_MS = 1500;
 
 function spanText(gameMinutes: number): string {
@@ -477,7 +479,7 @@ export class Game {
     const result = advanceWorld(this.state, elapsed, this.spreadCarry, this.isOpenGround);
     this.spreadCarry = result.carry;
     const now = this.state.clock.totalMinutes;
-    if (result.ups.length || result.spreads.length) this.lushDirty = true;
+    if (result.ups.length || result.spreads.length || result.sown.length) this.lushDirty = true;
     // A find only goes in the journal once it's been grown: a plant of it rooted in your care.
     for (const g of recordGrown(this.state, now)) {
       if (!offline) this.pushToast(`${specimenName(g.defId, g.variantId)} took — it’s in your field journal now.`, 'discovery');
@@ -514,11 +516,16 @@ export class Game {
     if (tickBedCuriosities(this.state, elapsed / 60, now, Math.random, (gx, gy) => this.isOpenGround(Math.floor(gx), Math.floor(gy))).length && !offline) {
       this.pushToast('Something has turned up in one of your beds.', 'discovery', 'normal');
     }
-    const sports = result.spreads.filter((s) => this.state.plants[s.childId]?.unnoticed);
+    // A secret plant coming up is never announced, whether it seeded itself or came in with a bed's visitors.
+    const sports = result.spreads.filter((s) => {
+      const child = this.state.plants[s.childId];
+      return child?.unnoticed && !PLANTS[child.defId]?.secret;
+    });
     if (!offline) {
-      if (result.spreads.length > 0) {
-        const child = this.state.plants[result.spreads[0].childId];
-        if (child?.location.kind === 'wild') {
+      const first = result.spreads.map((s) => this.state.plants[s.childId]).find((c) => c && !PLANTS[c.defId]?.secret);
+      if (first) {
+        const child = first;
+        if (child.location.kind === 'wild') {
           this.hint('spread', `A ${PLANTS[child.defId].name} seedling came up by itself in ${zoneLabel(child.location.zone, this.state)}.`, 'major');
         }
       }
@@ -755,7 +762,8 @@ export class Game {
     const p = this.state.player;
     for (const plant of Object.values(this.state.plants)) {
       if (!plant.unnoticed || plant.location.kind !== 'wild') continue;
-      if (Math.hypot(plant.location.x - p.x, plant.location.y - p.y) > NOTICE_RANGE) continue;
+      const range = PLANTS[plant.defId]?.secret ? SECRET_NOTICE_RANGE : NOTICE_RANGE;
+      if (Math.hypot(plant.location.x - p.x, plant.location.y - p.y) > range) continue;
       plant.unnoticed = false;
       const found = recordFound(this.state, plant.defId, plant.variantId, this.state.clock.totalMinutes);
       const r = specimenRarity(plant.defId, plant.variantId);

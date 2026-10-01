@@ -889,7 +889,8 @@ export class Renderer {
     if (hides) ctx.globalAlpha = 0.45;
     this.drawPlantSprite(s.x, s.y + tile * 0.05, tile, p.defId, p.variantId, sf, p.seed, 'ground', now, state.weather.condition === 'rain');
     ctx.globalAlpha = 1;
-    if (p.unnoticed) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, '#fff4c2', 3);
+    // The valley's secret plants never sparkle: nothing marks them out but themselves.
+    if (p.unnoticed && !PLANTS[p.defId]?.secret) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, '#fff4c2', 3);
   }
 
   /** A few twinkling points: something here is worth walking over to. */
