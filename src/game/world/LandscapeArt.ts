@@ -380,6 +380,7 @@ function label(ctx: Ctx, x: number, y: number, text: string, bad: boolean, tile:
 const PLANT_BLOCK_TEXT: Record<string, string> = {
   bounds: 'Too far',
   water: 'Can’t plant here',
+  dry: 'Needs water: the creek or a pond',
   building: 'Can’t plant here',
   obstacle: 'Something’s in the way',
   spot: 'A wild patch grows here',

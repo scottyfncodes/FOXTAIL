@@ -1,4 +1,5 @@
-import type { ScottActivity, ScottState } from '../state';
+import { hasGrown } from './collection';
+import type { GameState, ScottActivity, ScottState } from '../state';
 import { SCOTT_SPOTS, findScottSpot, type ScottSpot, type ScottSpotKind } from '../data/scottSpots';
 import { interiorWaypoint } from '../data/interior';
 import { spotPosition, type AnchorOffset } from '../data/catSpots';
@@ -213,4 +214,15 @@ export function dipAmount(t: number): number {
 /** Up from the dip, the two of them just smiling at each other. */
 export function smiling(t: number): boolean {
   return t >= DIP_END;
+}
+
+/** The valley's cannabis, in all three forms. */
+const CANNABIS = ['cannabisSativa', 'cannabisIndica', 'cannabisHybrid'];
+
+/**
+ * Once the player has cultivated cannabis (grown one in their care), Scott
+ * takes to wandering about with a joint. Nobody says anything about it.
+ */
+export function scottHasJoint(state: Pick<GameState, 'collection'>): boolean {
+  return CANNABIS.some((id) => hasGrown(state, id));
 }

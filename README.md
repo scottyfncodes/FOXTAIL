@@ -10,7 +10,7 @@ grow in patches all over it.
 
 - **Discover.** Every wild patch shows the actual plant growing there, and
   re-rolls what grows in it over time, weighted by rarity (Common → Uncommon →
-  Rare → Very Rare → Extremely Rare). 67 species, nearly 280 variants: variegated,
+  Rare → Very Rare → Extremely Rare). 69 species, nearly 290 variants: variegated,
   dark-leaved, crested, glowing… and, down in the creek bogs and the damp
   forest, carnivores: sundews, flytraps and pitcher plants. Some only appear in the rain, some only by
   lantern light, and a few only where the fox leads you.
@@ -21,6 +21,9 @@ grow in patches all over it.
   leaves in the woods, and bamboo stands in groves by the water, taller
   than anything else you can plant. The low ones are the quickest to
   spread, and in a garden bed they count as ground cover.
+- **The water's edge.** Lily pads float on the creek and in your ponds —
+  they can only be planted out on open water, and only spread across it —
+  and cattails stand in the shallows and along the bank alike.
 - **Mushrooms.** A whole family of fungi grows wild alongside the plants and
   is gathered, grown on, propagated and planted out the same way:
   chanterelles, shaggy ink caps, fly agarics, porcini, morels, fairy rings

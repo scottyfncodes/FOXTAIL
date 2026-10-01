@@ -145,10 +145,17 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
       const ty = Math.floor(y);
       if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) continue;
       const zone = zoneAt(tx, ty);
-      if (zone === 'greenhouse' || isWater(tx, ty) || !isOpenGround(tx, ty)) continue;
-      if (bed ? !bedContains(bed, x, y, 0.2) : state.gardenBeds.some((b) => bedContains(b, x, y, -0.2))) continue;
-      if (state.paths.length && onPath(state, x, y, now, true)) continue;
-      if (inPond(state, x, y)) continue;
+      if (zone === 'greenhouse') continue;
+      // Water plants seed out onto the water (a lily pad nowhere else); everything else keeps to dry ground.
+      const wet = isWater(tx, ty) || inPond(state, x, y);
+      if (def.water === 'only' && !wet) continue;
+      if (wet) {
+        if (!def.water || bed) continue;
+      } else {
+        if (!isOpenGround(tx, ty)) continue;
+        if (bed ? !bedContains(bed, x, y, 0.2) : state.gardenBeds.some((b) => bedContains(b, x, y, -0.2))) continue;
+        if (state.paths.length && onPath(state, x, y, now, true)) continue;
+      }
       if ((perZone[zone] ?? 0) >= WILD_ZONE_CAP) continue;
       if ((perSpecies[`${zone}:${parent.defId}`] ?? 0) >= WILD_SPECIES_ZONE_CAP) continue;
       const near = tooClose(grid, x, y);
@@ -359,6 +366,8 @@ export function computeLushness(state: GameState): LushField {
     const variegated = look.variegation !== 'none' && look.variegation !== 'glow';
     zoneCount[p.location.zone]++;
     zoneCharW[p.location.zone][ci] += w;
+    // Out on the water, it doesn't change the ground.
+    if (def.water === 'only') continue;
     const { x, y, bedId } = p.location;
     const x0 = Math.max(0, Math.floor(x - r));
     const x1 = Math.min(GRID_W - 1, Math.floor(x + r));
