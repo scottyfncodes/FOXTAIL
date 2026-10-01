@@ -46,6 +46,12 @@ if (import.meta.env.DEV) {
   (window as unknown as { __foxtail: unknown }).__foxtail = { game, putting };
 }
 
+// Any tap or key, anywhere — the title screen, a panel, the HUD — may start
+// audio or wake it after iOS paused it, so the music is there from the first touch.
+for (const type of ['pointerup', 'touchend', 'click', 'keydown'] as const) {
+  window.addEventListener(type, () => game.audio.init(), { capture: true, passive: true });
+}
+
 new StartOverlay(
   () => {
     game.audio.init();

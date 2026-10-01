@@ -131,6 +131,24 @@ keeps passing (up to three game days per absence) while the tab is closed,
 and the welcome-back message tells you what grew and what spread. Nothing
 ever dies.
 
+## Music
+
+Foxtail has a soundtrack that follows you around the valley: **Home** in
+the living room, **Greenhouse** under glass, **Wild** out in the meadow,
+woods and creek, **Deep Wild** in the damp forest, the overgrown clearing
+and anywhere outdoors after dark, **Evening** indoors once the lamps are
+lit, and the **Foxtail** theme on the title screen. Every track is built on
+the same five-note motif, and a really rare find gets a quiet statement of
+it, no more than once every minute and a half. The music changes only when
+where you are actually changes: going through a doorway for a moment or
+opening a panel leaves it alone. It sits under the ambience and the sound effects, and
+the 🎵 button turns it on or off and sets its volume (remembered on the device).
+
+Until the recorded soundtrack exists, each track plays a live arrangement
+synthesised in the browser: kalimba, marimba, felt piano, nylon guitar,
+glass, flute, soft strings and hand percussion. See
+[`public/music/README.md`](public/music/README.md) for where recordings go.
+
 ## Running it
 
 ```bash
@@ -164,7 +182,13 @@ furniture and garden pieces). Esc also closes whatever panel is open. Progress a
   ground), `market` (prices, buying/selling), `collection`, `basket`, `decor`,
   plus the fox, Scout, Scott and Ranger the cat.
 - `src/game/engine/` — game loop, input, camera, clock/weather, save manager
-  (with migration from older builds), audio.
+  (with migration from older builds), audio: `AudioManager.ts` (ambience,
+  sound effects, the shared audio context) and `MusicManager.ts` (the music
+  bus: tracks, crossfades, volume/mute, recorded-or-arranged playback).
+- `src/game/audio/` — the soundtrack as data (`soundtrack.ts`: the motif,
+  the tracks and their arrangements), the arranger that turns an
+  arrangement into notes (`arranger.ts`), the synthesised instruments
+  (`instruments.ts`), and which music fits where Ellen is (`musicContext.ts`).
 - `src/game/world/` — map, collision, and the Canvas2D renderer. All art is
   procedural: `PlantArt.ts` draws every species/variant at any growth stage and
   caches plants as sprites so a region with hundreds of plants stays fast.

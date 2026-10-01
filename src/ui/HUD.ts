@@ -7,6 +7,7 @@ import { isNight, minuteOfDay } from '../game/engine/Clock';
 import { ModeBar } from './ModeBar';
 import { ToastScheduler } from '../game/systems/toasts';
 import { coin } from './common';
+import { MusicControl } from './MusicControl';
 
 function formatClock(totalMinutes: number): string {
   const m = minuteOfDay(totalMinutes);
@@ -41,6 +42,7 @@ export class HUD {
   private truckBtn = el('button', 'icon-btn truck-btn', '\u{1F69A}');
   private landMenu = el('div', 'land-menu');
   private modeBar: ModeBar;
+  private musicControl: MusicControl;
   private touch = el('div', 'touch-controls');
   private interactionPrompt = el('div', 'interaction-prompt');
   private promptLabel = document.createTextNode('');
@@ -63,7 +65,8 @@ export class HUD {
     this.coinChip.append(coin(), this.coinText);
     left.append(this.zoneChip, this.timeChip, this.coinChip);
     const right = el('div', 'hud-buttons');
-    right.append(this.truckBtn, this.toolBtn, this.journalBtn, this.basketBtn);
+    this.musicControl = new MusicControl(game.audio.music);
+    right.append(this.musicControl.button, this.truckBtn, this.toolBtn, this.journalBtn, this.basketBtn);
     this.truckBtn.setAttribute('aria-label', 'Park the truck');
     this.truckBtn.title = 'Park here and get out';
     this.truckBtn.style.display = 'none';
@@ -82,11 +85,12 @@ export class HUD {
     this.modeBar = new ModeBar(game);
     this.buildLandMenu();
     this.interactionPrompt.append(el('kbd', undefined, 'E'), this.promptLabel);
-    this.root.append(top, this.interactionPrompt, touch, this.landMenu, this.modeBar.root);
+    this.root.append(top, this.interactionPrompt, touch, this.landMenu, this.musicControl.menu, this.modeBar.root);
     // Notifications sit above everything, open panels included, so news
     // still gets through while a plant, bed or planter is open.
     document.body.appendChild(this.toastStack);
 
+    this.musicControl.button.addEventListener('click', () => this.setLandMenu(false));
     this.journalBtn.addEventListener('click', () => this.onJournal?.());
     this.basketBtn.addEventListener('click', () => this.onBasket?.());
     this.toolBtn.addEventListener('click', () => {
@@ -124,6 +128,7 @@ export class HUD {
   }
 
   private setLandMenu(open: boolean) {
+    if (open) this.musicControl.setOpen(false);
     this.landMenuOpen = open;
     this.landMenu.classList.toggle('open', open);
   }

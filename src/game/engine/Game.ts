@@ -650,6 +650,11 @@ export class Game {
     } else {
       this.audio.setZone('greenhouse', false, dtSeconds);
     }
+    const me = this.state.player;
+    this.audio.updateMusic(
+      { started: true, room: this.currentRoom(), zone: me.inGreenhouse ? 'greenhouse' : zoneAt(Math.floor(me.x), Math.floor(me.y)), totalMinutes: this.state.clock.totalMinutes },
+      dtSeconds
+    );
 
     // In the greenhouse, Scout and the cat play chase instead of their usual routines.
     const playing = this.state.player.inGreenhouse && roomAt(this.state.player.x) === 'greenhouse';
@@ -1432,6 +1437,8 @@ export class Game {
   private announce(text: string, rarity: Rarity) {
     const aside = discoveryAside(rarity);
     this.pushToast(aside ? `${text} ${aside}` : text, 'discovery', rarityRank(rarity) >= 2 ? 'major' : 'important');
+    // Only the finds that really matter get the motif, and never in a rush.
+    if (rarityRank(rarity) >= 2) this.audio.music.playStinger();
   }
 
   /** Somewhere far off and overgrown for the fox to run to, or null. */

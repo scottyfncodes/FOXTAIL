@@ -1707,3 +1707,122 @@ button {
   justify-content: center;
   gap: 10px;
 }
+
+/* ---------- Music ---------- */
+/* A quiet corner of the HUD: one small button, and a popover that drops
+   from it like the garden menu. */
+.icon-btn.music-btn {
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+.icon-btn.music-btn.muted {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.music-menu {
+  position: absolute;
+  top: calc(var(--safe-top) + 60px);
+  right: calc(var(--safe-right) + 12px);
+  width: 216px;
+  padding: 12px 14px 10px;
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.music-menu.open {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.music-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.music-title {
+  font-size: 15px;
+}
+
+.music-toggle {
+  min-width: 52px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.music-toggle.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.music-volume {
+  --fill: 60%;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.music-volume::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent) var(--fill), rgba(244, 236, 216, 0.18) var(--fill));
+}
+
+.music-volume::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent) var(--fill), rgba(244, 236, 216, 0.18) var(--fill));
+}
+
+.music-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--accent-strong);
+}
+
+.music-volume::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--accent-strong);
+}
+
+.music-menu.is-muted .music-volume {
+  opacity: 0.5;
+}
+
+.music-now {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
