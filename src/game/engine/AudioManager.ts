@@ -29,6 +29,12 @@ const PROFILES: Record<ZoneId, ZoneAudioProfile> = {
   overgrownClearing: { windGain: 0.06, windCutoff: 1000, hum: 0.025, humFreq: 130, sparkleRate: 0.18 },
 };
 
+/**
+ * Scales every zone's wind bed. Turned well down: at full level the wind
+ * read as a constant hiss over everything. 0 removes it entirely.
+ */
+export const WIND_LEVEL = 0.2;
+
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -134,7 +140,7 @@ export class AudioManager {
     this.currentZone = zone;
     const p = PROFILES[zone];
     const t = this.ctx.currentTime;
-    this.windGain.gain.setTargetAtTime(this.enabled ? p.windGain : 0, t, 1.2);
+    this.windGain.gain.setTargetAtTime(this.enabled ? p.windGain * WIND_LEVEL : 0, t, 1.2);
     this.windFilter.frequency.setTargetAtTime(p.windCutoff, t, 1.2);
     this.humGain.gain.setTargetAtTime(this.enabled ? p.hum : 0, t, 1.5);
     this.humOsc.frequency.setTargetAtTime(p.humFreq, t, 1.5);
