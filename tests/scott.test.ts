@@ -99,9 +99,9 @@ describe('Scott (ambient NPC)', () => {
     expect(state.scott.facing).toBe('right');
   });
 
-  it('spends some of his time at home: the ball game on the couch, a drink, a nap, the putting mat', () => {
+  it('spends some of his time at home: the ball game on the couch, a drink, a nap, the putting mat, a loaf in the kitchen', () => {
     const living = SCOTT_SPOTS.filter((s) => s.zone === 'greenhouse' && roomAt(s.x) === 'living');
-    expect(living.map((s) => s.kind).sort()).toEqual(['drink', 'nap', 'putt', 'tv']);
+    expect(living.map((s) => s.kind).sort()).toEqual(['bake', 'drink', 'nap', 'putt', 'tv']);
     expect(ACTIVITY_FOR_KIND.tv).toBe('watchingTV');
     expect(ACTIVITY_FOR_KIND.drink).toBe('relaxing');
     // …but only occasionally: most of his spots are elsewhere.

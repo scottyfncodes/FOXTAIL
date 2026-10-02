@@ -305,6 +305,8 @@ export interface FixtureContext {
   now: number;
   scottWatching: boolean;
   scottRelaxing: boolean;
+  /** One of Scott's loaves, cooling on the coffee table. */
+  freshLoaf?: boolean;
 }
 
 export function drawFixture(ctx: Ctx, camera: Camera, f: LivingFixture, fc: FixtureContext) {
@@ -509,6 +511,36 @@ export function drawFixture(ctx: Ctx, camera: Camera, f: LivingFixture, fc: Fixt
       ctx.beginPath();
       ctx.arc(a.x + w * 0.84, a.y + h * 0.3, tile * 0.06, 0, Math.PI * 2);
       ctx.fill();
+      if (fc.freshLoaf) {
+        // Scott's bread on its board: a scored, golden loaf, still steaming.
+        const lx = a.x + w * 0.55;
+        const ly = a.y + h * 0.2;
+        ctx.fillStyle = '#a77a4a';
+        ctx.fillRect(lx - tile * 0.2, ly - tile * 0.02, tile * 0.4, tile * 0.1);
+        ctx.fillStyle = '#c0813f';
+        ctx.beginPath();
+        ctx.ellipse(lx, ly - tile * 0.04, tile * 0.16, tile * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#d99a52';
+        ctx.beginPath();
+        ctx.ellipse(lx - tile * 0.02, ly - tile * 0.07, tile * 0.11, tile * 0.05, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#f0d9a8';
+        ctx.lineWidth = Math.max(1, tile * 0.015);
+        ctx.beginPath();
+        for (let i = -1; i <= 1; i++) {
+          ctx.moveTo(lx + i * tile * 0.06 - tile * 0.02, ly - tile * 0.1);
+          ctx.lineTo(lx + i * tile * 0.06 + tile * 0.02, ly - tile * 0.02);
+        }
+        ctx.stroke();
+        for (let k = 0; k < 2; k++) {
+          const u = (fc.now * 0.0004 + k * 0.5) % 1;
+          ctx.fillStyle = `rgba(255,255,255,${0.3 * (1 - u)})`;
+          ctx.beginPath();
+          ctx.arc(lx + (k - 0.5) * tile * 0.08 + Math.sin(u * 6 + k) * tile * 0.03, ly - tile * 0.14 - u * tile * 0.35, tile * (0.025 + u * 0.03), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
       break;
     case 'sideTable': {
       ctx.fillStyle = '#6e4e32';

@@ -261,7 +261,23 @@ export interface ScoutState {
   nextEventAt: number;
 }
 
-export type ScottActivity = 'traveling' | 'tinkering' | 'napping' | 'snacking' | 'golfing' | 'putting' | 'watchingTV' | 'relaxing';
+export type ScottActivity =
+  | 'traveling'
+  | 'tinkering'
+  | 'napping'
+  | 'snacking'
+  | 'golfing'
+  | 'putting'
+  | 'watchingTV'
+  | 'relaxing'
+  | 'fishing'
+  | 'choppingWood'
+  | 'baking'
+  | 'fixingTruck'
+  | 'driving'
+  | 'pettingRanger'
+  | 'playingWithScout'
+  | 'withEllen';
 
 export interface ScottState {
   x: number;
@@ -274,6 +290,10 @@ export interface ScottState {
   nextChangeAt: number;
   /** Jogging back to work after being caught (and kissed). */
   hurrying?: boolean;
+  /** Out for a drive in his truck: which leg of the loop he's on. */
+  driveLeg?: number;
+  /** Game-minute until which his last loaf sits cooling on the coffee table. */
+  loafUntil?: number;
 }
 
 export type CatActivity = 'wandering' | 'sitting' | 'grooming' | 'sleeping' | 'investigating' | 'hiding';

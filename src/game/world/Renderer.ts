@@ -51,7 +51,9 @@ import { catLift } from '../systems/cat';
 import { foxFade } from '../systems/fox';
 import { isCouchNap, isCouchSpot } from '../data/scottSpots';
 import { PATH_WIDTH, bedCost } from '../systems/landscape';
-import { dipAmount, smiling, DIP_END, type ChaseReaction } from '../systems/scott';
+import { dipAmount, smiling, DIP_END, scottTruck, type ChaseReaction } from '../systems/scott';
+import { FIREFLY_AREAS, fireflies, fireflyStrength, pondFrogs, pondPads, pondTurtleAt, pondTurtleCount, riverFrogs, riverTurtles, TURTLE_STONES } from '../systems/wildlife';
+import { drawBaskingStone, drawFrog, drawTurtle } from './WildlifeArt';
 
 /** Everything the scene needs beyond the game state: what the player is doing with their hands, and passing effects. */
 export interface SceneExtras {
@@ -303,6 +305,24 @@ export class Renderer {
       const p = camera.worldToScreen(k.x * TILE_SIZE, k.y * TILE_SIZE);
       drawKoi(this.ctx, p.x, p.y, k.heading, TILE_SIZE * camera.zoom * 0.5, k.variety, k.seed, now, koiAlpha);
     }
+    // Its turtles, on their basking stones or out in the water, and frogs along the banks.
+    const tilePx = TILE_SIZE * camera.zoom;
+    const night = isNight(gm);
+    TURTLE_STONES.forEach((st, i) => {
+      if (!inView(st.x, st.y, 1)) return;
+      const p = camera.worldToScreen(st.x * TILE_SIZE, st.y * TILE_SIZE);
+      drawBaskingStone(this.ctx, p.x, p.y, tilePx * 0.7, i);
+    });
+    for (const t of riverTurtles(now)) {
+      if (!inView(t.x, t.y, 1)) continue;
+      const p = camera.worldToScreen(t.x * TILE_SIZE, t.y * TILE_SIZE);
+      drawTurtle(this.ctx, t, p.x, p.y, tilePx * 0.5, now, night ? 0.7 : 1);
+    }
+    for (const f of riverFrogs(now, night)) {
+      if (!inView(f.x, f.y, 1)) continue;
+      const p = camera.worldToScreen(f.x * TILE_SIZE, f.y * TILE_SIZE);
+      drawFrog(this.ctx, f, p.x, p.y, tilePx * 0.42, tilePx, night ? 0.75 : 1);
+    }
     // Ground the player has worked: beds first, paths over them.
     for (const bed of state.gardenBeds) {
       if (!inView(bed.x, bed.y, bed.w + bed.h + 2)) continue;
@@ -410,7 +430,7 @@ export class Renderer {
       const kiss = extras.kiss;
       drawables.push({ y: state.player.y, draw: () => this.drawKiss(camera, state, kiss, now) });
     } else {
-      if (state.scott.zone !== 'greenhouse') {
+      if (state.scott.zone !== 'greenhouse' && state.scott.activity !== 'driving') {
         drawables.push({ y: state.scott.y, draw: () => this.atScale(camera, state.scott.x, state.scott.y, CHARACTER_SCALE.scott, () => this.drawScott(camera, state.scott, now, scottHasJoint(state))) });
       }
       if (state.truck && state.player.riding) {
@@ -419,6 +439,12 @@ export class Renderer {
       } else {
         drawables.push({ y: state.player.y, draw: () => this.atScale(camera, state.player.x, state.player.y, CHARACTER_SCALE.ellen, () => this.drawEllen(camera, state.player.x, state.player.y, state.player.facing, now, moving, crouching)) });
       }
+    }
+    // Scott's own truck: parked by the house, or out on the road with him in it.
+    const st = scottTruck(state.scott);
+    if (inView(st.x, st.y, 3)) {
+      const driving = state.scott.activity === 'driving';
+      drawables.push({ y: st.y + 0.05, draw: () => this.drawTruck(camera, { ...st, bed: [] }, now, driving, driving, 'scott') });
     }
     if (state.truck && !state.player.riding && inView(state.truck.x, state.truck.y, 3)) {
       const t = state.truck;
@@ -1343,11 +1369,8 @@ export class Renderer {
           ctx.stroke();
         }
         ctx.fillStyle = '#3f8a4c';
-        const pads = Math.max(3, Math.min(14, Math.round(5 * scale)));
-        for (let i = 0; i < pads; i++) {
-          const k = 0.35 + 0.3 * ((i * 0.618) % 1);
-          const px = s.x + Math.cos(i * 2.1 + d.x) * rx * (0.55 + (k - 0.5) * 0.4);
-          const py = s.y + Math.sin(i * 2.1 + d.x) * ry * (0.55 + (k - 0.5) * 0.4);
+        for (const pad of pondPads(d, POND_DEFAULT.w * POND_DEFAULT.h)) {
+          const { x: px, y: py } = camera.worldToScreen(pad.x * TILE_SIZE, pad.y * TILE_SIZE);
           ctx.beginPath();
           ctx.ellipse(px, py, tile * 0.12, tile * 0.085, 0, 0.3, Math.PI * 2 - 0.3);
           ctx.lineTo(px, py);
@@ -1357,6 +1380,16 @@ export class Renderer {
         ctx.beginPath();
         ctx.arc(s.x + Math.cos(d.x) * rx * 0.55, s.y + Math.sin(d.x) * ry * 0.55 - tile * 0.03, tile * 0.045, 0, Math.PI * 2);
         ctx.fill();
+        // Its turtles (the bigger ponds draw them in on their own) and frogs on the pads.
+        for (let k = 0; k < pondTurtleCount(d); k++) {
+          const t = pondTurtleAt(d, k, now);
+          const p = camera.worldToScreen(t.x * TILE_SIZE, t.y * TILE_SIZE);
+          drawTurtle(ctx, t, p.x, p.y, tile * 0.42, now, night ? 0.7 : 1);
+        }
+        for (const f of pondFrogs(d, POND_DEFAULT.w * POND_DEFAULT.h, now, night)) {
+          const p = camera.worldToScreen(f.x * TILE_SIZE, f.y * TILE_SIZE);
+          drawFrog(ctx, f, p.x, p.y, tile * 0.38, tile, night ? 0.75 : 1);
+        }
         if (!night) {
           const fx = s.x + Math.cos(now * 0.0012) * rx * 0.7;
           const fy = s.y - ry * 0.9 + Math.sin(now * 0.003) * tile * 0.1;
@@ -1501,6 +1534,34 @@ export class Renderer {
       glow(p.location.x, p.location.y - 0.4, 1 + stageFloat(p.growth) * 0.35, c, 0.4 * pulse);
     }
     if (state.tools.lantern && !state.player.inGreenhouse) glow(state.player.x + 0.2, state.player.y - 0.3, 3, [255, 200, 120], 0.3);
+    // Scott's headlights, out on a drive after dark.
+    if (state.scott.activity === 'driving') {
+      const t = scottTruck(state.scott);
+      const f = Renderer.DIR[t.facing];
+      glow(t.x + f[0] * 1.9, t.y - 0.25 + f[1] * 1.2, 1.6, [255, 236, 180], 0.4);
+    }
+    // Lightning bugs, over the stretches of the valley they keep to.
+    const bugs = fireflyStrength(darkness, state.weather.condition);
+    if (bugs > 0) {
+      for (const area of FIREFLY_AREAS) {
+        const r = area.rect;
+        if (r.x + r.w < bounds.minX - 2 || r.x > bounds.maxX + 2 || r.y + r.h < bounds.minY - 2 || r.y > bounds.maxY + 2) continue;
+        for (const b of fireflies(area, now)) {
+          if (b.glow < 0.02 || b.x < bounds.minX - 1 || b.x > bounds.maxX + 1 || b.y < bounds.minY - 1 || b.y > bounds.maxY + 1) continue;
+          const a = b.glow * bugs;
+          const sp = camera.worldToScreen(b.x * TILE_SIZE, b.y * TILE_SIZE);
+          const g = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, tile * 0.6);
+          g.addColorStop(0, `rgba(214,255,120,${0.6 * a})`);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(sp.x - tile * 0.6, sp.y - tile * 0.6, tile * 1.2, tile * 1.2);
+          ctx.fillStyle = `rgba(250,255,200,${0.95 * a})`;
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, Math.max(1, tile * 0.035), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
     ctx.restore();
   }
 
@@ -1676,14 +1737,16 @@ export class Renderer {
    * in the back is drawn there in its own leaf colour. Driving, Ellen's
    * hat shows in the cab.
    */
-  private drawTruck(camera: Camera, t: { x: number; y: number; facing: Facing; bed: { defId: string; variantId: string }[] }, now: number, riding: boolean, moving: boolean) {
+  private drawTruck(camera: Camera, t: { x: number; y: number; facing: Facing; bed: { defId: string; variantId: string }[] }, now: number, riding: boolean, moving: boolean, who: 'ellen' | 'scott' = 'ellen') {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
     const s = camera.worldToScreen(t.x * TILE_SIZE, t.y * TILE_SIZE);
     const side = t.facing === 'left' || t.facing === 'right';
     const bob = moving ? Math.sin(now / 55) * tile * 0.015 : 0;
-    const body = '#8ea16e';
-    const bodyDark = '#63784b';
+    // Scott's is an old brick-red pickup, a few years and a lot of miles on hers.
+    const scotts = who === 'scott';
+    const body = scotts ? '#a85a42' : '#8ea16e';
+    const bodyDark = scotts ? '#7a3e2e' : '#63784b';
     const cream = '#efe3c4';
     const glass = '#bcd8c8';
     const tyre = '#2a2c28';
@@ -1719,6 +1782,22 @@ export class Renderer {
       }
     };
     const hat = () => {
+      if (scotts) {
+        // Scott at the wheel: blonde hair and beard.
+        ctx.fillStyle = SCOTT_APPEARANCE.skin;
+        ctx.beginPath();
+        ctx.arc(0, 0, tile * 0.11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = SCOTT_APPEARANCE.hair;
+        ctx.beginPath();
+        ctx.arc(0, -tile * 0.02, tile * 0.11, Math.PI * 1.05, Math.PI * 1.95);
+        ctx.fill();
+        ctx.fillStyle = SCOTT_APPEARANCE.beard;
+        ctx.beginPath();
+        ctx.arc(0, tile * 0.02, tile * 0.09, Math.PI * 0.1, Math.PI * 0.9);
+        ctx.fill();
+        return;
+      }
       ctx.fillStyle = ELLEN_APPEARANCE.skin;
       ctx.beginPath();
       ctx.arc(0, 0, tile * 0.11, 0, Math.PI * 2);
@@ -2549,13 +2628,23 @@ export class Renderer {
     const moving = scott.activity === 'traveling';
     const tinkering = scott.activity === 'tinkering';
     const snacking = scott.activity === 'snacking';
+    const fixing = scott.activity === 'fixingTruck';
+    const petting = scott.activity === 'pettingRanger' || scott.activity === 'playingWithScout';
+    const fishing = scott.activity === 'fishing';
+    const chopping = scott.activity === 'choppingWood';
+    const baking = scott.activity === 'baking';
+    const greeting = scott.activity === 'withEllen';
+    // Down on his haunches: at the workbench, under the truck's bumper, or giving someone a fuss.
+    const crouched = tinkering || fixing || petting;
 
     const walkPhase = moving ? now * (scott.hurrying ? 0.02 : 0.011) : now * 0.0025;
     const walkAmp = moving ? 1 : 0.25;
     const bob = Math.abs(Math.sin(walkPhase)) * -tile * 0.02 * walkAmp;
     const stride = moving ? Math.sin(walkPhase) : 0;
-    const squash = tinkering ? 0.74 : 1;
-    const lift = tinkering ? tile * 0.09 : 0;
+    const squash = crouched ? 0.74 : 1;
+    const lift = crouched ? tile * 0.09 : 0;
+    const wasHappy = this.happyFaces;
+    if (petting || greeting) this.happyFaces = true;
 
     const cx = screen.x;
     const cy = screen.y + bob + lift;
@@ -2615,8 +2704,43 @@ export class Renderer {
     const STROKE = 0.3;
     const puttTheta = putting ? (pt < STROKE ? -0.4 * Math.sin((pt / STROKE) * Math.PI) : pt < STROKE + 0.06 ? 0.3 * Math.sin(((pt - STROKE) / 0.06) * (Math.PI / 2)) : 0.3) : 0;
     const holeX = cx + s * tile * 1.15;
+    // Splitting wood: the axe goes up over his head, comes down on the
+    // block, and he sets the next log. φ = π points straight up, 0 down.
+    const CHOP_MS = 2600;
+    const ct = chopping ? (now % CHOP_MS) / CHOP_MS : 0;
+    const CHOP_HIT = 0.62;
+    let phi = 0.4;
+    if (chopping) {
+      if (ct < 0.2) phi = 0.4;
+      else if (ct < 0.5) phi = 0.4 + (Math.PI - 0.5) * ease((ct - 0.2) / 0.3);
+      else if (ct < 0.54) phi = Math.PI - 0.1;
+      else if (ct < CHOP_HIT) phi = Math.PI - 0.1 - (Math.PI - 0.2) * ease((ct - 0.54) / (CHOP_HIT - 0.54));
+      else if (ct < 0.8) phi = 0.1;
+      else phi = 0.1 + 0.3 * ease((ct - 0.8) / 0.2);
+    }
+    const blockX = cx;
+    const blockY = footY + tile * 0.14;
+    // Fishing: a bobber out on the water, and now and then a bite.
+    const CATCH_MS = 15000;
+    const ft = fishing ? ((now + (scott.x * 1000) % CATCH_MS) % CATCH_MS) / CATCH_MS : 0;
+    const reeling = fishing && ft > 0.88;
 
     const drawGolfGround = () => {
+      if (chopping) {
+        // The woodpile off to one side, the block in front of him.
+        for (let i = 0; i < 6; i++) {
+          const lx = cx - tile * 0.42 + (i % 3) * tile * 0.11 + (i >= 3 ? tile * 0.055 : 0);
+          const ly = footY - (i >= 3 ? tile * 0.09 : 0);
+          ctx.fillStyle = '#8a6440';
+          ctx.beginPath();
+          ctx.arc(lx, ly, tile * 0.055, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#d8b98a';
+          ctx.beginPath();
+          ctx.arc(lx, ly, tile * 0.035, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
       if (golfing) {
         // a tee and ball waiting at his feet until he strikes it
         if (t < IMPACT) {
@@ -2706,12 +2830,51 @@ export class Renderer {
       outline();
     }
 
+    const drawBlock = () => {
+      if (!chopping) return;
+      // The chopping block, and the log on it — in two once the axe has been through it.
+      ctx.fillStyle = '#6b4a2e';
+      ctx.fillRect(blockX - tile * 0.1, blockY - tile * 0.08, tile * 0.2, tile * 0.1);
+      ctx.fillStyle = '#c9a774';
+      ctx.beginPath();
+      ctx.ellipse(blockX, blockY - tile * 0.08, tile * 0.1, tile * 0.035, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const split = ct >= CHOP_HIT && ct < 0.85;
+      const apart = split ? Math.min(1, (ct - CHOP_HIT) / 0.08) * tile * 0.07 : 0;
+      ctx.fillStyle = '#8a6440';
+      if (split) {
+        ctx.fillRect(blockX - tile * 0.05 - apart, blockY - tile * 0.2, tile * 0.045, tile * 0.12);
+        ctx.fillRect(blockX + tile * 0.005 + apart, blockY - tile * 0.2, tile * 0.045, tile * 0.12);
+        // Chips flying.
+        const u = (ct - CHOP_HIT) / 0.2;
+        ctx.fillStyle = `rgba(216,185,138,${1 - u})`;
+        for (let i = 0; i < 4; i++) {
+          const a = -Math.PI / 2 + (i - 1.5) * 0.6;
+          ctx.fillRect(blockX + Math.cos(a) * u * tile * 0.3, blockY - tile * 0.2 + Math.sin(a) * u * tile * 0.25 + u * u * tile * 0.2, tile * 0.025, tile * 0.025);
+        }
+      } else if (ct < CHOP_HIT || ct >= 0.95) {
+        ctx.fillRect(blockX - tile * 0.05, blockY - tile * 0.2, tile * 0.1, tile * 0.12);
+        ctx.fillStyle = '#d8b98a';
+        ctx.beginPath();
+        ctx.ellipse(blockX, blockY - tile * 0.2, tile * 0.05, tile * 0.02, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+
     // where his hands are, and what's in them
     const pivotX = cx;
     const pivotY = shoulderY + tile * 0.04;
     let hands: [number, number] | null = null;
     let clubTo: [number, number] | null = null;
-    if (golfing) {
+    if (chopping) {
+      const d: [number, number] = [-Math.sin(phi) * 0.25, Math.cos(phi)];
+      const n = Math.hypot(d[0], d[1]) || 1;
+      const rh = tile * 0.2;
+      hands = [pivotX + (d[0] / n) * rh, pivotY + (d[1] / n) * rh];
+      clubTo = [hands[0] + (d[0] / n) * tile * 0.26, hands[1] + (d[1] / n) * tile * 0.26];
+    } else if (fishing) {
+      hands = [cx + s * tile * 0.08, waistY - tile * 0.02];
+    } else if (golfing) {
       const d: [number, number] = [-Math.sin(theta), Math.cos(theta)];
       const rh = tile * 0.19;
       hands = [pivotX + d[0] * rh, pivotY + d[1] * rh];
@@ -2724,6 +2887,31 @@ export class Renderer {
 
     const drawArms = (front: boolean) => {
       const armW = Math.max(2, tile * 0.04);
+      if (baking && front) {
+        // The mixing bowl held against him, the dough in it, a little flour in the air.
+        ctx.fillStyle = '#d9cbb0';
+        ctx.beginPath();
+        ctx.ellipse(cx, waistY + tile * 0.03, tile * 0.11, tile * 0.04, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#c8a26a';
+        ctx.beginPath();
+        ctx.moveTo(cx - tile * 0.11, waistY + tile * 0.03);
+        ctx.quadraticCurveTo(cx, waistY + tile * 0.16, cx + tile * 0.11, waistY + tile * 0.03);
+        ctx.fill();
+        outline();
+        const squish = 1 + Math.sin(now * 0.016) * 0.12;
+        ctx.fillStyle = '#f1e2c2';
+        ctx.beginPath();
+        ctx.ellipse(cx, waistY + tile * 0.015, tile * 0.065 * squish, tile * 0.035 / squish, 0, 0, Math.PI * 2);
+        ctx.fill();
+        for (let k = 0; k < 3; k++) {
+          const u = (now * 0.0007 + k / 3) % 1;
+          ctx.fillStyle = `rgba(250,246,236,${0.5 * (1 - u)})`;
+          ctx.beginPath();
+          ctx.arc(cx + (k - 1) * tile * 0.06 + Math.sin(u * 5 + k) * tile * 0.02, waistY - u * tile * 0.2, tile * (0.012 + u * 0.02), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
       if (hands) {
         // both hands together on the grip
         const sides = isSide ? [s] : [-1, 1];
@@ -2752,6 +2940,26 @@ export class Renderer {
           hx = cx + (isSide ? s * tile * 0.08 : tile * 0.05);
           hy = headY + headR * 0.9 + Math.sin(now * 0.012) * tile * 0.012;
         }
+        if (fixing && side === 1) {
+          hx = cx + (isSide ? s : 1) * tile * 0.15;
+          hy = cy + tile * 0.04 + Math.sin(now * 0.014) * tile * 0.03;
+        }
+        if (petting && side === 1) {
+          // Long, slow strokes down a back.
+          hx = cx + (isSide ? s : 1) * tile * (0.18 + 0.06 * Math.sin(now * 0.004));
+          hy = cy + tile * 0.12;
+        }
+        if (baking) {
+          // Both hands in the bowl, working the dough.
+          const knead = Math.sin(now * 0.008 + (side === 1 ? 0 : Math.PI)) * tile * 0.02;
+          hx = cx + side * tile * 0.05;
+          hy = waistY + tile * 0.01 + knead;
+        }
+        if (greeting && side === 1) {
+          // A wave, hand up by his head.
+          hx = cx + (isSide ? s * tile * 0.12 : tile * 0.16) + Math.sin(now * 0.012) * tile * 0.035;
+          hy = headY - headR * 0.4;
+        }
         limb(sx, sy, hx, hy, armW, A.shirt);
         ctx.fillStyle = A.skin;
         ctx.beginPath();
@@ -2770,6 +2978,19 @@ export class Renderer {
           ctx.ellipse(hx + tile * 0.075, hy + tile * 0.09, tile * 0.02, tile * 0.03, -0.6, 0, Math.PI * 2);
           ctx.fill();
         }
+        if (fixing && side === 1) {
+          // A wrench, turning a bolt.
+          const a = -0.8 + Math.sin(now * 0.014) * 0.35;
+          ctx.strokeStyle = A.tool;
+          ctx.lineWidth = Math.max(1, tile * 0.024);
+          ctx.beginPath();
+          ctx.moveTo(hx, hy);
+          ctx.lineTo(hx + Math.cos(a) * tile * 0.1 * (isSide ? s : 1), hy + Math.sin(a) * tile * 0.1);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(hx + Math.cos(a) * tile * 0.11 * (isSide ? s : 1), hy + Math.sin(a) * tile * 0.11, tile * 0.022, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         if (snacking && side === 1) {
           ctx.fillStyle = A.snack;
           ctx.beginPath();
@@ -2780,8 +3001,92 @@ export class Renderer {
       }
     };
 
+    const drawRod = () => {
+      if (!fishing || !hands) return;
+      // The rod up and out over the water, its line down to the bobber.
+      const tipX = hands[0] + s * tile * 0.5;
+      const tipY = hands[1] - tile * (reeling ? 0.62 : 0.5);
+      ctx.strokeStyle = '#7a5a36';
+      ctx.lineWidth = Math.max(1, tile * 0.018);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(hands[0] - s * tile * 0.04, hands[1] + tile * 0.05);
+      ctx.quadraticCurveTo(hands[0] + s * tile * 0.3, hands[1] - tile * 0.35, tipX, tipY);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+      ctx.strokeStyle = 'rgba(240,240,240,0.7)';
+      ctx.lineWidth = Math.max(0.5, tile * 0.006);
+      ctx.beginPath();
+      if (reeling) {
+        // A bite: the line comes up taut with a little fish on the end of it.
+        const u = (ft - 0.88) / 0.12;
+        const fy = tipY + tile * (0.5 - 0.25 * Math.sin(u * Math.PI));
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(tipX, fy);
+        ctx.stroke();
+        ctx.save();
+        ctx.translate(tipX, fy + tile * 0.06);
+        ctx.rotate(Math.sin(now * 0.03) * 0.5);
+        ctx.fillStyle = '#a9b8b0';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, tile * 0.03, tile * 0.07, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0, tile * 0.06);
+        ctx.lineTo(-tile * 0.03, tile * 0.1);
+        ctx.lineTo(tile * 0.03, tile * 0.1);
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+      const bx = cx + s * tile * 1.3;
+      const by = footY + tile * 0.02 + Math.sin(now * 0.004) * tile * 0.015 + (ft > 0.84 ? tile * 0.04 : 0);
+      ctx.moveTo(tipX, tipY);
+      ctx.quadraticCurveTo(bx - s * tile * 0.1, tipY + tile * 0.2, bx, by);
+      ctx.stroke();
+      ctx.fillStyle = '#e04a3a';
+      ctx.beginPath();
+      ctx.arc(bx, by - tile * 0.012, tile * 0.025, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f4f1ea';
+      ctx.beginPath();
+      ctx.arc(bx, by - tile * 0.012, tile * 0.025, 0, Math.PI);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(bx, by + tile * 0.01, tile * 0.06, tile * 0.02, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    };
+
     const drawClub = () => {
+      drawRod();
       if (!hands || !clubTo) return;
+      if (chopping) {
+        // The axe: a hickory handle, and the head on its end.
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = A.toolHandle;
+        ctx.lineWidth = Math.max(1, tile * 0.022);
+        ctx.beginPath();
+        ctx.moveTo(hands[0], hands[1]);
+        ctx.lineTo(clubTo[0], clubTo[1]);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+        const dx = clubTo[0] - hands[0];
+        const dy = clubTo[1] - hands[1];
+        ctx.save();
+        ctx.translate(clubTo[0], clubTo[1]);
+        ctx.rotate(Math.atan2(dy, dx));
+        ctx.fillStyle = '#7d8388';
+        ctx.beginPath();
+        ctx.moveTo(-tile * 0.03, -tile * 0.03);
+        ctx.lineTo(tile * 0.04, -tile * 0.06);
+        ctx.lineTo(tile * 0.04, tile * 0.06);
+        ctx.lineTo(-tile * 0.03, tile * 0.03);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
       ctx.lineCap = 'round';
       ctx.strokeStyle = A.clubShaft;
       ctx.lineWidth = Math.max(1, tile * 0.014);
@@ -2963,11 +3268,21 @@ export class Renderer {
       drawClub();
     } else {
       drawTorso();
-      // Backswing: the club rises behind his head; otherwise it's in front.
-      if (golfing && Math.abs(theta) > 1.6) drawClub();
+      // Backswing: the club (or the axe) rises behind his head; otherwise it's in front.
+      const raised = (golfing && Math.abs(theta) > 1.6) || (chopping && phi > 1.6);
+      if (raised) drawClub();
       drawHead();
       drawArms(true);
-      if (!(golfing && Math.abs(theta) > 1.6)) drawClub();
+      if (!raised) drawClub();
+    }
+    drawBlock();
+    this.happyFaces = wasHappy;
+    // A little heart or two, for Ranger, for Scout, for Ellen.
+    if (petting || greeting) {
+      for (let k = 0; k < 2; k++) {
+        const u = (now * 0.0005 + k * 0.5) % 1;
+        this.drawHeart(cx + (isSide ? s : 1) * tile * (0.12 + k * 0.08) + Math.sin(u * 6 + k) * tile * 0.03, headY - headR * 1.4 - u * tile * 0.35, tile * 0.05, 1 - u);
+      }
     }
     // Out walking, once there's cannabis growing: a joint at his lips and a thread of smoke.
     if (joint && moving) this.drawJoint(isBack ? null : { x: isSide ? cx + s * headR * 0.55 : cx, y: headY + headR * 0.62 }, isSide ? s : 1, isSide, { x: cx, y: headY }, headR, tile, now);
@@ -3366,6 +3681,7 @@ export class Renderer {
       now,
       scottWatching: scottHome && state.scott.activity === 'watchingTV',
       scottRelaxing: scottHome && state.scott.activity === 'relaxing',
+      freshLoaf: (state.scott.loafUntil ?? 0) > state.clock.totalMinutes,
     };
     const tools = extras.tools;
     const arranging = tools.kind === 'arrange' ? tools : null;
