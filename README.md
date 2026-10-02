@@ -71,7 +71,9 @@ grow in patches all over it.
   into a living room — couch, TV, Ranger the cat's bed, a putting mat, doorways to
   the rest of the house — and a doorway leads through into the greenhouse,
   whose garden door opens onto the valley. Scott is sometimes home watching
-  the ball game, practising his putting or asleep on the couch; Ranger has
+  the ball game, practising his putting, asleep on the couch or in the
+  kitchen doorway kneading a loaf (it cools on the coffee table after, and
+  the house smells of it); Ranger has
   her own places, and her own ideas about your plants. In the greenhouse,
   she and Scout can't leave each other alone: one stalks, pounces and chases,
   then it's the other's turn.
@@ -121,12 +123,25 @@ grow in patches all over it.
   between the bridges. The stall sells your own, each with its own markings,
   to let go in a pond: walk up to one to tend it. A pond holds about one koi
   per 1.1 square tiles of water, up to twelve; a tiny one holds none.
+- **Turtles, frogs and lightning bugs.** Turtles bask on stones along the
+  creek banks, then slide in for a slow swim and haul out again; a pond
+  big enough gets a turtle or two of its own. Frogs sit at the water's
+  edge and on the lily pads, hop from one to the next, and croak, more so
+  after dark. On clear nights (fewer when it's overcast, none in the rain)
+  lightning bugs blink over the long grass under the damp forest's edge,
+  the creek banks, a glade in the woods and the overgrown hollow.
 - **Drive.** The stall's dearest item is a mini truck, delivered to the lane
   by the house. Walk up and get in: it goes twice as fast as walking, thickets
   don't slow it, and a dozen more plants ride in the back once your basket is
   full. Park beside the stall to sell the whole load, or by the greenhouse
   door to pot straight from the bed. Press E with nothing else in reach, or
   tap 🚚, to get out.
+- **Scott.** Jack of all trades, master of a few. When he's not golfing
+  he fishes the creek, splits firewood at the woodpile in the woods, works
+  on his old red pickup parked past the house, and takes it out for a
+  drive round the meadow (headlights on after dark). Now and then he
+  wanders over to give Ranger a scratch, make a fuss of Scout, or just
+  wave hello to Ellen.
 - **Name what you made.** Once a region has changed enough under your
   plants, the journal's Regions page offers it a name. A wooden plaque goes
   up where the growth is thickest, the valley calls the place by that name
@@ -191,6 +206,7 @@ furniture and garden pieces). Esc also closes whatever panel is open. Progress a
   potting/display/planting out), `spots` (what grows in a patch),
   `wild` (spreading, sports in the wild, the lushness field that repaints the
   ground), `market` (prices, buying/selling), `collection`, `basket`, `decor`,
+  `koi` and `wildlife` (turtles, frogs, lightning bugs),
   plus the fox, Scout, Scott and Ranger the cat.
 - `src/game/engine/` — game loop, input, camera, clock/weather, save manager
   (with migration from older builds), audio: `AudioManager.ts` (ambience,

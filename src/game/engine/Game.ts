@@ -51,7 +51,7 @@ import { ZONES } from '../data/zones';
 import type { OutdoorZoneId, ZoneId } from '../types';
 import { tickFox } from '../systems/fox';
 import { tickScout } from '../systems/scout';
-import { tickScott, tickChase, newChase } from '../systems/scott';
+import { tickScott, tickChase, newChase, companySpots, scottTruck } from '../systems/scott';
 import { tickCat } from '../systems/cat';
 import { spotContent, collectSpot } from '../systems/spots';
 import { advanceWorld, canPlantAt, computeLushness, type LushField } from '../systems/wild';
@@ -690,7 +690,9 @@ export class Game {
       if (this.tools.active) this.tools.cancel();
     }
     if (!kissing && !this.chase.kiss) {
-      tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset, extraSpots: eveningStroll(this.state, minuteOfDay(this.state.clock.totalMinutes)) });
+      const extraSpots = [...eveningStroll(this.state, minuteOfDay(this.state.clock.totalMinutes)), ...companySpots(this.state)];
+      const event = tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset, extraSpots });
+      if (event === 'baked' && this.state.player.inGreenhouse) this.pushToast('Scott’s taken a loaf out of the oven. The whole house smells of warm bread.', 'info');
     }
     this.catInterestAcc += dtMs;
     if (this.catInterestAcc >= CAT_INTEREST_MS) {
@@ -1516,7 +1518,9 @@ export class Game {
   private blockedOutdoor(x: number, y: number): boolean {
     if (isBlockedOutdoor(x, y, this.blockingSet, stallRect(this.state))) return true;
     const t = this.state.truck;
-    return !!t && !this.state.player.riding && truckCovers(t, x, y);
+    if (t && !this.state.player.riding && truckCovers(t, x, y)) return true;
+    // Scott's own truck, when it's parked.
+    return this.state.scott.activity !== 'driving' && truckCovers(scottTruck(this.state.scott), x, y);
   }
 
   /** Whether she could stand here: open ground, nothing in the way. */

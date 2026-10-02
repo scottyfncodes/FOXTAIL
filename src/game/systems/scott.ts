@@ -1,15 +1,19 @@
 import { hasGrown } from './collection';
-import type { GameState, ScottActivity, ScottState } from '../state';
-import { SCOTT_SPOTS, findScottSpot, type ScottSpot, type ScottSpotKind } from '../data/scottSpots';
+import type { CatState, Facing, GameState, PlayerState, ScottActivity, ScottState, ScoutState } from '../state';
+import { DRIVE_ROUTE, SCOTT_SPOTS, SCOTT_TRUCK_FACING, SCOTT_TRUCK_PARK, VISIT_KINDS, findScottSpot, type ScottSpot, type ScottSpotKind } from '../data/scottSpots';
+import { catLift } from './cat';
 import { interiorWaypoint } from '../data/interior';
 import { spotPosition, type AnchorOffset } from '../data/catSpots';
-import { outdoorWaypoint } from '../data/worldMap';
+import { outdoorWaypoint, zoneAt } from '../data/worldMap';
+import type { ZoneId } from '../types';
 
 // Ellen's husband, ambient and independent of the player: he potters
-// between fixed spots on his own clock, tinkering, napping, snacking,
-// or practicing his golf swing and putting, with no awareness of where
-// Ellen or Scout are. Not a companion, not a guide — just someone else who
-// lives here.
+// between fixed spots on his own clock — tinkering, napping, snacking,
+// practicing his golf swing and putting, fishing the creek, splitting
+// firewood, working on his truck or taking it out for a drive, baking a
+// loaf. Now and then he wanders over to give Ranger a scratch, ruffle
+// Scout's ears, or just say hello to Ellen. Not a companion, not a guide —
+// just someone else who lives here.
 
 const TRAVEL_SPEED = 2.0; // tiles/sec, unhurried
 /** How much faster he goes when he's running back to work. */
@@ -24,6 +28,15 @@ const DURATIONS: Record<ScottSpotKind, [number, number]> = {
   putt: [25, 45],
   tv: [45, 100],
   drink: [25, 50],
+  fish: [40, 80],
+  chop: [25, 45],
+  bake: [30, 50],
+  wrench: [25, 45],
+  // The drive itself runs the length of the loop; this is just a moment once he's parked.
+  drive: [2, 4],
+  pet: [10, 18],
+  scout: [10, 18],
+  ellen: [6, 10],
 };
 
 export const ACTIVITY_FOR_KIND: Record<ScottSpotKind, Exclude<ScottActivity, 'traveling'>> = {
@@ -34,7 +47,58 @@ export const ACTIVITY_FOR_KIND: Record<ScottSpotKind, Exclude<ScottActivity, 'tr
   putt: 'putting',
   tv: 'watchingTV',
   drink: 'relaxing',
+  fish: 'fishing',
+  chop: 'choppingWood',
+  bake: 'baking',
+  wrench: 'fixingTruck',
+  drive: 'driving',
+  pet: 'pettingRanger',
+  scout: 'playingWithScout',
+  ellen: 'withEllen',
 };
+
+/** Truck speed on his drive, tiles/sec: an easy cruise. */
+export const DRIVE_SPEED = 4.2;
+/** How far he'll walk over to someone for a hello, in tiles. */
+export const VISIT_RANGE = 22;
+/** Once they've wandered this far off, he leaves them to it. */
+const VISIT_LEAVE = 2.4;
+
+/** Where his truck is right now, and which way it faces: on the road with him, or parked. */
+export function scottTruck(scott: ScottState): { x: number; y: number; facing: Facing } {
+  if (scott.activity === 'driving') return { x: scott.x, y: scott.y, facing: scott.facing };
+  return { x: SCOTT_TRUCK_PARK.x, y: SCOTT_TRUCK_PARK.y, facing: SCOTT_TRUCK_FACING };
+}
+
+/**
+ * The company he might wander over to: Ranger where she's settled, Scout,
+ * and Ellen. Each stands as a spot just beside them, recomputed each moment
+ * so he walks to where they are now, not where they were.
+ */
+export function companySpots(state: { player: Pick<PlayerState, 'x' | 'y' | 'inGreenhouse'>; scout: Pick<ScoutState, 'x' | 'y'>; cat: CatState }): ScottSpot[] {
+  const indoors = state.player.inGreenhouse;
+  const zone = (x: number, y: number): ZoneId => (indoors ? 'greenhouse' : zoneAt(x, y));
+  const out: ScottSpot[] = [];
+  const cat = state.cat;
+  // Ranger only gets a fuss when she's settled somewhere he can reach — not up on the TV.
+  if ((cat.activity === 'sitting' || cat.activity === 'sleeping' || cat.activity === 'grooming') && catLift(cat) === 0) {
+    out.push({ id: 'visit-ranger', kind: 'pet', zone: 'greenhouse', x: cat.x - 0.45, y: cat.y + 0.05, face: 'right' });
+  }
+  const sx = state.scout.x - 0.5;
+  const sy = state.scout.y + 0.05;
+  out.push({ id: 'visit-scout', kind: 'scout', zone: zone(sx, sy), x: sx, y: sy, face: 'right' });
+  const ex = state.player.x + 0.75;
+  const ey = state.player.y;
+  out.push({ id: 'visit-ellen', kind: 'ellen', zone: zone(ex, ey), x: ex, y: ey, face: 'left' });
+  return out;
+}
+
+export function isVisit(spot: Pick<ScottSpot, 'kind'>): boolean {
+  return VISIT_KINDS.includes(spot.kind);
+}
+
+/** Something worth a word that happened on his rounds. */
+export type ScottEvent = 'baked';
 
 export interface ScottTickContext {
   dtSeconds: number;
@@ -46,7 +110,11 @@ export interface ScottTickContext {
   extraSpots?: ScottSpot[];
 }
 
-export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
+export function tickScott(scott: ScottState, ctx: ScottTickContext): ScottEvent | null {
+  if (scott.activity === 'driving') {
+    drive(scott, ctx);
+    return null;
+  }
   if (scott.activity !== 'traveling') {
     const here = scott.currentSpotId ? findScottSpot(scott.currentSpotId) : undefined;
     if (here?.anchor) {
@@ -54,8 +122,22 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
       scott.x = at.x;
       scott.y = at.y;
     }
-    if (ctx.now < scott.nextChangeAt) return;
-    const options = [...SCOTT_SPOTS, ...(ctx.extraSpots ?? [])].filter((s) => s.id !== scott.currentSpotId);
+    // Keeping someone company: once they've moved off (or gone through a door), so does he.
+    if (scott.currentSpotId?.startsWith('visit-')) {
+      const them = ctx.extraSpots?.find((s) => s.id === scott.currentSpotId);
+      const sameSide = them && (them.zone === 'greenhouse') === (scott.zone === 'greenhouse');
+      if (!them || !sameSide || Math.hypot(them.x - scott.x, them.y - scott.y) > VISIT_LEAVE) scott.nextChangeAt = Math.min(scott.nextChangeAt, ctx.now);
+    }
+    if (ctx.now < scott.nextChangeAt) return null;
+    const event: ScottEvent | null = here?.kind === 'bake' ? 'baked' : null;
+    if (event === 'baked') scott.loafUntil = ctx.now + LOAF_MINUTES;
+    const indoors = scott.zone === 'greenhouse';
+    const options = [...SCOTT_SPOTS, ...(ctx.extraSpots ?? [])].filter((s) => {
+      if (s.id === scott.currentSpotId) return false;
+      if (!isVisit(s)) return true;
+      // Company only on his own side of the door, and not right across the valley.
+      return (s.zone === 'greenhouse') === indoors && Math.hypot(s.x - scott.x, s.y - scott.y) <= VISIT_RANGE;
+    });
     const next = options[Math.floor(ctx.rand() * options.length)] ?? SCOTT_SPOTS[0];
     scott.targetSpotId = next.id;
     scott.activity = 'traveling';
@@ -69,17 +151,21 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
       scott.x = at.x;
       scott.y = at.y;
     }
-    return;
+    return event;
   }
 
-  const spot = findScottSpot(scott.targetSpotId) ?? ctx.extraSpots?.find((s) => s.id === scott.targetSpotId);
+  let spot = findScottSpot(scott.targetSpotId) ?? ctx.extraSpots?.find((s) => s.id === scott.targetSpotId);
+  // Whoever he was off to see has gone through a door: that's that.
+  if (spot && isVisit(spot) && (spot.zone === 'greenhouse') !== (scott.zone === 'greenhouse')) spot = undefined;
   if (!spot) {
-    // Data changed under him (or a save from an older spot list) — settle
-    // wherever he is rather than getting stuck chasing a spot that's gone.
-    scott.activity = 'tinkering';
+    // Data changed under him (or a save from an older spot list), or whoever
+    // he was off to see has gone indoors — settle wherever he is rather than
+    // getting stuck chasing a spot that's gone.
+    const visiting = scott.targetSpotId.startsWith('visit-');
+    scott.activity = visiting ? 'relaxing' : 'tinkering';
     scott.currentSpotId = null;
-    scott.nextChangeAt = ctx.now + 10;
-    return;
+    scott.nextChangeAt = ctx.now + (visiting ? 1 : 10);
+    return null;
   }
 
   const at = spotPosition(spot, ctx.offset);
@@ -87,16 +173,8 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
   if (d > ARRIVE_DIST) {
     // Indoors, the living room and greenhouse are joined by one doorway.
     const wp = scott.zone === 'greenhouse' ? interiorWaypoint(scott.x, scott.y, at.x, at.y) : outdoorWaypoint(scott.x, scott.y, at.x, at.y);
-    const dx = wp.x - scott.x;
-    const dy = wp.y - scott.y;
-    const wd = Math.hypot(dx, dy) || 1;
-    const step = Math.min(TRAVEL_SPEED * (scott.hurrying ? HURRY_FACTOR : 1) * ctx.dtSeconds, wd);
-    scott.x += (dx / wd) * step;
-    scott.y += (dy / wd) * step;
-    if (Math.abs(dx) > 0.03 || Math.abs(dy) > 0.03) {
-      scott.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
-    }
-    return;
+    stepToward(scott, wp, TRAVEL_SPEED * (scott.hurrying ? HURRY_FACTOR : 1) * ctx.dtSeconds);
+    return null;
   }
 
   scott.zone = spot.zone;
@@ -107,7 +185,55 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): void {
   scott.nextChangeAt = ctx.now + minD + ctx.rand() * (maxD - minD);
   // Putting is drawn side-on, lining up toward the hole on his right; on
   // the couch he's facing the TV, back to the room.
-  scott.facing = spot.kind === 'putt' ? 'right' : spot.kind === 'tv' || spot.kind === 'drink' ? 'up' : 'down';
+  scott.facing = spot.face ?? (spot.kind === 'putt' ? 'right' : spot.kind === 'tv' || spot.kind === 'drink' ? 'up' : 'down');
+  if (spot.kind === 'drive') {
+    // Into the cab and away.
+    scott.x = SCOTT_TRUCK_PARK.x;
+    scott.y = SCOTT_TRUCK_PARK.y;
+    scott.facing = SCOTT_TRUCK_FACING;
+    scott.driveLeg = 0;
+  }
+  return null;
+}
+
+/** How long a fresh loaf sits cooling on the coffee table, in game minutes. */
+export const LOAF_MINUTES = 6 * 60;
+
+function stepToward(scott: ScottState, wp: { x: number; y: number }, maxStep: number): number {
+  const dx = wp.x - scott.x;
+  const dy = wp.y - scott.y;
+  const wd = Math.hypot(dx, dy) || 1;
+  const step = Math.min(maxStep, wd);
+  scott.x += (dx / wd) * step;
+  scott.y += (dy / wd) * step;
+  if (Math.abs(dx) > 0.03 || Math.abs(dy) > 0.03) {
+    scott.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+  }
+  return wd - step;
+}
+
+/** One stretch of the drive: on along the loop, and out of the cab once he's home. */
+function drive(scott: ScottState, ctx: ScottTickContext): void {
+  let leg = scott.driveLeg ?? 0;
+  let budget = DRIVE_SPEED * ctx.dtSeconds;
+  while (leg < DRIVE_ROUTE.length && budget > 0) {
+    const wp = DRIVE_ROUTE[leg];
+    const before = Math.hypot(wp.x - scott.x, wp.y - scott.y);
+    const left = stepToward(scott, wp, budget);
+    budget -= before - left;
+    if (left > 0.01) break;
+    leg++;
+  }
+  scott.driveLeg = leg;
+  if (leg < DRIVE_ROUTE.length) return;
+  // Parked: he climbs out by the driver's door, and he's done.
+  const door = findScottSpot('truck-drive');
+  scott.x = door?.x ?? SCOTT_TRUCK_PARK.x;
+  scott.y = door?.y ?? SCOTT_TRUCK_PARK.y + 0.7;
+  scott.facing = 'down';
+  scott.activity = 'relaxing';
+  scott.nextChangeAt = Math.min(scott.nextChangeAt, ctx.now + 2);
+  delete scott.driveLeg;
 }
 
 // ---------------------------------------------------------------- the chase
@@ -142,9 +268,9 @@ export function newChase(): ChaseState {
   return { chase: 0, kiss: null, cooldown: 0 };
 }
 
-/** Busy with something he'd not get up from: asleep, or sat on the couch. */
+/** Busy with something he'd not get up from: asleep, sat on the couch, or behind the wheel. */
 function settled(scott: ScottState): boolean {
-  return scott.activity === 'napping' || scott.activity === 'watchingTV' || scott.activity === 'relaxing';
+  return scott.activity === 'napping' || scott.activity === 'watchingTV' || scott.activity === 'relaxing' || scott.activity === 'driving';
 }
 
 export interface ChaseContext {
