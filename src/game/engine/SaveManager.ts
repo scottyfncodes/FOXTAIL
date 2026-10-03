@@ -19,7 +19,7 @@ const LEGACY_KEYS = ['foxtrot-save-v3', 'foxtrot-save-v2', 'foxtrot-save-v1'];
 /** What a grow lamp cost, refunded for each one an older save still had. */
 export const GROW_LAMP_REFUND = 150;
 const STRUCT_FIELDS = ['stall', 'player', 'clock', 'weather', 'tools', 'fox', 'scout', 'scott', 'cat', 'market', 'foxLog', 'putting', 'commissions'] as const;
-const ARRAY_FIELDS = ['basket', 'owned', 'bought', 'decor', 'pondStock', 'koi', 'hints', 'furniture', 'seededFixtures', 'seenShop', 'gardenBeds', 'paths', 'clearedObstacles', 'foxFinds'] as const;
+const ARRAY_FIELDS = ['basket', 'owned', 'bought', 'decor', 'pondStock', 'koi', 'hints', 'furniture', 'seededFixtures', 'seenShop', 'gardenBeds', 'paths', 'clearings', 'clearedObstacles', 'foxFinds'] as const;
 const RECORD_FIELDS = ['plants', 'collection', 'spots', 'decorStock', 'furnitureStock', 'curiosities', 'golfBalls', 'purchases', 'regions', 'regionTier', 'minigames'] as const;
 
 /** Anything standing where the house now is gets moved out onto the lawn in front of it. */
@@ -150,6 +150,7 @@ export function migrateSave(raw: unknown): GameState | null {
   if (!Number.isInteger(state.stall.x) || !Number.isInteger(state.stall.y)) state.stall = createNewGame().stall;
   state.gardenBeds = state.gardenBeds.filter((b) => isRecord(b) && [b.x, b.y, b.w, b.h].every(Number.isFinite));
   state.paths = state.paths.filter((p) => isRecord(p) && Array.isArray(p.points) && p.points.length >= 4);
+  state.clearings = state.clearings.filter((c) => isRecord(c) && [c.x, c.y, c.size].every(Number.isFinite) && (c.shape === 'square' || c.shape === 'circle'));
   state.foxFinds = state.foxFinds.filter((f) => isRecord(f) && (f.kind === 'curiosity' || !!PLANTS[f.defId ?? '']));
   // Mushrooms used to be curiosities; they're species of their own now. A
   // note of one counts as having found it, and one still waiting at the end

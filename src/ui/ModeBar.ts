@@ -100,9 +100,7 @@ export class ModeBar {
           ? 'Drag it a little bigger'
           : p.block === 'too-big'
             ? 'That’s too much to clear in one go'
-            : p.block === 'empty'
-              ? 'Nothing growing there to clear'
-              : p.block === 'coins'
+            : p.block === 'coins'
                 ? `Costs ${p.cost} coins — you have ${state.coins}`
                 : `Clear it? ${p.cost} coins${what.length ? ` · takes out ${what.join(', ')}` : ''}${pathToolsNeeded(state, p).length ? ` (the crew brings ${toolList(pathToolsNeeded(state, p))} — cheaper with your own)` : ''}`;
       const shape = bigButton(m.shape === 'square' ? '◻' : '○', 'shape', () => this.game.tools.setClearingShape(m.shape === 'square' ? 'circle' : 'square'));
