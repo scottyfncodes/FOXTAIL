@@ -458,6 +458,9 @@ export class Renderer {
     }
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
+    // A little "!" over Scout standing over what he's sniffed out, and over Scott waving her over.
+    if (state.scout.behavior === 'pointing' && !state.player.riding) this.drawCallout(camera, state.scout.x, state.scout.y - 0.85, now);
+    if (state.scott.activity === 'showingPlant' && state.scott.zone !== 'greenhouse') this.drawCallout(camera, state.scott.x, state.scott.y - 1.35, now);
 
     // Low foreground vegetation drawn last, so tall grass/reeds partially
     // overlap the characters' feet instead of characters always reading on
@@ -1921,6 +1924,30 @@ export class Renderer {
     ctx.restore();
   }
 
+  /** A small bobbing speech bubble with a "!", to say "over here". */
+  private drawCallout(camera: Camera, wx: number, wy: number, now: number) {
+    const { ctx } = this;
+    const tile = TILE_SIZE * camera.zoom;
+    const s = camera.worldToScreen(wx * TILE_SIZE, wy * TILE_SIZE);
+    const y = s.y + Math.sin(now * 0.006) * tile * 0.04;
+    const r = tile * 0.16;
+    ctx.fillStyle = 'rgba(250,246,234,0.95)';
+    ctx.strokeStyle = 'rgba(40,30,20,0.6)';
+    ctx.lineWidth = Math.max(1, tile * 0.02);
+    ctx.beginPath();
+    ctx.arc(s.x, y, r, 0, Math.PI * 2);
+    ctx.moveTo(s.x - r * 0.35, y + r * 0.85);
+    ctx.lineTo(s.x, y + r * 1.5);
+    ctx.lineTo(s.x + r * 0.35, y + r * 0.85);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#c8553d';
+    ctx.fillRect(s.x - r * 0.12, y - r * 0.6, r * 0.24, r * 0.75);
+    ctx.beginPath();
+    ctx.arc(s.x, y + r * 0.42, r * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   /** Draws a character scaled about its feet, so resizing never lifts it off the ground. */
   /** Set while drawing a tender moment: faces with closed, smiling eyes. */
   private happyFaces = false;
@@ -2848,8 +2875,8 @@ export class Renderer {
 
     const sitting = scout.behavior === 'idleSit';
     const sniffing = scout.behavior === 'idleSniff';
-    const alert = scout.behavior === 'idleLook' || scout.behavior === 'noticing';
-    const moving = scout.behavior === 'following';
+    const alert = scout.behavior === 'idleLook' || scout.behavior === 'noticing' || scout.behavior === 'pointing';
+    const moving = scout.behavior === 'following' || scout.behavior === 'leading';
 
     const bodyScaleY = sitting ? 0.62 : 1;
     const headDrop = sniffing ? tile * 0.09 : 0;
@@ -3016,6 +3043,8 @@ export class Renderer {
     const chopping = scott.activity === 'choppingWood';
     const baking = scott.activity === 'baking';
     const greeting = scott.activity === 'withEllen';
+    // Waving Ellen over to something he's found.
+    const beckoning = scott.activity === 'showingPlant';
     // Down on his haunches: at the workbench, under the truck's bumper, or giving someone a fuss.
     const crouched = tinkering || fixing || petting;
 
@@ -3337,7 +3366,7 @@ export class Renderer {
           hx = cx + side * tile * 0.05;
           hy = waistY + tile * 0.01 + knead;
         }
-        if (greeting && side === 1) {
+        if ((greeting || beckoning) && side === 1) {
           // A wave, hand up by his head.
           hx = cx + (isSide ? s * tile * 0.12 : tile * 0.16) + Math.sin(now * 0.012) * tile * 0.035;
           hy = headY - headR * 0.4;

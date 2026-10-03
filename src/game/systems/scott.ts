@@ -4,7 +4,7 @@ import { DRIVE_LOOP, SCOTT_SPOTS, VISIT_KINDS, findScottSpot, type ScottSpot, ty
 import { catLift } from './cat';
 import { interiorWaypoint } from '../data/interior';
 import { spotPosition, type AnchorOffset } from '../data/catSpots';
-import { outdoorWaypoint, overlandWaypoint, TRUCK_KEEPOUT, zoneAt } from '../data/worldMap';
+import { GREENHOUSE_DOOR, outdoorWaypoint, overlandWaypoint, TRUCK_KEEPOUT, zoneAt } from '../data/worldMap';
 import type { ZoneId } from '../types';
 
 // Ellen's husband, ambient and independent of the player: he potters
@@ -37,6 +37,8 @@ const DURATIONS: Record<ScottSpotKind, [number, number]> = {
   pet: [10, 18],
   scout: [10, 18],
   ellen: [6, 10],
+  // He'll wait by what he's found a good while; Ellen arriving ends it sooner.
+  show: [240, 300],
 };
 
 export const ACTIVITY_FOR_KIND: Record<ScottSpotKind, Exclude<ScottActivity, 'traveling'>> = {
@@ -55,6 +57,7 @@ export const ACTIVITY_FOR_KIND: Record<ScottSpotKind, Exclude<ScottActivity, 'tr
   pet: 'pettingRanger',
   scout: 'playingWithScout',
   ellen: 'withEllen',
+  show: 'showingPlant',
 };
 
 /** Truck speed on his drive, tiles/sec: an easy cruise. */
@@ -119,9 +122,24 @@ export interface ScottTickContext {
   extraSpots?: ScottSpot[];
   /** Ellen's truck, when she has one and isn't driving it: what he borrows for a drive. */
   truck?: TruckState | null;
+  /** Something he's spotted and wants to show Ellen: he drops what he's doing and goes straight there. */
+  summon?: ScottSpot | null;
 }
 
 export function tickScott(scott: ScottState, ctx: ScottTickContext): ScottEvent | null {
+  const call = ctx.summon;
+  if (call && scott.activity !== 'driving' && scott.targetSpotId !== call.id && scott.currentSpotId !== call.id) {
+    // Whatever he was doing can wait. From indoors he comes out the garden door.
+    if (scott.zone === 'greenhouse') {
+      scott.zone = 'meadow';
+      scott.x = GREENHOUSE_DOOR.x + 0.5;
+      scott.y = GREENHOUSE_DOOR.y + 0.6;
+    }
+    scott.targetSpotId = call.id;
+    scott.currentSpotId = null;
+    scott.activity = 'traveling';
+    scott.hurrying = true;
+  }
   if (scott.activity === 'driving') {
     drive(scott, ctx);
     return null;
@@ -165,14 +183,14 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): ScottEvent 
     return event;
   }
 
-  let spot = findScottSpot(scott.targetSpotId) ?? ctx.extraSpots?.find((s) => s.id === scott.targetSpotId);
+  let spot = findScottSpot(scott.targetSpotId) ?? (ctx.summon?.id === scott.targetSpotId ? ctx.summon : undefined) ?? ctx.extraSpots?.find((s) => s.id === scott.targetSpotId);
   // Whoever he was off to see has gone through a door: that's that.
   if (spot && isVisit(spot) && (spot.zone === 'greenhouse') !== (scott.zone === 'greenhouse')) spot = undefined;
   if (!spot) {
     // Data changed under him (or a save from an older spot list), or whoever
     // he was off to see has gone indoors — settle wherever he is rather than
     // getting stuck chasing a spot that's gone.
-    const visiting = scott.targetSpotId.startsWith('visit-') || scott.targetSpotId.startsWith('truck-');
+    const visiting = scott.targetSpotId.startsWith('visit-') || scott.targetSpotId.startsWith('truck-') || scott.targetSpotId.startsWith('show-');
     scott.activity = visiting ? 'relaxing' : 'tinkering';
     scott.currentSpotId = null;
     scott.nextChangeAt = ctx.now + (visiting ? 1 : 10);
@@ -376,7 +394,7 @@ export function smiling(t: number): boolean {
 }
 
 /** The valley's cannabis, in all three forms. */
-const CANNABIS = ['cannabisSativa', 'cannabisIndica', 'cannabisHybrid'];
+export const CANNABIS = ['cannabisSativa', 'cannabisIndica', 'cannabisHybrid'];
 
 /**
  * Once the player has cultivated cannabis (grown one in their care), Scott

@@ -251,7 +251,7 @@ export interface FoxState {
   fled: boolean;
 }
 
-export type ScoutBehavior = 'following' | 'idleSit' | 'idleSniff' | 'idleLook' | 'noticing';
+export type ScoutBehavior = 'following' | 'idleSit' | 'idleSniff' | 'idleLook' | 'noticing' | 'leading' | 'pointing';
 
 export interface ScoutState {
   x: number;
@@ -259,6 +259,10 @@ export interface ScoutState {
   facing: Facing;
   behavior: ScoutBehavior;
   nextEventAt: number;
+  /** Off after a scent: the curiosity he's leading Ellen to. */
+  leadTo?: { x: number; y: number; findId: string };
+  /** Game-minute he might next catch a scent worth following. */
+  nextSniffAt?: number;
 }
 
 export type ScottActivity =
@@ -277,7 +281,8 @@ export type ScottActivity =
   | 'driving'
   | 'pettingRanger'
   | 'playingWithScout'
-  | 'withEllen';
+  | 'withEllen'
+  | 'showingPlant';
 
 export interface ScottState {
   x: number;
@@ -296,6 +301,10 @@ export interface ScottState {
   driveHome?: { x: number; y: number; facing: Facing };
   /** Game-minute until which his last loaf sits cooling on the coffee table. */
   loafUntil?: number;
+  /** The cannabis seedling he's waiting by to show Ellen, and since when. */
+  showPlant?: { plantId: string; since: number };
+  /** Wild cannabis he's already shown her (or that was there before he started looking). */
+  shownPlants?: string[];
 }
 
 export type CatActivity = 'wandering' | 'sitting' | 'grooming' | 'sleeping' | 'investigating' | 'hiding';

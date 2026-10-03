@@ -18,7 +18,9 @@ export type ScottSpotKind =
   // Ranger, Scout, or Ellen herself, wherever they are.
   | 'pet'
   | 'scout'
-  | 'ellen';
+  | 'ellen'
+  // Something he's spotted and wants Ellen to see: a cannabis seedling come up on its own.
+  | 'show';
 
 export interface ScottSpot {
   id: string;

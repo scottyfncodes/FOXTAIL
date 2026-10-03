@@ -153,6 +153,16 @@ grow in patches all over it.
   the fox ever shows you its den, it's wherever the valley has grown
   thickest. Ranger, for her part, won't go near a carnivore.
 - **Follow the fox.** Sometimes it runs. Sometimes it's worth following.
+  A rare plant it shows you in one of its secret patches doesn't grow back
+  there: after you've picked it, it turns up now and then in a different
+  patch of the same region, never the same one twice running.
+- **Follow Scout.** Every few hours out walking, Scout catches a scent and
+  runs off a little way ahead. Follow him: he'll be standing over a
+  curiosity — a hedgehog, a lost golf ball, a geode — with a "!" over him,
+  waiting for you to come and see.
+- **Follow Scott.** Once cannabis starts coming up wild on its own, Scott
+  keeps an eye out for it. When a new seedling shows, he drops what he's
+  doing, walks out to it and waves you over.
 
 Sunny daytime is the garden's resting state: the day lingers and the night
 passes quickly (a full cycle is still about twelve real minutes), and cloud
