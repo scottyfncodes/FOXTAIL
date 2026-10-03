@@ -8,7 +8,7 @@ import { journalComplete, variantAllowed } from './lineage';
 import { addToBasket, basketFull } from './basket';
 import { hasFound, recordFound } from './collection';
 import { GOLF_BALL_CURIOSITY } from '../data/golfBalls';
-import { findGolfBallFor, golfCollectionComplete, type GolfBallFind } from './golfBalls';
+import { findGolfBallFor, type GolfBallFind } from './golfBalls';
 
 // What's at the end of a fox's trail. Usually a plant — something rare, or
 // something you've never seen, or once in a long while something that
@@ -19,6 +19,9 @@ import { findGolfBallFor, golfCollectionComplete, type GolfBallFind } from './go
 export const FOX_FIND_LIFETIME = 2160;
 /** Found this many species, and very rarely the fox knows where something else grows. */
 export const SECRET_FIND_CHANCE = 0.03;
+
+/** How a lost golf ball's chance compares with any other common find's. */
+export const GOLF_BALL_WEIGHT = 0.06;
 
 const RARITY_WEIGHT: Record<Rarity, number> = { common: 100, uncommon: 40, rare: 14, veryRare: 5, extremelyRare: 1.5, unheardOf: 0, mythic: 0 };
 
@@ -65,9 +68,10 @@ export function pickCuriosity(state: GameState, zone: OutdoorZoneId, cond: FindC
     if (c.when === 'rain' && !cond.rain) return false;
     return true;
   });
-  // Something not yet noted is twice as likely; so is a lost golf ball, while there are kinds still to find.
-  const unnoted = (c: CuriosityDef) => !state.curiosities[c.id] || (c.id === GOLF_BALL_CURIOSITY && !golfCollectionComplete(state));
-  return weightedPick(eligible, (c) => RARITY_WEIGHT[c.rarity] * (unnoted(c) ? 2 : 1), rand) ?? null;
+  // Something not yet noted is twice as likely. A lost golf ball is a rare
+  // turn-up whatever's been found: they're a treat, not what most scents lead to.
+  const weight = (c: CuriosityDef) => (c.id === GOLF_BALL_CURIOSITY ? RARITY_WEIGHT[c.rarity] * GOLF_BALL_WEIGHT : RARITY_WEIGHT[c.rarity] * (state.curiosities[c.id] ? 1 : 2));
+  return weightedPick(eligible, weight, rand) ?? null;
 }
 
 /** Leaves something at the end of a trail. Returns what was left (possibly several plants, for a grove). */
