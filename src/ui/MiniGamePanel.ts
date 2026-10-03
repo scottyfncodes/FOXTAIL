@@ -32,6 +32,15 @@ export abstract class MiniGamePanel extends CanvasGamePanel {
     super.restart();
   }
 
+  /**
+   * On a small phone the default leaves only 240px: too little for rows of
+   * twigs or a maze at a finger's width. Better the panel scrolls a little
+   * below the canvas (the canvas itself never scrolls) than cramp the game.
+   */
+  protected canvasHeight(w: number): number {
+    return Math.max(340, super.canvasHeight(w));
+  }
+
   /** The best score so far, or null. */
   protected get best(): number | null {
     return this.game.state.minigames[this.id]?.best ?? null;

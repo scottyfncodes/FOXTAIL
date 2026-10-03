@@ -45,6 +45,8 @@ while (shots < 40) {
   const sol = solve(round, s.up, s.t + lead);
   const name = (n === 0 ? 'slingshot-3-aim.png' : s.ri === 2 && n % 3 === 0 ? `slingshot-moving-${n}.png` : s.ri === 3 && n % 3 === 0 ? `slingshot-mixed-${n}.png` : undefined);
   await shoot(sol.a, sol.p, name);
+  const c = await page.evaluate(() => ({ ...window.__foxtail.miniGames.slingshot.cone, t: window.__foxtail.miniGames.slingshot.roundT }));
+  console.log('shot', s.ri, JSON.stringify(s.up), sol.a.toFixed(1), sol.p.toFixed(2), 'planned t', (s.t+lead).toFixed(2), 'actual t', c.t.toFixed(2));
   n++; shots++;
   if (n === 1) { await page.waitForTimeout(250); await page.screenshot({ path: `${SP}/slingshot-4-flying.png` }); await page.waitForTimeout(800); await page.screenshot({ path: `${SP}/slingshot-5-hit.png` }); }
   await page.waitForTimeout(300);
