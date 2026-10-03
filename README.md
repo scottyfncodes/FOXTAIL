@@ -157,8 +157,8 @@ grow in patches all over it.
   there: after you've picked it, it turns up now and then in a different
   patch of the same region, never the same one twice running.
 - **Follow Scout.** Every few hours out walking, Scout catches a scent and
-  runs off a little way ahead. Follow him: he'll be standing over a
-  curiosity — a hedgehog, a lost golf ball, a geode — with a "!" over him,
+  runs off a little way ahead. Follow her: she'll be standing over a
+  curiosity — a hedgehog, a lost golf ball, a geode — with a "!" over her,
   waiting for you to come and see.
 - **Follow Scott.** Once cannabis starts coming up wild on its own, Scott
   keeps an eye out for it. When a new seedling shows, he drops what he's

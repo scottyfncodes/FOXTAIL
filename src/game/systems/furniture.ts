@@ -18,7 +18,7 @@ import { occupantOf } from './propagation';
 // ordinary placed piece with the same id — so whatever is growing in it
 // comes along. The living room's furniture works the same way, except it
 // can only be moved, never put away: the cat is not giving up her bed, and
-// Scout isn't giving up his.
+// Scout isn't giving up hers.
 
 export const FURNITURE_SLOT_KIND: Partial<Record<FurnitureId, DisplayKind>> = Object.fromEntries(
   Object.values(FURNITURE_DEFS)

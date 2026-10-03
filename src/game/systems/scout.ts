@@ -3,8 +3,8 @@ import { interiorWaypoint } from '../data/interior';
 import { overlandWaypoint } from '../data/worldMap';
 
 // Scout trails just behind and to the side of Ellen (a real walking-companion
-// offset, not stacked on top of her), catching up briskly when he falls far
-// behind and settling into idle flavor behaviors when she pauses. He is a
+// offset, not stacked on top of her), catching up briskly when she falls far
+// behind and settling into idle flavor behaviors when Ellen pauses. She is a
 // constant companion — unlike the fox, who is a rare, wordless lure toward
 // hidden things, Scout's "noticing" is a small, frequent, unforced beat.
 
@@ -48,7 +48,7 @@ export interface ScoutTickContext {
   /** Nearest not-yet-discovered thing worth a curious glance, if any is close. */
   nearbyUndiscovered: { x: number; y: number } | null;
   rand: () => number;
-  /** Inside the house: the rooms are joined by one doorway, so he goes through it. */
+  /** Inside the house: the rooms are joined by one doorway, so she goes through it. */
   indoors?: boolean;
 }
 
@@ -59,7 +59,7 @@ export const SNIFF_MAX = 9;
 export const SNIFF_GAP: [number, number] = [240, 540];
 
 /**
- * Off after a scent: he runs to the curiosity, then stands over it, nose
+ * Off after a scent: she runs to the curiosity, then stands over it, nose
  * down and tail going, until Ellen comes to see (the game ends the lead once
  * she's looked, or the thing has gone).
  */
@@ -89,7 +89,7 @@ export function tickScout(scout: ScoutState, ctx: ScoutTickContext): void {
   }
   if (scout.behavior === 'leading' || scout.behavior === 'pointing') scout.behavior = 'following';
   const [fx, fy] = FACING_VEC[ctx.playerFacing];
-  // Trail behind Ellen's heading, offset slightly to her side so he reads as
+  // Trail behind Ellen's heading, offset slightly to her side so she reads as
   // walking alongside rather than glued to her back.
   const sideX = -fy;
   const sideY = fx;
