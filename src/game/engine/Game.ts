@@ -512,10 +512,10 @@ export class Game {
   }
 
   /**
-   * Scout's nose: every so often, out walking, he catches a scent and
+   * Scout's nose: every so often, out walking, she catches a scent and
    * runs off a little way ahead to a curiosity — a hedgehog, a geode, a
    * moth — and waits there with it until Ellen comes to look. The lead
-   * ends once she's noted it down, it's gone, or she's gone indoors or
+   * ends once Ellen's noted it down, it's gone, or Ellen's gone indoors or
    * into the truck.
    */
   private tendScoutLead() {
@@ -546,7 +546,7 @@ export class Game {
       const zone = zoneAt(tx, ty);
       if (zone === 'greenhouse' || zone === 'creek' && isWater(tx, ty)) continue;
       if (!this.isOpenGround(tx, ty) || this.blockedOutdoor(x, y)) continue;
-      // Somewhere she can see him go: not round the far side of the house, not over the creek.
+      // Somewhere Ellen can see her go: not round the far side of the house, not over the creek.
       if (segmentHitsRect(GREENHOUSE_FOOTPRINT, p.x, p.y, x, y) || segmentHitsRect(HOUSE_FOOTPRINT, p.x, p.y, x, y)) continue;
       if ((p.x < 42) !== (x < 42)) continue;
       const c = pickCuriosity(st, zone, { night: isNight(now), rain: st.weather.condition === 'rain' }, Math.random);
@@ -555,7 +555,7 @@ export class Game {
       st.foxFinds.push(find);
       sc.leadTo = { x, y, findId: find.id };
       sc.behavior = 'leading';
-      this.pushToast('Scout’s caught a scent and he’s off — follow him and see what he’s found.', 'discovery');
+      this.pushToast('Scout’s caught a scent and she’s off — follow her and see what she’s found.', 'discovery');
       return;
     }
   }

@@ -440,7 +440,7 @@ export class Renderer {
         drawables.push({
           y: state.player.y + 0.05,
           draw: () => {
-            // Head-on, he's behind the cab; otherwise he stands in the bed, legs hidden by its sides.
+            // Head-on, she's behind the cab; otherwise he stands in the bed, legs hidden by its sides.
             if (t.facing === 'down') this.drawScoutInBed(camera, t, now, moving);
             this.drawTruck(camera, t, now, true, moving);
             if (t.facing !== 'down') this.drawScoutInBed(camera, t, now, moving);
@@ -458,7 +458,7 @@ export class Renderer {
     }
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
-    // A little "!" over Scout standing over what he's sniffed out, and over Scott waving her over.
+    // A little "!" over Scout standing over what she's sniffed out, and over Scott waving her over.
     if (state.scout.behavior === 'pointing' && !state.player.riding) this.drawCallout(camera, state.scout.x, state.scout.y - 0.85, now);
     if (state.scott.activity === 'showingPlant' && state.scott.zone !== 'greenhouse') this.drawCallout(camera, state.scott.x, state.scott.y - 1.35, now);
 
@@ -2843,18 +2843,18 @@ export class Renderer {
 
   /**
    * Scout in the back of the truck: standing in the bed, looking the way
-   * it's going, ears up. Below the bed's rim he's clipped away, so only
-   * his head and back show over the side.
+   * it's going, ears up. Below the bed's rim she's clipped away, so only
+   * her head and back show over the side.
    */
   private drawScoutInBed(camera: Camera, t: { x: number; y: number; facing: Facing }, now: number, moving: boolean) {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
     const side = t.facing === 'left' || t.facing === 'right';
     const ahead = t.facing === 'left' ? -1 : 1;
-    // Where he stands, in tiles from the truck's point: the middle of the bed.
+    // Where she stands, in tiles from the truck's point: the middle of the bed.
     const dx = side ? -ahead * 0.5 : 0;
     const dy = t.facing === 'down' ? -1.2 : t.facing === 'up' ? -0.5 : -0.55;
-    // Where the bed's rim is on screen; nothing of him shows below it.
+    // Where the bed's rim is on screen; nothing of her shows below it.
     const s = camera.worldToScreen(t.x * TILE_SIZE, t.y * TILE_SIZE);
     const rim = s.y + tile * (side ? -0.56 : t.facing === 'up' ? -0.48 : -1.0);
     const bounce = moving ? Math.abs(Math.sin(now / 90)) * 0.03 : 0;
@@ -2909,7 +2909,7 @@ export class Renderer {
     ctx.stroke();
 
     // four legs: a trot while following, planted when standing; sitting,
-    // just the two front legs straight down under his chest
+    // just the two front legs straight down under her chest
     if (sitting) {
       const fx = cx + dir[0] * tile * 0.08;
       for (const side of [-1, 1]) {
@@ -3001,7 +3001,7 @@ export class Renderer {
       ctx.lineCap = 'butt';
     }
 
-    // handmade collar, matching Ellen's crochet accent
+    // her green collar
     ctx.strokeStyle = SCOUT_APPEARANCE.collar;
     ctx.lineWidth = Math.max(1, tile * 0.03);
     ctx.beginPath();

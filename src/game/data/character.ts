@@ -29,7 +29,7 @@ export const SCOUT_APPEARANCE = {
   eyePatch: '#4a3a2c',
   eye: '#2a2018',
   nose: '#2a2018',
-  collar: '#c96a5a', // matches Ellen's crochet accent — a handmade collar
+  collar: '#2fb36a', // her green collar, bright enough to read against the grass
 };
 
 export const SCOTT_APPEARANCE = {
