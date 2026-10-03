@@ -96,6 +96,52 @@ export function pondTurtleAt(d: Pick<PlacedDecor, 'x' | 'y' | 'w' | 'h' | 'rot'>
   return turtleCycle(stone, out, now, 60000 + hash(seed) * 30000, hash(seed + 1), seed);
 }
 
+// ---------------------------------------------------------------- the alligator
+
+export interface GatorAt {
+  x: number;
+  y: number;
+  /** Heading, radians, 0 = down the screen (+y), as for koi and turtles. */
+  heading: number;
+  /** Hauled out on the bank, grinning at the sun. */
+  basking: boolean;
+  /** 0 (dry) → 1 (just eyes, nostrils and the ridge of its back showing). */
+  wet: number;
+}
+
+/** Where the creek's alligator suns itself: hauled out on the east bank, snout to the water, between the turtles' stones. */
+export const GATOR_BANK = { x: CREEK_WATER.x + CREEK_WATER.w + 0.3, y: 29.5 };
+/** How far up and down the creek it cruises from there: well clear of both bridges. */
+export const GATOR_REACH = 9.5;
+const GATOR_PERIOD_MS = 150000;
+
+/**
+ * The creek's one alligator, and a friendly one: a long doze on the bank,
+ * then it slips in and cruises lazily up the creek, back down past its
+ * spot, and up again to haul out where it started.
+ */
+export function riverAlligator(now: number): GatorAt {
+  const u = (now / GATOR_PERIOD_MS + 0.37) % 1;
+  const BASK = 0.4;
+  const mid = CREEK_WATER.x + CREEK_WATER.w / 2;
+  if (u < BASK) return { x: GATOR_BANK.x, y: GATOR_BANK.y, heading: Math.PI / 2, basking: true, wet: 0 };
+  const s = (u - BASK) / (1 - BASK);
+  const at = (v: number) => {
+    const inWater = smooth(Math.min(1, Math.min(v, 1 - v) / 0.06));
+    return {
+      x: GATOR_BANK.x + (mid - GATOR_BANK.x) * inWater + Math.sin(v * Math.PI * 6) * 0.35 * inWater,
+      y: GATOR_BANK.y - Math.sin(v * Math.PI * 2) * GATOR_REACH,
+    };
+  };
+  const p = at(s);
+  const q = at(Math.min(1, s + 0.004));
+  const r = at(Math.max(0, s - 0.004));
+  const hx = q.x - r.x;
+  const hy = q.y - r.y;
+  const wet = smooth(Math.min(1, Math.min(s, 1 - s) / 0.05));
+  return { x: p.x, y: p.y, heading: Math.atan2(-hx, hy), basking: false, wet };
+}
+
 // ---------------------------------------------------------------- frogs
 
 export interface FrogAt {

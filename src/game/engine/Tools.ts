@@ -17,7 +17,10 @@ import {
   bedCost,
   checkPlanting,
   createBed,
+  clearingSpecOf,
+  createClearing,
   createPath,
+  previewClearing,
   placeRaisedBed,
   normRect,
   previewPath,
@@ -25,6 +28,10 @@ import {
   transplant,
   type BedBlock,
   type BedResult,
+  type ClearingPreview,
+  type ClearingResult,
+  type ClearingShape,
+  type ClearingSpec,
   type LandscapeWorld,
   type PathPreview,
   type PathResult,
@@ -60,6 +67,7 @@ import {
 //        ──▶ yard     the same, outdoors: garden decor and the market stall
 //        ──▶ bed      drag out a rectangle or oval ─▶ ✓ dig / ✕
 //        ──▶ path     trace a route with a finger ─▶ ✓ carve / ✕
+//        ──▶ clear    drag out a square or circle ─▶ ✓ clear / ✕
 
 export interface PlantGhost {
   defId: string;
@@ -99,7 +107,8 @@ export type ToolMode =
       pendingDrag: { offX: number; offY: number } | null;
     }
   | { kind: 'bed'; shape: 'rect' | 'oval'; a: { x: number; y: number } | null; b: { x: number; y: number } | null; block: BedBlock | null; drawing: boolean }
-  | { kind: 'path'; route: { x: number; y: number }[]; points: number[]; preview: PathPreview | null; drawing: boolean };
+  | { kind: 'path'; route: { x: number; y: number }[]; points: number[]; preview: PathPreview | null; drawing: boolean }
+  | { kind: 'clear'; shape: ClearingShape; a: { x: number; y: number } | null; b: { x: number; y: number } | null; preview: ClearingPreview | null; drawing: boolean };
 
 export interface ToolHost {
   state: GameState;
@@ -117,6 +126,7 @@ export type ToolOutcome =
   | { kind: 'placed'; id: string }
   | { kind: 'bed'; result: BedResult }
   | { kind: 'path'; result: PathResult }
+  | { kind: 'clearing'; result: ClearingResult }
   | { kind: 'none'; reason?: string };
 
 /** What a press did: grabbed something, or should pan the view. */
@@ -418,6 +428,33 @@ export class ToolController {
     m.preview = m.points.length >= 2 ? previewPath(this.host.state, m.points, this.host.world) : null;
   }
 
+  startClearing(shape: ClearingShape = 'square') {
+    this.mode = { kind: 'clear', shape, a: null, b: null, preview: null, drawing: false };
+    this.changed();
+  }
+
+  setClearingShape(shape: ClearingShape) {
+    const m = this.mode;
+    if (m.kind !== 'clear') return;
+    m.shape = shape;
+    this.updateClearing();
+    this.changed();
+  }
+
+  /** The square (or the circle's bounding square) dragged out from where the press began. */
+  clearingSpec(): ClearingSpec | null {
+    const m = this.mode;
+    if (m.kind !== 'clear' || !m.a || !m.b) return null;
+    return clearingSpecOf(m.a, m.b, m.shape);
+  }
+
+  private updateClearing() {
+    const m = this.mode;
+    if (m.kind !== 'clear') return;
+    const spec = this.clearingSpec();
+    m.preview = spec ? previewClearing(this.host.state, spec, this.host.world) : null;
+  }
+
   // ------------------------------------------------------------ pointer
 
   pointerDown(x: number, y: number): PressResult {
@@ -489,6 +526,13 @@ export class ToolController {
         this.updatePath();
         this.changed();
         return 'draw';
+      case 'clear':
+        m.a = { x, y };
+        m.b = { x, y };
+        m.drawing = true;
+        this.updateClearing();
+        this.changed();
+        return 'draw';
       default:
         return 'none';
     }
@@ -535,6 +579,11 @@ export class ToolController {
         if (!m.drawing) return;
         m.b = { x, y };
         this.updateBed();
+        break;
+      case 'clear':
+        if (!m.drawing) return;
+        m.b = { x, y };
+        this.updateClearing();
         break;
       case 'path': {
         if (!m.drawing) return;
@@ -584,6 +633,7 @@ export class ToolController {
         }
         break;
       case 'bed':
+      case 'clear':
         m.drawing = false;
         break;
       case 'path':
@@ -629,6 +679,14 @@ export class ToolController {
           m.preview = null;
         }
         break;
+      case 'clear':
+        if (m.drawing) {
+          m.drawing = false;
+          m.a = null;
+          m.b = null;
+          m.preview = null;
+        }
+        break;
     }
     this.changed();
   }
@@ -647,6 +705,7 @@ export class ToolController {
       case 'bed':
         return !!m.a && !!m.b && !m.block;
       case 'path':
+      case 'clear':
         return !!m.preview && !m.preview.block;
       default:
         return false;
@@ -715,6 +774,13 @@ export class ToolController {
       case 'path': {
         const res = createPath(state, m.points, this.host.world, now);
         if (res) out = { kind: 'path', result: res };
+        this.mode = { kind: 'play' };
+        break;
+      }
+      case 'clear': {
+        const spec = this.clearingSpec();
+        const res = spec ? createClearing(state, spec, this.host.world) : null;
+        if (res) out = { kind: 'clearing', result: res };
         this.mode = { kind: 'play' };
         break;
       }

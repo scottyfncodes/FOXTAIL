@@ -10,7 +10,7 @@ import { generateObstacles, buildBlockingSet, type Obstacle } from '../world/Obs
 import { isBlockedOutdoor, isBlockedIndoor, indoorSolids, type IndoorSolids } from '../world/Collision';
 import { tryMove } from '../world/Movement';
 import { HOUSE_DOOR, GRID_W, GRID_H, TILE_SIZE, zoneAt, rectContains, isInBounds, isWater, isInsideHomeFootprint, segmentHitsRect, GREENHOUSE_FOOTPRINT, HOUSE_FOOTPRINT } from '../data/worldMap';
-import { FRONT_DOOR, roomAt, GREENHOUSE_DOORS, DOOR_OUTWARD, type GreenhouseDoor } from '../data/interior';
+import { FRONT_DOOR, roomAt, GREENHOUSE_DOORS, BUILDING_DOORS, DOOR_OUTWARD, type GreenhouseDoor } from '../data/interior';
 import { FURNITURE_DEFS } from '../data/furniture';
 import { displaySlots, nurserySpots, placeFurniture, placeBlockReason, pickUpFurniture, findFurniture, fixtureOffset, footprint } from '../systems/furniture';
 import { ACE_REWARD, COURSE, COURSE_PAR, bestRound, recordAce, recordRound, toPar } from '../systems/putting';
@@ -48,7 +48,7 @@ import type { GolfBallFind } from '../systems/golfBalls';
 import { discoveryFlourish, discoveryAside, type Flourish } from '../systems/rarity';
 import type { CatInterest } from '../systems/cat';
 import { KIND_SIGNIFICANCE, type Significance, type ToastKind, type ToastOptions } from '../systems/toasts';
-import { isNight } from './Clock';
+import { isNight, MINUTES_PER_DAY, GAME_MINUTES_PER_REAL_SECOND } from './Clock';
 import type { Rarity } from '../types';
 import { DISCOVERY_SPOTS } from '../data/discoveryPoints';
 import { TOOL_PICKUPS } from '../data/toolPickups';
@@ -57,7 +57,8 @@ import { findShopItem, type DecorId, type FurnitureId } from '../data/shop';
 import { ZONES } from '../data/zones';
 import type { OutdoorZoneId, ZoneId } from '../types';
 import { tickFox } from '../systems/fox';
-import { tickScout, facingToward, SNIFF_MIN, SNIFF_MAX, SNIFF_GAP } from '../systems/scout';
+import { tickScout, facingToward, SNIFF_MIN, SNIFF_MAX, SNIFF_GAP, FROG_SIGHT, FROG_CATCH_CHANCE } from '../systems/scout';
+import { riverFrogs, type FrogAt } from '../systems/wildlife';
 import { tickScott, tickChase, newChase, companySpots, truckSpots, CANNABIS } from '../systems/scott';
 import type { ScottSpot } from '../data/scottSpots';
 import { tickCat } from '../systems/cat';
@@ -331,6 +332,10 @@ export class Game {
   /** A two-finger pinch in progress: the spread and zoom it started from. */
   private pinch: { startDist: number; startZoom: number } | null = null;
   private lastFrame = performance.now();
+  /** Creek frogs out of sight, by seed, until when (performance.now() ms): fled into the water, or eaten. */
+  private frogsGone = new Map<number, number>();
+  /** Where a frog's just plopped into the creek, for the ripple. */
+  private frogSplashes: { x: number; y: number; start: number }[] = [];
   private autosaveAcc = 0;
   private spreadCarry = 0;
   private lushAcc = 0;
@@ -400,7 +405,7 @@ export class Game {
         isWater(tx, ty) ||
         isInsideHomeFootprint(tx, ty) ||
         rectContains(stallRect(this.state), tx, ty) ||
-        GREENHOUSE_DOORS.some((d) => {
+        BUILDING_DOORS.some((d) => {
           const o = DOOR_OUTWARD[d.wall];
           return (tx === d.outside.x && ty === d.outside.y) || (tx === d.outside.x + o.x && ty === d.outside.y + o.y);
         }) ||
@@ -857,7 +862,10 @@ export class Game {
       sc.facing = t.facing;
       sc.behavior = 'following';
     } else if (!playing) {
-      tickScout(this.state.scout, {
+      const frogs = this.state.player.inGreenhouse ? [] : this.visibleFrogs();
+      const sc = this.state.scout;
+      const chased = sc.frog !== undefined ? (frogs.find((f) => f.seed === sc.frog) ?? null) : null;
+      const event = tickScout(sc, {
         playerX: this.state.player.x,
         playerY: this.state.player.y,
         playerFacing: this.state.player.facing,
@@ -867,7 +875,10 @@ export class Game {
         nearbyUndiscovered: this.state.player.inGreenhouse ? null : this.findNearbyUnseen(),
         rand: Math.random,
         indoors: this.state.player.inGreenhouse,
+        nearbyFrog: this.nearestSittingFrog(frogs),
+        chasedFrog: chased,
       });
+      if (event === 'pounced' && chased) this.scoutPounced(chased);
     }
     const p = this.state.player;
     const kissing = !!this.chase.kiss;
@@ -1010,11 +1021,11 @@ export class Game {
     const tx = Math.floor(p.x);
     const ty = Math.floor(p.y);
     if (!p.inGreenhouse) {
-      const door = GREENHOUSE_DOORS.find((d) => d.outside.x === tx && d.outside.y === ty);
+      const door = BUILDING_DOORS.find((d) => d.outside.x === tx && d.outside.y === ty);
       if (door) this.enterGreenhouse(door);
       else if (tx === HOUSE_DOOR.x && ty === HOUSE_DOOR.y) this.enterHouse();
-    } else if (GREENHOUSE_DOORS.some((d) => this.throughDoor(d, p.x, p.y))) {
-      this.exitGreenhouse(GREENHOUSE_DOORS.find((d) => this.throughDoor(d, p.x, p.y)));
+    } else if (BUILDING_DOORS.some((d) => this.throughDoor(d, p.x, p.y))) {
+      this.exitGreenhouse(BUILDING_DOORS.find((d) => this.throughDoor(d, p.x, p.y)));
     } else if (tx === FRONT_DOOR.x && ty >= FRONT_DOOR.y) {
       this.exitHouse();
     }
@@ -1211,8 +1222,8 @@ export class Game {
       const my = stall.y + 1.1;
       consider({ kind: 'market', id: 'market', x: mx, y: my, label: 'Plant Stand & Supply', available: true }, mx, my, this.riding() ? 2.4 : 1.6);
       if (!this.riding()) {
-        for (const d of GREENHOUSE_DOORS) {
-          consider({ kind: 'greenhouseDoor', id: d.id, x: d.outside.x, y: d.outside.y, label: 'Into the Greenhouse', available: true }, d.outside.x + 0.5, d.outside.y + 0.5);
+        for (const d of BUILDING_DOORS) {
+          consider({ kind: 'greenhouseDoor', id: d.id, x: d.outside.x, y: d.outside.y, label: d.id === 'house' ? 'In the back door — home' : 'Into the Greenhouse', available: true }, d.outside.x + 0.5, d.outside.y + 0.5);
         }
         consider({ kind: 'houseDoor', id: 'house', x: HOUSE_DOOR.x, y: HOUSE_DOOR.y, label: 'Go inside — home', available: true }, HOUSE_DOOR.x + 0.5, HOUSE_DOOR.y + 0.5);
       }
@@ -1247,7 +1258,7 @@ export class Game {
       const cat = this.state.cat;
       // Not while he's hiding: he's not to be found.
       if (cat.activity !== 'hiding') consider({ kind: 'miniGame', id: laser.id, x: cat.x, y: cat.y, label: miniGameLabel(laser, this.state.minigames[laser.id]), available: true }, cat.x, cat.y, 1.1);
-      for (const d of GREENHOUSE_DOORS) {
+      for (const d of BUILDING_DOORS) {
         consider({ kind: 'greenhouseExit', id: d.id, x: d.inside.x, y: d.inside.y, label: d.label, available: true }, d.inside.x + 0.5, d.inside.y + 0.5);
       }
       consider({ kind: 'frontDoor', id: 'front', x: FRONT_DOOR.x, y: FRONT_DOOR.y, label: 'Out the front door', available: true }, FRONT_DOOR.x + 0.5, FRONT_DOOR.y + 0.5);
@@ -1295,11 +1306,11 @@ export class Game {
     } else if (n.kind === 'market') {
       this.onOpenMarket?.();
     } else if (n.kind === 'greenhouseDoor') {
-      this.enterGreenhouse(GREENHOUSE_DOORS.find((d) => d.id === n.id));
+      this.enterGreenhouse(BUILDING_DOORS.find((d) => d.id === n.id));
     } else if (n.kind === 'houseDoor') {
       this.enterHouse();
     } else if (n.kind === 'greenhouseExit') {
-      this.exitGreenhouse(GREENHOUSE_DOORS.find((d) => d.id === n.id));
+      this.exitGreenhouse(BUILDING_DOORS.find((d) => d.id === n.id));
     } else if (n.kind === 'frontDoor') {
       this.exitHouse();
     } else if (n.kind === 'foxFind') {
@@ -1533,6 +1544,13 @@ export class Game {
     this.hint('bed', 'Drag across open ground to mark out a bed.', 'important', () => this.inTool('bed'));
   }
 
+  beginClearing(shape: 'square' | 'circle' = 'square') {
+    if (this.state.player.inGreenhouse) return;
+    this.tools.startClearing(shape);
+    this.zoomHint();
+    this.hint('clearing', 'Drag out a square or a circle. Everything growing in it is cleared back to bare ground.', 'important', () => this.inTool('clear'));
+  }
+
   beginPath() {
     if (this.state.player.inGreenhouse) return;
     this.tools.startPath();
@@ -1589,6 +1607,15 @@ export class Game {
       if (r.rocks) cleared.push(`${r.rocks} rock${r.rocks === 1 ? '' : 's'}`);
       if (r.dugUp) cleared.push(`${r.dugUp} of your plants`);
       this.pushToast(`Carved a path for ${r.cost} coins.${cleared.length ? ` Cleared ${cleared.join(', ')}.` : ''}`, 'growth');
+    } else if (res.kind === 'clearing') {
+      this.refreshCleared();
+      const r = res.result;
+      const cleared: string[] = [];
+      if (r.trees) cleared.push(`${r.trees} tree${r.trees === 1 ? '' : 's'}`);
+      if (r.rocks) cleared.push(`${r.rocks} rock${r.rocks === 1 ? '' : 's'}`);
+      if (r.composted) cleared.push(`${r.composted} plant${r.composted === 1 ? '' : 's'}`);
+      if (r.scrub) cleared.push(`${r.scrub} patch${r.scrub === 1 ? '' : 'es'} of scrub`);
+      this.pushToast(`Cleared the ground back to bare earth for ${r.cost} coins.${cleared.length ? ` Out came ${cleared.join(', ')}.` : ''}`, 'growth');
     }
     this.onStateTouched?.();
   }
@@ -1667,7 +1694,7 @@ export class Game {
           const keepsake = findKeepsake(c.id);
           if (keepsake) this.pushToast(keepsake.note, 'info');
         }
-        else this.pushToast(`${c.name} again.`, 'discovery', 'normal');
+        else this.pushToast(`${c.name}.`, 'discovery', 'normal');
         this.flourish(f.x, f.y, c.rarity, !!res.newCuriosity);
       }
     } else if (f.defId && f.variantId) {
@@ -1696,7 +1723,7 @@ export class Game {
       const keepsake = firstEver ? findKeepsake(GOLF_BALL_CURIOSITY) : undefined;
       if (keepsake) this.pushToast(keepsake.note, 'info');
     } else {
-      this.pushToast(`A lost golf ball — another ${b.name} (×${g.count}).`, 'discovery', 'normal');
+      this.pushToast(`A lost golf ball — ${b.name} (×${g.count}).`, 'discovery', 'normal');
     }
   }
 
@@ -2401,12 +2428,52 @@ export class Game {
     this.onStateTouched?.();
   }
 
+  /** The creek's frogs that are out right now (not off in the water after a fright, nor eaten). */
+  private visibleFrogs(): FrogAt[] {
+    const now = performance.now();
+    for (const [seed, until] of this.frogsGone) if (now >= until) this.frogsGone.delete(seed);
+    return riverFrogs(now, isNight(this.state.clock.totalMinutes)).filter((f) => !this.frogsGone.has(f.seed));
+  }
+
+  /** The closest frog sitting within Scout's sight, for her to go after. */
+  private nearestSittingFrog(frogs: FrogAt[]): { x: number; y: number; seed: number } | null {
+    const sc = this.state.scout;
+    let best: FrogAt | null = null;
+    let bestD = FROG_SIGHT;
+    for (const f of frogs) {
+      if (f.hop !== null) continue;
+      const d = Math.hypot(f.x - sc.x, f.y - sc.y);
+      if (d < bestD) {
+        best = f;
+        bestD = d;
+      }
+    }
+    return best ? { x: best.x, y: best.y, seed: best.seed } : null;
+  }
+
+  /**
+   * Scout's pounce: the frog's nearly always quicker, and plops into the
+   * creek to sit out the fuss. Once in a long while, it isn't.
+   */
+  private scoutPounced(f: FrogAt) {
+    const now = performance.now();
+    if (Math.random() < FROG_CATCH_CHANCE) {
+      // Gone for the rest of the day; another turns up on that bank tomorrow.
+      this.frogsGone.set(f.seed, now + (MINUTES_PER_DAY / GAME_MINUTES_PER_REAL_SECOND) * 1000);
+      this.pushToast('Scout actually caught a frog… and ate it. Oh, Scout.', 'info');
+      return;
+    }
+    this.frogsGone.set(f.seed, now + 25000 + Math.random() * 20000);
+    this.frogSplashes.push({ x: f.x, y: f.y, start: now });
+  }
+
   private render(now: number) {
     // Arranging the garden, the view can be panned away from Ellen.
     const focus = this.tools.mode.kind === 'yard' && this.outdoorFocus ? this.outdoorFocus : this.state.player;
     this.camera.follow(focus.x, focus.y);
     const crouching = this.state.clock.totalMinutes < this.actionAnimUntil;
-    const scene = { tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss, october: isOctober() ? this.octView : null };
+    this.frogSplashes = this.frogSplashes.filter((sp) => now - sp.start < 1200);
+    const scene = { frogsGone: this.frogsGone, frogSplashes: this.frogSplashes, tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss, october: isOctober() ? this.octView : null };
     if (this.state.player.inGreenhouse) {
       this.renderer.renderIndoor(this.sceneCamera(), this.state, now, crouching, scene);
     } else {

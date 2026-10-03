@@ -50,7 +50,23 @@ export interface ScoutTickContext {
   rand: () => number;
   /** Inside the house: the rooms are joined by one doorway, so she goes through it. */
   indoors?: boolean;
+  /** The nearest frog worth a chase, if one's close by and sitting where she can see it. */
+  nearbyFrog?: { x: number; y: number; seed: number } | null;
+  /** Where the frog she's after is now, or null once it's gone. */
+  chasedFrog?: { x: number; y: number } | null;
 }
+
+/** Chance, when she's settled and a frog's in sight, that she goes after it. */
+export const FROG_CHASE_CHANCE = 0.2;
+/** How far from Scout a frog can be and still catch her eye, in tiles. */
+export const FROG_SIGHT = 6;
+/** Close enough to pounce. */
+export const FROG_POUNCE = 0.4;
+/** Once in a hundred pounces, she's quicker than the frog. */
+export const FROG_CATCH_CHANCE = 0.01;
+const FROG_SPEED = 5.4;
+
+export type ScoutEvent = 'pounced' | null;
 
 /** How far ahead of Ellen Scout will go after a scent, in tiles. */
 export const SNIFF_MIN = 5;
@@ -82,11 +98,47 @@ function tickLead(scout: ScoutState, ctx: ScoutTickContext): void {
   scout.facing = facingToward(to.x - scout.x, to.y - scout.y);
 }
 
-export function tickScout(scout: ScoutState, ctx: ScoutTickContext): void {
-  if (scout.leadTo) {
-    tickLead(scout, ctx);
-    return;
+/**
+ * After a frog: she bounds to it, round by a bridge if she must, and
+ * pounces. Returns true on the pounce (the game decides how it goes).
+ */
+function tickFrogChase(scout: ScoutState, ctx: ScoutTickContext): boolean {
+  const f = ctx.chasedFrog;
+  // It's gone (or Ellen's wandered off): she gives it up and comes back.
+  if (!f || dist(scout.x, scout.y, ctx.playerX, ctx.playerY) > FROG_SIGHT * 2) {
+    scout.frog = undefined;
+    scout.behavior = 'following';
+    return false;
   }
+  const d = dist(scout.x, scout.y, f.x, f.y);
+  if (d <= FROG_POUNCE) {
+    scout.frog = undefined;
+    // A moment staring at the ripples before she trots back.
+    scout.behavior = 'idleLook';
+    scout.nextEventAt = ctx.now + NOTICE_MIN;
+    scout.facing = facingToward(f.x - scout.x, f.y - scout.y);
+    return true;
+  }
+  const wp = overlandWaypoint(scout.x, scout.y, f.x, f.y);
+  const wd = dist(scout.x, scout.y, wp.x, wp.y) || 1;
+  const step = Math.min(FROG_SPEED * ctx.dtSeconds, wd);
+  scout.x += ((wp.x - scout.x) / wd) * step;
+  scout.y += ((wp.y - scout.y) / wd) * step;
+  scout.facing = facingToward(wp.x - scout.x, wp.y - scout.y);
+  return false;
+}
+
+export function tickScout(scout: ScoutState, ctx: ScoutTickContext): ScoutEvent {
+  if (scout.leadTo) {
+    scout.frog = undefined;
+    tickLead(scout, ctx);
+    return null;
+  }
+  if (scout.frog !== undefined) {
+    scout.behavior = 'chasingFrog';
+    return tickFrogChase(scout, ctx) ? 'pounced' : null;
+  }
+  if (scout.behavior === 'chasingFrog') scout.behavior = 'following';
   if (scout.behavior === 'leading' || scout.behavior === 'pointing') scout.behavior = 'following';
   const [fx, fy] = FACING_VEC[ctx.playerFacing];
   // Trail behind Ellen's heading, offset slightly to her side so she reads as
@@ -104,7 +156,7 @@ export function tickScout(scout: ScoutState, ctx: ScoutTickContext): void {
       if (scout.behavior === 'noticing' && ctx.nearbyUndiscovered) {
         scout.facing = facingToward(ctx.nearbyUndiscovered.x - scout.x, ctx.nearbyUndiscovered.y - scout.y);
       }
-      return; // hold the idle pose
+      return null; // hold the idle pose
     }
     scout.behavior = 'following';
   }
@@ -121,13 +173,17 @@ export function tickScout(scout: ScoutState, ctx: ScoutTickContext): void {
     if (Math.abs(mdx) > 0.04 || Math.abs(mdy) > 0.04) {
       scout.facing = facingToward(mdx, mdy);
     }
-    return;
+    return null;
   }
 
   // Settled beside Ellen: periodically consider a little idle flavor.
-  if (ctx.playerMoving || ctx.now < scout.nextEventAt) return;
+  if (ctx.playerMoving || ctx.now < scout.nextEventAt) return null;
 
-  if (ctx.nearbyUndiscovered && ctx.rand() < 0.7) {
+  if (ctx.nearbyFrog && ctx.rand() < FROG_CHASE_CHANCE) {
+    scout.frog = ctx.nearbyFrog.seed;
+    scout.behavior = 'chasingFrog';
+    scout.facing = facingToward(ctx.nearbyFrog.x - scout.x, ctx.nearbyFrog.y - scout.y);
+  } else if (ctx.nearbyUndiscovered && ctx.rand() < 0.7) {
     scout.behavior = 'noticing';
     scout.nextEventAt = ctx.now + NOTICE_MIN + ctx.rand() * (NOTICE_MAX - NOTICE_MIN);
     scout.facing = facingToward(ctx.nearbyUndiscovered.x - scout.x, ctx.nearbyUndiscovered.y - scout.y);
@@ -137,4 +193,5 @@ export function tickScout(scout: ScoutState, ctx: ScoutTickContext): void {
   } else {
     scout.nextEventAt = ctx.now + RECHECK_MIN + ctx.rand() * (RECHECK_MAX - RECHECK_MIN);
   }
+  return null;
 }

@@ -43,6 +43,8 @@ export const GREENHOUSE_SIDE_DOOR = { x: 59, y: 35 };
  */
 export const HOUSE_FOOTPRINT: Rect = { x: 70, y: 32, w: 5, h: 8 };
 export const HOUSE_DOOR = { x: 72, y: 40 };
+/** The house's back door, in its north wall: out toward the damp forest. */
+export const HOUSE_BACK_DOOR = { x: 72, y: 31 };
 export const PLAYER_START = { x: 65, y: 43 };
 /** The Plant Stand & Supply stall: two tiles wide, just down the path from home. */
 export const MARKET_STALL: Rect = { x: 69, y: 42, w: 2, h: 1 };
