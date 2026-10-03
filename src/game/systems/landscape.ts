@@ -5,10 +5,6 @@ import type { OutdoorZoneId } from '../types';
 import { PLANTS, lookFor, specimenName } from '../data/plants';
 import { GRID_H, GRID_W, zoneAt, isWater } from '../data/worldMap';
 import { MINUTES_PER_DAY } from '../engine/Clock';
-import { addToBasket, basketFull } from './basket';
-import { rollSport } from './propagation';
-import { variantAllowed } from './lineage';
-import { recordFound } from './collection';
 import { stageFloat, stageIndexOf } from './growth';
 import { SpatialGrid } from './spatial';
 
@@ -581,44 +577,19 @@ export function pathAt(state: GameState, x: number, y: number, slack = 0.2): Gar
 // ---------------------------------------------------------------- compost
 
 export interface CompostResult {
-  /** A cutting saved from it — not always, and not always true to type. */
-  cutting: { defId: string; variantId: string; changed: boolean; newVariant: boolean } | null;
-  /** There would have been a cutting, but the basket was full. */
-  noRoom: boolean;
   name: string;
 }
 
 /**
- * Composts an outdoor plant, clearing its ground. A well-grown plant
- * usually leaves something to propagate from — but
- * not reliably the same thing: roughly half the time it's true to type,
- * otherwise it's the plain species or (rarely) a sport. Taking out a
- * special plant is a real decision.
+ * Composts an outdoor plant, clearing its ground — and that's all: nothing
+ * comes back to the basket. Take a cutting first if you want one.
  */
-export function compostPlant(state: GameState, plantId: string, now: number, rand: () => number = Math.random): CompostResult | null {
+export function compostPlant(state: GameState, plantId: string): CompostResult | null {
   const p = state.plants[plantId];
   if (!p || p.location.kind !== 'wild') return null;
   const name = specimenName(p.defId, p.variantId);
   delete state.plants[plantId];
-  const result: CompostResult = { cutting: null, noRoom: false, name };
-  const stage = stageIndexOf(p.growth);
-  if (stage < 2 || rand() >= 0.6) return result;
-  const def = PLANTS[p.defId];
-  let variantId = p.variantId;
-  const r = rand();
-  if (r < 0.12) {
-    const v = rollSport(p.defId, p.variantId, rand, stageIndexOf(p.growth) >= 3);
-    if (v && variantAllowed(state, p.defId, v)) variantId = v;
-  }
-  else if (r < 0.5) variantId = def.variants[0].id;
-  if (basketFull(state)) {
-    result.noRoom = true;
-    return result;
-  }
-  addToBasket(state, { defId: p.defId, variantId, seed: Math.floor(rand() * 1e9), growth: 0, generation: p.generation + 1, origin: 'cutting', collectedAt: now });
-  const found = recordFound(state, p.defId, variantId, now);
-  result.cutting = { defId: p.defId, variantId, changed: variantId !== p.variantId, newVariant: found.newVariant };
-  return result;
+  return { name };
 }
 
 // ---------------------------------------------------------------- planting & moving

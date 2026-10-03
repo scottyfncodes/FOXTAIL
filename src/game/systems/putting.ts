@@ -1,4 +1,4 @@
-// Putt-putt on the living-room mat: a nine-hole course laid out with
+// Putt-putt on the living-room mat: a twelve-hole course laid out with
 // whatever was lying around the house — a mug, a slipper, a couple of
 // books, and the cat, who got there first.
 //
@@ -28,7 +28,7 @@ const STOP_SPEED = 0.06;
 const WALL_BOUNCE = 0.7;
 const OBSTACLE_BOUNCE = 0.55;
 
-export type ObstacleKind = 'mug' | 'book' | 'slipper' | 'cat';
+export type ObstacleKind = 'mug' | 'book' | 'slipper' | 'cat' | 'tail';
 
 export interface CircleObstacle {
   shape: 'circle';
@@ -36,6 +36,10 @@ export interface CircleObstacle {
   x: number;
   y: number;
   r: number;
+  /** It moves: swinging back and forth by (dx, dy) over `period` seconds (Ranger's tail). */
+  swing?: { dx: number; dy: number; period: number };
+  /** It's the end of something rooted here (the tail's base, at Ranger): the whole length between is solid too. */
+  anchor?: { x: number; y: number };
 }
 
 export interface RectObstacle {
@@ -49,6 +53,32 @@ export interface RectObstacle {
 
 export type Obstacle = CircleObstacle | RectObstacle;
 
+/**
+ * Patches of the mat that change how the ball rolls: a bath mat (rough —
+ * it drags), a glossy magazine (slick — it runs on), or a paperback slid
+ * under the mat (a ramp — it leans the ball one way).
+ */
+export interface Zone {
+  kind: 'rough' | 'slick' | 'ramp';
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** For a ramp: its pull, units/s² (kept below ROLL). */
+  slope?: { x: number; y: number };
+}
+
+/** How much a zone multiplies the rolling resistance. */
+export const ZONE_FRICTION: Record<Zone['kind'], number> = { rough: 2.6, slick: 0.4, ramp: 1 };
+
+/** A cardboard tube: a ball rolling into one mouth comes out of the other at the same speed. */
+export interface Tube {
+  a: { x: number; y: number };
+  b: { x: number; y: number };
+}
+/** How close to a tube's mouth the ball has to roll to go in. */
+export const TUBE_R = 0.22;
+
 export interface Hole {
   id: string;
   name: string;
@@ -58,10 +88,25 @@ export interface Hole {
   /** The mat's lean: a constant pull on the ball, units/s² (kept below ROLL so a ball can stop). */
   slope: { x: number; y: number };
   obstacles: Obstacle[];
+  zones?: Zone[];
+  tubes?: Tube[];
+}
+
+/** Where an obstacle is at `t` seconds into the hole (most don't move). */
+export function obstacleAt<T extends Obstacle>(o: T, t: number): T {
+  if (o.shape !== 'circle' || !o.swing) return o;
+  const k = Math.sin((t / o.swing.period) * Math.PI * 2);
+  return { ...o, x: o.x + o.swing.dx * k, y: o.y + o.swing.dy * k };
+}
+
+function zoneAtPoint(hole: Hole, x: number, y: number): Zone | undefined {
+  return hole.zones?.find((z) => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h);
 }
 
 // The course is drawn a little wider than the real mat, so it plays well on a
-// phone. It starts gentle and saves the tricky ones for the back nine.
+// phone. It starts gentle and saves the tricky ones for the back: a bath mat
+// that drags, a glossy magazine that doesn't, a paperback ramp under the
+// mat, a paper-towel tube to putt through, and Ranger, whose tail won't keep still.
 export const COURSE: Hole[] = [
   {
     id: 'hallway',
@@ -73,13 +118,15 @@ export const COURSE: Hole[] = [
     obstacles: [],
   },
   {
-    id: 'rug',
-    name: 'Rug Run',
+    id: 'bathmat',
+    name: 'Bath Mat',
     par: 2,
     tee: { x: 0.8, y: 8.1 },
     cup: { x: 2.7, y: 1.4 },
     slope: { x: 0, y: 0 },
     obstacles: [],
+    // The bath mat across the middle soaks up a soft putt.
+    zones: [{ kind: 'rough', x: 0, y: 3.9, w: 3.6, h: 1.5 }],
   },
   {
     id: 'mug',
@@ -101,6 +148,17 @@ export const COURSE: Hole[] = [
     obstacles: [],
   },
   {
+    id: 'magazine',
+    name: 'The Glossy Magazine',
+    par: 2,
+    tee: { x: 2.8, y: 8.1 },
+    cup: { x: 0.9, y: 1.7 },
+    slope: { x: 0, y: 0 },
+    obstacles: [{ shape: 'circle', kind: 'mug', x: 2.5, y: 4.6, r: 0.3 }],
+    // A magazine left open round the cup: hit it like the rest and it runs right on by.
+    zones: [{ kind: 'slick', x: 0.1, y: 0.4, w: 2.2, h: 2.9 }],
+  },
+  {
     id: 'chicane',
     name: 'Coaster Chicane',
     par: 3,
@@ -111,6 +169,17 @@ export const COURSE: Hole[] = [
       { shape: 'circle', kind: 'mug', x: 1.15, y: 5.6, r: 0.3 },
       { shape: 'circle', kind: 'mug', x: 2.45, y: 3.4, r: 0.3 },
     ],
+  },
+  {
+    id: 'tunnel',
+    name: 'Paper-Towel Tunnel',
+    par: 3,
+    tee: { x: 2.7, y: 8.1 },
+    cup: { x: 1.8, y: 1.2 },
+    slope: { x: 0, y: 0 },
+    // A wall of books right across: the only way through is the tube.
+    obstacles: [{ shape: 'rect', kind: 'book', x: 0, y: 4.3, w: 3.6, h: 0.4 }],
+    tubes: [{ a: { x: 0.65, y: 5.7 }, b: { x: 2.95, y: 3.2 } }],
   },
   {
     id: 'slipper',
@@ -125,28 +194,31 @@ export const COURSE: Hole[] = [
     ],
   },
   {
-    id: 'gate',
-    name: 'The Book Gate',
+    id: 'ramp',
+    name: 'Paperback Ramp',
     par: 3,
     tee: { x: 1.8, y: 8.1 },
     cup: { x: 1.1, y: 1.2 },
-    // …and the floor isn't quite level either.
-    slope: { x: 0.14, y: 0 },
+    slope: { x: 0, y: 0 },
     obstacles: [
       { shape: 'rect', kind: 'book', x: 0, y: 4.5, w: 1.3, h: 0.38 },
       { shape: 'rect', kind: 'book', x: 2.35, y: 4.5, w: 1.25, h: 0.38 },
     ],
+    // A paperback slid under the mat before the gate: it leans everything to the right.
+    zones: [{ kind: 'ramp', x: 0, y: 5.3, w: 3.6, h: 1.9, slope: { x: 0.7, y: 0 } }],
   },
   {
-    id: 'cat',
-    name: 'Ranger’s Nap',
+    id: 'tail',
+    name: 'Ranger’s Tail',
     par: 3,
     tee: { x: 1.8, y: 8.1 },
     cup: { x: 1.8, y: 1.2 },
     slope: { x: 0, y: 0 },
     obstacles: [
-      { shape: 'circle', kind: 'cat', x: 1.8, y: 3.0, r: 0.6 },
-      { shape: 'circle', kind: 'mug', x: 0.6, y: 5.55, r: 0.3 },
+      // He's asleep at the side of the mat, but his tail sweeps right across it.
+      { shape: 'circle', kind: 'cat', x: 3.25, y: 3.6, r: 0.55 },
+      { shape: 'circle', kind: 'tail', x: 1.85, y: 3.75, r: 0.24, swing: { dx: 1.15, dy: 0, period: 2.6 }, anchor: { x: 3.1, y: 3.7 } },
+      { shape: 'circle', kind: 'mug', x: 0.6, y: 5.9, r: 0.3 },
     ],
   },
   {
@@ -162,7 +234,28 @@ export const COURSE: Hole[] = [
       { shape: 'rect', kind: 'slipper', x: 0, y: 5.6, w: 1.1, h: 0.4 },
     ],
   },
+  {
+    id: 'grandTour',
+    name: 'The Grand Tour',
+    par: 3,
+    tee: { x: 0.6, y: 8.2 },
+    cup: { x: 2.9, y: 1.1 },
+    slope: { x: 0, y: 0 },
+    // Everything at once: a book wall with a gap at the far side, the bath
+    // mat beyond it, and the magazine round the cup.
+    obstacles: [
+      { shape: 'rect', kind: 'book', x: 0, y: 5.0, w: 2.5, h: 0.4 },
+      { shape: 'circle', kind: 'mug', x: 1.4, y: 2.9, r: 0.3 },
+    ],
+    zones: [
+      { kind: 'rough', x: 0, y: 3.5, w: 3.6, h: 1.0 },
+      { kind: 'slick', x: 1.7, y: 0.3, w: 1.8, h: 2.1 },
+    ],
+  },
 ];
+
+/** Which course a best round was set on: a redesigned course starts a fresh record. */
+export const COURSE_ID = 'living-room-12';
 
 export const COURSE_PAR = COURSE.reduce((s, h) => s + h.par, 0);
 
@@ -171,9 +264,11 @@ export interface Ball {
   y: number;
   vx: number;
   vy: number;
+  /** The tube mouth it just came out of: it has to roll clear before it can go back in. */
+  tubeExit?: { x: number; y: number };
 }
 
-export type BallEvent = 'wall' | 'hit' | 'lip' | 'sunk' | 'stopped';
+export type BallEvent = 'wall' | 'hit' | 'lip' | 'sunk' | 'stopped' | 'tube';
 
 export function ballMoving(b: Ball): boolean {
   return b.vx !== 0 || b.vy !== 0;
@@ -196,20 +291,25 @@ function bounceOff(ball: Ball, nx: number, ny: number, k: number) {
   return true;
 }
 
-/** Advances the ball by `dt` seconds; returns what happened, if anything. Call with small steps. */
-export function stepBall(ball: Ball, hole: Hole, dt: number): BallEvent | null {
+/**
+ * Advances the ball by `dt` seconds, `t` seconds into the hole (for
+ * anything that moves); returns what happened, if anything. Call with small steps.
+ */
+export function stepBall(ball: Ball, hole: Hole, dt: number, t = 0): BallEvent | null {
   if (!ballMoving(ball)) return null;
   let event: BallEvent | null = null;
 
   const speed = Math.hypot(ball.vx, ball.vy);
-  const slope = hole.slope;
-  if (speed < STOP_SPEED && Math.hypot(slope.x, slope.y) < ROLL) {
+  const zone = zoneAtPoint(hole, ball.x, ball.y);
+  const roll = ROLL * (zone ? ZONE_FRICTION[zone.kind] : 1);
+  const slope = zone?.kind === 'ramp' && zone.slope ? { x: hole.slope.x + zone.slope.x, y: hole.slope.y + zone.slope.y } : hole.slope;
+  if (speed < STOP_SPEED && Math.hypot(slope.x, slope.y) < roll) {
     ball.vx = 0;
     ball.vy = 0;
     return 'stopped';
   }
-  // Rolling resistance against the direction of travel, plus the mat's lean.
-  const drag = Math.min(speed, ROLL * dt);
+  // Rolling resistance against the direction of travel, plus the mat's lean (and any ramp's).
+  const drag = Math.min(speed, roll * dt);
   const wasOverCup = Math.hypot(ball.x - hole.cup.x, ball.y - hole.cup.y) < CUP_R;
   ball.vx += (-ball.vx / speed) * drag + slope.x * dt;
   ball.vy += (-ball.vy / speed) * drag + slope.y * dt;
@@ -261,15 +361,47 @@ export function stepBall(ball: Ball, hole: Hole, dt: number): BallEvent | null {
     if (bounceOff(ball, 0, -1, WALL_BOUNCE)) event = event ?? 'wall';
   }
 
-  for (const o of hole.obstacles) {
+  // A tube: in at one mouth, out of the other, still rolling.
+  if (ball.tubeExit && Math.hypot(ball.x - ball.tubeExit.x, ball.y - ball.tubeExit.y) > TUBE_R * 1.6) delete ball.tubeExit;
+  if (!ball.tubeExit) {
+    for (const tube of hole.tubes ?? []) {
+      for (const [from, to] of [
+        [tube.a, tube.b],
+        [tube.b, tube.a],
+      ] as const) {
+        if (Math.hypot(ball.x - from.x, ball.y - from.y) < TUBE_R) {
+          ball.x = to.x;
+          ball.y = to.y;
+          ball.tubeExit = { x: to.x, y: to.y };
+          return event ?? 'tube';
+        }
+      }
+    }
+  }
+
+  for (const moving of hole.obstacles) {
+    const o = obstacleAt(moving, t);
     let nx: number;
     let ny: number;
     let pen: number;
     if (o.shape === 'circle') {
-      const dx = ball.x - o.x;
-      const dy = ball.y - o.y;
+      // Anchored (a tail), it's a fat line from the anchor out to the tip.
+      let px = o.x;
+      let py = o.y;
+      let r = o.r;
+      if (o.anchor) {
+        const sx = o.x - o.anchor.x;
+        const sy = o.y - o.anchor.y;
+        const len2 = sx * sx + sy * sy || 1e-6;
+        const u = Math.max(0, Math.min(1, ((ball.x - o.anchor.x) * sx + (ball.y - o.anchor.y) * sy) / len2));
+        px = o.anchor.x + sx * u;
+        py = o.anchor.y + sy * u;
+        r = u >= 1 ? o.r : o.r * 0.7;
+      }
+      const dx = ball.x - px;
+      const dy = ball.y - py;
       const d = Math.hypot(dx, dy) || 1e-6;
-      pen = o.r + BALL_R - d;
+      pen = r + BALL_R - d;
       nx = dx / d;
       ny = dy / d;
     } else {
@@ -305,13 +437,13 @@ export function stepBall(ball: Ball, hole: Hole, dt: number): BallEvent | null {
 }
 
 /** Simulates a putt to rest (or the cup), for tests and aim previews. */
-export function simulatePutt(hole: Hole, from: { x: number; y: number }, angle: number, power: number, maxSeconds = 20): { ball: Ball; sunk: boolean; events: BallEvent[] } {
+export function simulatePutt(hole: Hole, from: { x: number; y: number }, angle: number, power: number, maxSeconds = 20, t0 = 0): { ball: Ball; sunk: boolean; events: BallEvent[] } {
   const ball: Ball = { x: from.x, y: from.y, vx: 0, vy: 0 };
   strike(ball, angle, power);
   const events: BallEvent[] = [];
   const dt = 1 / 240;
   for (let t = 0; t < maxSeconds && ballMoving(ball); t += dt) {
-    const e = stepBall(ball, hole, dt);
+    const e = stepBall(ball, hole, dt, t0 + t);
     if (e) events.push(e);
     if (e === 'sunk') return { ball, sunk: true, events };
   }
@@ -323,7 +455,7 @@ export function simulatePutt(hole: Hole, from: { x: number; y: number }, angle: 
  * comes first): the faint guide drawn while aiming. It never gives away the
  * whole putt, just the line.
  */
-export function previewPath(hole: Hole, from: { x: number; y: number }, angle: number, power: number, maxLength = 3.2): { x: number; y: number }[] {
+export function previewPath(hole: Hole, from: { x: number; y: number }, angle: number, power: number, maxLength = 3.2, t0 = 0): { x: number; y: number }[] {
   const ball: Ball = { x: from.x, y: from.y, vx: 0, vy: 0 };
   strike(ball, angle, power);
   const pts = [{ x: ball.x, y: ball.y }];
@@ -332,10 +464,10 @@ export function previewPath(hole: Hole, from: { x: number; y: number }, angle: n
   for (let t = 0; t < 6 && ballMoving(ball) && travelled < maxLength; t += dt) {
     const px = ball.x;
     const py = ball.y;
-    const e = stepBall(ball, hole, dt);
+    const e = stepBall(ball, hole, dt, t0 + t);
     travelled += Math.hypot(ball.x - px, ball.y - py);
     if (Math.round(t / dt) % 4 === 0) pts.push({ x: ball.x, y: ball.y });
-    if (e === 'wall' || e === 'hit' || e === 'sunk' || e === 'lip') break;
+    if (e === 'wall' || e === 'hit' || e === 'sunk' || e === 'lip' || e === 'tube') break;
   }
   pts.push({ x: ball.x, y: ball.y });
   return pts;
@@ -369,15 +501,16 @@ export function recordAce(rec: PuttingRecord, holeId: string): boolean {
   return true;
 }
 
-/** The best round on the course as it is now (a best from an older, shorter course doesn't count). */
+/** The best round on the course as it is now (a best from an older course doesn't count). */
 export function bestRound(rec: PuttingRecord): number | null {
-  return rec.holes === COURSE.length ? rec.best : null;
+  return rec.course === COURSE_ID ? rec.best : null;
 }
 
 /** Notes a finished round; true if it's a new best. */
 export function recordRound(rec: PuttingRecord, total: number): boolean {
   rec.rounds += 1;
-  if (rec.holes !== COURSE.length) {
+  if (rec.course !== COURSE_ID) {
+    rec.course = COURSE_ID;
     rec.holes = COURSE.length;
     rec.best = null;
   }

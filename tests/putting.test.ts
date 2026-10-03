@@ -114,9 +114,9 @@ describe('the course', () => {
     expect(path.length).toBeGreaterThan(2);
   });
 
-  it('has nine holes, every one laid out on the mat', () => {
-    expect(COURSE).toHaveLength(9);
-    expect(new Set(COURSE.map((h) => h.id)).size).toBe(9);
+  it('has twelve holes, every one laid out on the mat', () => {
+    expect(COURSE).toHaveLength(12);
+    expect(new Set(COURSE.map((h) => h.id)).size).toBe(12);
     for (const h of COURSE) {
       for (const p of [h.tee, h.cup]) {
         expect(p.x).toBeGreaterThan(0);
@@ -129,7 +129,7 @@ describe('the course', () => {
 
   it('is playable: every hole can be made in par or better', () => {
     for (const hole of COURSE) expect(playHole(hole), hole.name).toBeLessThanOrEqual(hole.par);
-  });
+  }, 60_000);
 
   it('allows a hole in one on the straight first hole', () => {
     expect(playHole(COURSE[0])).toBe(1);
@@ -142,6 +142,46 @@ describe('the course', () => {
     expect(scoreName(4, 3)).toBe('Bogey.');
     expect(toPar(20, 15)).toBe('+5');
     expect(toPar(15, 15)).toBe('E');
+  });
+});
+
+describe('more to play around', () => {
+  it('varies the holes: rough, slick and ramped patches, a tube, and something that moves', () => {
+    expect(COURSE.some((h) => h.zones?.some((z) => z.kind === 'rough'))).toBe(true);
+    expect(COURSE.some((h) => h.zones?.some((z) => z.kind === 'slick'))).toBe(true);
+    expect(COURSE.some((h) => h.zones?.some((z) => z.kind === 'ramp'))).toBe(true);
+    expect(COURSE.some((h) => h.tubes?.length)).toBe(true);
+    expect(COURSE.some((h) => h.obstacles.some((o) => o.shape === 'circle' && o.swing))).toBe(true);
+    // Not every hole tees off from the middle.
+    expect(new Set(COURSE.map((h) => h.tee.x)).size).toBeGreaterThan(3);
+  });
+
+  it('drags on the bath mat and runs on the magazine', async () => {
+    const { ZONE_FRICTION } = await import('../src/game/systems/putting');
+    const flat: Hole = { id: 'f', name: 'f', par: 2, tee: { x: 1.8, y: 8.5 }, cup: { x: 1.8, y: -5 }, slope: { x: 0, y: 0 }, obstacles: [] };
+    const roll = (kind?: 'rough' | 'slick') => simulatePutt(kind ? { ...flat, zones: [{ kind, x: 0, y: 0, w: 3.6, h: 9 }] } : flat, flat.tee, -Math.PI / 2, 0.45).ball.y;
+    expect(ZONE_FRICTION.rough).toBeGreaterThan(1);
+    expect(ZONE_FRICTION.slick).toBeLessThan(1);
+    // Further up the mat is a smaller y: rough stops it soonest, slick lets it run furthest.
+    expect(roll('rough')).toBeGreaterThan(roll());
+    expect(roll('slick')).toBeLessThan(roll());
+  });
+
+  it('sends the ball through the tube and out of the other end, still rolling', () => {
+    const hole = COURSE.find((h) => h.id === 'tunnel')!;
+    const tube = hole.tubes![0];
+    const from = { x: tube.a.x, y: tube.a.y + 1 };
+    const r = simulatePutt(hole, from, -Math.PI / 2, 0.6);
+    expect(r.events).toContain('tube');
+    // It came out the far side of the book wall.
+    expect(r.ball.y).toBeLessThan(4.3);
+  });
+
+  it('moves Ranger’s tail across the fairway as time passes', async () => {
+    const { obstacleAt } = await import('../src/game/systems/putting');
+    const tail = COURSE.find((h) => h.id === 'tail')!.obstacles.find((o) => o.kind === 'tail')!;
+    const xs = [0, 0.65, 1.3, 1.95].map((t) => obstacleAt(tail, t).x);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(1.5);
   });
 });
 
@@ -159,11 +199,25 @@ describe('the putting record', () => {
 
   it('starts a fresh best when the course grows', async () => {
     const { recordRound, bestRound } = await import('../src/game/systems/putting');
-    // A best set on the old six-hole course.
+    // A best set on an older course.
     const rec = { rounds: 4, best: 15, aces: ['mug'] as string[] };
     expect(bestRound(rec)).toBeNull();
     expect(recordRound(rec, 26)).toBe(true);
     expect(bestRound(rec)).toBe(26);
     expect(rec.aces).toEqual(['mug']);
+  });
+});
+
+describe('Ranger’s tail', () => {
+  it('is solid all along its length, not just at the tip', () => {
+    const hole = COURSE.find((h) => h.id === 'tail')!;
+    const tail = hole.obstacles.find((o) => o.kind === 'tail')!;
+    if (tail.shape !== 'circle' || !tail.anchor) throw new Error('tail');
+    // Struck as the tail sweeps out to its furthest, rolled straight up into the middle of its length.
+    const out = tail.x - tail.swing!.dx;
+    const midX = (out + tail.anchor.x) / 2;
+    const r = simulatePutt(hole, { x: midX, y: 6 }, -Math.PI / 2, 0.8, 20, (tail.swing!.period * 3) / 4 - 0.6);
+    expect(r.events).toContain('hit');
+    expect(r.ball.y).toBeGreaterThan(tail.y);
   });
 });

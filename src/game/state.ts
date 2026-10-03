@@ -332,6 +332,8 @@ export interface PuttingRecord {
   best: number | null;
   /** How many holes the course had when that best was set: a longer course starts a fresh record. */
   holes?: number;
+  /** Which course that best was set on: a redesigned course starts a fresh record. */
+  course?: string;
   /** Holes aced at least once, by hole id. */
   aces: string[];
 }

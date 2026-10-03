@@ -1500,20 +1500,12 @@ export class Game {
   compost(plantId: string) {
     const p = this.state.plants[plantId];
     if (!p || p.location.kind !== 'wild') return;
-    const where = { x: p.location.x, y: p.location.y };
-    const res = compostPlant(this.state, plantId, this.state.clock.totalMinutes);
+    const res = compostPlant(this.state, plantId);
     if (!res) return;
     this.lushDirty = true;
     this.lushAcc = LUSH_REFRESH_MS;
     this.actionAnimUntil = this.state.clock.totalMinutes + 0.5;
-    let msg = `Composted the ${res.name}.`;
-    if (res.cutting) {
-      const r = specimenRarity(res.cutting.defId, res.cutting.variantId);
-      if (res.cutting.changed) msg += ` You saved a cutting — though it’s a ${fullName(res.cutting.defId, res.cutting.variantId)}, not quite the same.`;
-      else msg += ' You saved a cutting from it.';
-      this.flourish(where.x, where.y, r, res.cutting.newVariant);
-    } else if (res.noRoom) msg += ' There was a cutting worth saving, but your basket was full.';
-    this.pushToast(msg, 'info');
+    this.pushToast(`Composted the ${res.name}.`, 'info');
     this.onStateTouched?.();
   }
 

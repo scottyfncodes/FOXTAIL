@@ -114,39 +114,28 @@ describe('moving plants outdoors', () => {
 });
 
 describe('composting wild plants', () => {
-  it('clears the ground, and gives nothing back but maybe a cutting', () => {
+  it('clears the ground and gives nothing back — no cutting, however big the plant', () => {
     const state = createNewGame();
     wild(state, 'small', 55, 28, 10);
     wild(state, 'big', 58, 28, STAGE_AT.specimen);
     const coins = state.coins;
-    const a = compostPlant(state, 'small', 0, () => 0.99)!;
-    compostPlant(state, 'big', 0, () => 0.99)!;
+    const basket = state.basket.length;
+    for (let i = 0; i < 40; i++) {
+      wild(state, `p${i}`, 55, 30, STAGE_AT.specimen, 'pothos', 'manjula');
+      expect(compostPlant(state, `p${i}`)).toEqual({ name: expect.any(String) });
+    }
+    compostPlant(state, 'small');
+    compostPlant(state, 'big');
     expect(state.coins).toBe(coins);
+    expect(state.basket).toHaveLength(basket);
     expect(state.plants.small).toBeUndefined();
     expect(state.plants.big).toBeUndefined();
-    expect(a.cutting).toBeNull();
-  });
-
-  it('sometimes saves a cutting — but not guaranteed, and not always true to type', () => {
-    const state = createNewGame();
-    const outcomes = new Map<string, number>();
-    const rand = mulberry32(42);
-    for (let i = 0; i < 300; i++) {
-      wild(state, `p${i}`, 55, 28, STAGE_AT.large, 'pothos', 'manjula');
-      const r = compostPlant(state, `p${i}`, 0, rand)!;
-      const key = r.cutting ? (r.cutting.variantId === 'manjula' ? 'same' : 'different') : 'none';
-      outcomes.set(key, (outcomes.get(key) ?? 0) + 1);
-      state.basket = [];
-    }
-    expect(outcomes.get('none')).toBeGreaterThan(50);
-    expect(outcomes.get('same')).toBeGreaterThan(30);
-    expect(outcomes.get('different')).toBeGreaterThan(30);
   });
 
   it('only composts plants out in the landscape', () => {
     const state = createNewGame();
     state.plants.n = { id: 'n', defId: 'pothos', variantId: 'golden', seed: 1, growth: 999, location: { kind: 'nursery', bedId: 'bed1' }, plantedAt: 0, lastCuttingAt: null, generation: 0, bornWild: false };
-    expect(compostPlant(state, 'n', 0)).toBeNull();
+    expect(compostPlant(state, 'n')).toBeNull();
     expect(state.plants.n).toBeDefined();
   });
 });

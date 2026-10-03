@@ -120,15 +120,7 @@ describe('each species’ forms come in a line', () => {
     expect([...sportsAfter]).toEqual([pothos[2].id]);
   });
 
-  it('a cutting saved from the compost heap obeys the line too', () => {
-    const state = createNewGame();
-    for (let i = 0; i < 300; i++) {
-      wild(state, 'c', 'pothos', pothos[0].id, 50, 20, STAGE_AT.specimen);
-      const r = compostPlant(state, 'c', 0, mulberry32(i));
-      if (r?.cutting) expect([pothos[0].id, pothos[1].id]).toContain(r.cutting.variantId);
-      state.basket = [];
-    }
-  });
+
 
   it('a cutting’s sport steps one form along', () => {
     const state = createNewGame();

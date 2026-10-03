@@ -106,8 +106,7 @@ export class PlantCard {
         this.render();
       }, 'secondary-btn compost-btn'));
     } else {
-      const lines: string[] = ['It’ll be gone for good.'];
-      if (idx >= 2) lines.push('You may manage to save a cutting — or you may not, and it may not come true.');
+      const lines: string[] = ['It’ll be gone for good — take a cutting first if you want one.'];
       if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 2 && others === 0) lines.push('It’s the only one you have.');
       compost.appendChild(note(lines.join(' '), `row-note${others === 0 ? ' warn' : ''}`));
       const row = el('div', 'action-row');
