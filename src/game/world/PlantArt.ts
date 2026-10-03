@@ -2265,141 +2265,6 @@ function drawMushroom(p: Paint) {
   }
 }
 
-/** One shelf fanning out sideways from the wood at the origin, seen a little from above: cap on top, gills (or pores) peeping out beneath. */
-function shelf(p: Paint, rw: number, rd: number, side: number) {
-  const { ctx, look, rand } = p;
-  const wobs = Array.from({ length: 5 }, () => rand() * Math.PI * 2);
-  const fan = (dy: number, k: number) => {
-    ctx.beginPath();
-    ctx.moveTo(0, dy - rd * 0.55 * k);
-    const steps = 20;
-    for (let i = 0; i <= steps; i++) {
-      const a = -Math.PI / 2 + (i / steps) * Math.PI;
-      const wob = 1 + Math.sin(a * 7 + wobs[0]) * 0.04 + Math.sin(a * 3 + wobs[1]) * 0.05;
-      ctx.lineTo(side * Math.cos(a) * rw * k * wob, dy + Math.sin(a) * rd * k * wob);
-    }
-    ctx.lineTo(0, dy + rd * 0.55 * k);
-    ctx.closePath();
-  };
-  // The underside, a little below the cap's edge.
-  fan(rd * 0.32, 0.97);
-  ctx.fillStyle = gillColor(look, -8);
-  ctx.fill();
-  ctx.save();
-  fan(rd * 0.32, 0.97);
-  ctx.clip();
-  ctx.strokeStyle = gillColor(look, -26, 0.55);
-  ctx.lineWidth = Math.max(0.3, rw * 0.025);
-  ctx.beginPath();
-  for (let i = 1; i < 10; i++) {
-    const a = -Math.PI / 2 + (i / 10) * Math.PI;
-    ctx.moveTo(0, rd * 0.32);
-    ctx.lineTo(side * Math.cos(a) * rw, rd * 0.32 + Math.sin(a) * rd);
-  }
-  ctx.stroke();
-  ctx.restore();
-  if (glowing(look)) {
-    fan(rd * 0.32, 0.97);
-    glowStroke(p, Math.max(0.6, rw * 0.06));
-  }
-  // The cap.
-  fan(0, 1);
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rw * 1.05);
-  g.addColorStop(0, hsl(look.hue, look.sat, look.light - 14));
-  g.addColorStop(0.75, hsl(look.hue, look.sat, look.light));
-  g.addColorStop(1, hsl(look.hue, look.sat - 6, look.light + 12));
-  ctx.fillStyle = g;
-  ctx.fill();
-  if (look.zoned) {
-    // Bands out from where it holds on, alternating with the accent.
-    ctx.save();
-    fan(0, 1);
-    ctx.clip();
-    ctx.lineWidth = Math.max(0.6, rw * 0.1);
-    for (let i = 6; i >= 1; i--) {
-      ctx.strokeStyle = i % 2 ? hsl(look.accentHue, look.accentSat ?? 25, look.accentLight ?? 60, 0.85) : hsl(look.hue, look.sat + 8, look.light - 18, 0.8);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, rw * (i / 6.3), rd * (i / 6.3), 0, -Math.PI / 2, Math.PI / 2, side < 0);
-      ctx.stroke();
-      if (glowing(look) && i % 2) glowStroke(p, Math.max(0.5, rw * 0.05));
-    }
-    ctx.restore();
-  } else {
-    // Fine radial streaks across the cap.
-    ctx.save();
-    fan(0, 1);
-    ctx.clip();
-    ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 10, 0.35);
-    ctx.lineWidth = Math.max(0.3, rw * 0.02);
-    ctx.beginPath();
-    for (let i = 1; i < 8; i++) {
-      const a = -Math.PI / 2 + (i / 8) * Math.PI;
-      ctx.moveTo(0, 0);
-      ctx.lineTo(side * Math.cos(a) * rw, Math.sin(a) * rd);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-  fan(0, 1);
-  ctx.strokeStyle = hsl(look.hue, look.sat - 10, Math.min(96, look.light + 24), 0.85);
-  ctx.lineWidth = Math.max(0.5, rw * 0.045);
-  ctx.stroke();
-}
-
-/** A mossy stump with shelves of fungus tiered up it. */
-function drawBracket(p: Paint) {
-  const { ctx, rand, S, sf } = p;
-  const sw = S * 0.22;
-  const sh = S * (0.42 + Math.min(4, sf) * 0.1);
-  const n = Math.min(9, Math.round(1 + sf * 1.8));
-  // Higher shelves are drawn last: seen from a little above, each one lies over the one below.
-  const shelves = Array.from({ length: n }, (_, i) => ({
-    side: i % 2 ? 1 : -1,
-    y: -sh * (0.12 + rand() * 0.8),
-    rw: S * (0.24 + rand() * 0.12) * (0.8 + Math.min(4, sf) * 0.06),
-  })).sort((a, b) => b.y - a.y);
-  // They grow out from behind the stump, so it hides where they hold on.
-  for (const s of shelves) withTransform(ctx, s.side * sw * 0.3, s.y, -s.side * 0.1, () => shelf(p, s.rw + sw * 0.7, (s.rw + sw * 0.7) * 0.38, s.side));
-  // The stump: bark sides and a pale cut top with its rings.
-  const g = ctx.createLinearGradient(-sw, 0, sw, 0);
-  g.addColorStop(0, hsl(26, 28, 20));
-  g.addColorStop(0.5, hsl(28, 30, 32));
-  g.addColorStop(1, hsl(26, 28, 22));
-  ctx.beginPath();
-  ctx.moveTo(-sw * 1.2, 0);
-  ctx.quadraticCurveTo(-sw, -sh * 0.2, -sw, -sh);
-  ctx.lineTo(sw, -sh);
-  ctx.quadraticCurveTo(sw, -sh * 0.2, sw * 1.25, 0);
-  ctx.closePath();
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.strokeStyle = hsl(25, 25, 14, 0.5);
-  ctx.lineWidth = Math.max(0.5, S * 0.012);
-  ctx.beginPath();
-  for (let i = -2; i <= 2; i++) {
-    ctx.moveTo(i * sw * 0.36, -sh * 0.95);
-    ctx.lineTo(i * sw * 0.4 + (rand() - 0.5) * sw * 0.2, -sh * 0.05);
-  }
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(0, -sh, sw, sw * 0.32, 0, 0, Math.PI * 2);
-  ctx.fillStyle = hsl(34, 35, 58);
-  ctx.fill();
-  ctx.strokeStyle = hsl(30, 30, 42, 0.7);
-  for (let i = 1; i <= 3; i++) {
-    ctx.beginPath();
-    ctx.ellipse(0, -sh, sw * (i / 3.6), sw * 0.32 * (i / 3.6), 0, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  // Moss at the foot.
-  ctx.fillStyle = hsl(95, 40, 34, 0.85);
-  for (let i = 0; i < 6; i++) {
-    ctx.beginPath();
-    ctx.ellipse((rand() - 0.5) * sw * 2.2, -rand() * sh * 0.15, sw * (0.25 + rand() * 0.2), sw * 0.14, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
 /** One branch of coral fungus, forking until it ends in blunt tips. */
 function coralBranch(p: Paint, len: number, w: number, depth: number) {
   const { ctx, look, rand } = p;
@@ -3106,7 +2971,6 @@ const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   palm: drawPalm,
   cane: drawCane,
   mushroom: drawMushroom,
-  bracket: drawBracket,
   coral: drawCoral,
   moss: drawMoss,
   mat: drawMat,
@@ -3154,7 +3018,6 @@ function extent(form: PlantForm, mode: PlantMode): { w: number; up: number; down
   if (form === 'palm') return { w: 1.9, up: 2.3, down: 0.4 };
   if (form === 'cane') return { w: 2.0, up: 2.3, down: 0.5 };
   if (form === 'mushroom') return { w: 1.5, up: 1.8, down: 0.5 };
-  if (form === 'bracket') return { w: 1.5, up: 1.4, down: 0.4 };
   if (form === 'coral') return { w: 1.3, up: 1.4, down: 0.4 };
   if (form === 'moss') return { w: 1.4, up: 0.7, down: 0.4 };
   if (form === 'mat') return { w: 1.2, up: 0.6, down: 0.45 };

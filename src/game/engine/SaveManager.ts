@@ -92,6 +92,10 @@ export function migrateSave(raw: unknown): GameState | null {
     if (!isRecord(p) || !PLANTS[p.defId as string] || !isRecord(p.location)) delete state.plants[id];
   }
   state.basket = state.basket.filter((b) => isRecord(b) && !!PLANTS[b.defId]);
+  if (state.truck) state.truck.bed = state.truck.bed.filter((b) => isRecord(b) && !!PLANTS[b.defId]);
+  for (const id of Object.keys(state.collection)) if (!PLANTS[id]) delete state.collection[id];
+  for (const sp of Object.values(state.spots)) if (sp?.hunch && !PLANTS[sp.hunch.defId]) delete sp.hunch;
+  if (state.commission?.defId && !PLANTS[state.commission.defId]) state.commission = null;
   // Builds before v7 sold propagation trays; nursery beds replaced them.
   // Trays already bought become beds where they stand (keeping their ids, so
   // anything rooting in one stays put) and count toward the beds' price.

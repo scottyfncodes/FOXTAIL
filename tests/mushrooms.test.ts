@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createNewGame, type GameState } from '../src/game/state';
+import { createNewGame, type BasketItem, type GameState, type OwnedPlant } from '../src/game/state';
 import { PLANTS, PLANT_LIST } from '../src/game/data/plants';
 import { CURIOSITIES, CURIOSITY_SPECIES } from '../src/game/data/curiosities';
 import { DISCOVERY_SPOTS, SPOT_EPOCH_MINUTES } from '../src/game/data/discoveryPoints';
@@ -13,7 +13,7 @@ import { zoneAt } from '../src/game/data/worldMap';
 import { migrateSave } from '../src/game/engine/SaveManager';
 import { mulberry32 } from '../src/game/engine/Random';
 
-const FUNGI = PLANT_LIST.filter((p) => p.form === 'mushroom' || p.form === 'bracket' || p.form === 'coral');
+const FUNGI = PLANT_LIST.filter((p) => p.form === 'mushroom' || p.form === 'coral');
 
 function findEverything(state: GameState) {
   for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grownVariants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };
@@ -30,8 +30,10 @@ describe('the mushroom family', () => {
       expect(matureRadius(def.id)).toBeGreaterThan(0.2);
       expect(plantRoles(def.id, standard.id)).toContain('fungus');
     }
-    // All three shapes of fungus are there.
-    expect(new Set(FUNGI.map((p) => p.form))).toEqual(new Set(['mushroom', 'bracket', 'coral']));
+    // Both shapes of fungus are there — and nothing growing on a log or stump.
+    expect(new Set(FUNGI.map((p) => p.form))).toEqual(new Set(['mushroom', 'coral']));
+    expect(FUNGI.map((p) => p.id)).not.toContain('oysterMushroom');
+    expect(FUNGI.map((p) => p.id)).not.toContain('turkeyTail');
   });
 
   it('grows wild in the valley’s patches, mostly where it’s damp and wooded', () => {
@@ -51,7 +53,6 @@ describe('the mushroom family', () => {
       }
     }
     expect(seen).toContain('chanterelle');
-    expect(seen).toContain('oysterMushroom');
     // The fairy ring only comes up after rain, and the ghost fungus only shows by lantern light after dark.
     expect(seen).not.toContain('fairyRingChampignon');
     expect(seen).not.toContain('ghostFungus');
@@ -132,5 +133,24 @@ describe('the valley’s own cannabis', () => {
     const rand = mulberry32(2);
     for (let d = 0; d < 30 && !sown; d++) sown += advanceWorld(state, 1440, 0, () => true, rand).sown.length;
     expect(sown).toBeGreaterThan(0);
+  });
+});
+
+describe('the fungi that grew on logs', () => {
+  it('are gone from old saves without a trace: plants, basket, truck, journal, the fox’s hunch and any request for one', () => {
+    const state = createNewGame();
+    state.plants.p1 = { id: 'p1', defId: 'oysterMushroom', variantId: 'grey', seed: 1, growth: 0, location: { kind: 'wild', x: 50, y: 10 } } as unknown as OwnedPlant;
+    state.basket.push({ uid: 'b1', defId: 'turkeyTail', variantId: 'banded' } as unknown as BasketItem);
+    state.truck = { x: 69.5, y: 45.5, facing: 'left', bed: [{ uid: 'b2', defId: 'oysterMushroom', variantId: 'pink' } as unknown as BasketItem] };
+    state.collection.oysterMushroom = { foundAt: 1 } as unknown as GameState['collection'][string];
+    state.spots.someSpot = { hunch: { defId: 'turkeyTail', variantId: 'rust', epoch: 1 } };
+    state.commission = { id: 'c1', defId: 'oysterMushroom', minStage: 'young', postedAt: 0 } as unknown as GameState['commission'];
+    const loaded = migrateSave(JSON.parse(JSON.stringify(state)))!;
+    expect(loaded.plants.p1).toBeUndefined();
+    expect(loaded.basket).toHaveLength(0);
+    expect(loaded.truck!.bed).toHaveLength(0);
+    expect(loaded.collection.oysterMushroom).toBeUndefined();
+    expect(loaded.spots.someSpot.hunch).toBeUndefined();
+    expect(loaded.commission).toBeNull();
   });
 });
