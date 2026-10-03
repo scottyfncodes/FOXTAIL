@@ -1,7 +1,6 @@
 import type { Game } from '../game/engine/Game';
-import { Panel } from './Panel';
-import { el, clear } from './dom';
 import { button } from './common';
+import { CanvasGamePanel, type CanvasPoint } from './CanvasGamePanel';
 import { CAT_APPEARANCE, SCOTT_APPEARANCE } from '../game/data/character';
 import {
   ACE_REWARD,
@@ -37,22 +36,13 @@ const STEP = 1 / 240;
 
 type Phase = 'aim' | 'rolling' | 'holed' | 'done';
 
-export class PuttingPanel {
-  private panel = new Panel('Putt-Putt');
-  private card = el('div', 'putt-card');
-  private canvas = el('canvas', 'putt-canvas') as HTMLCanvasElement;
-  private status = el('p', 'putt-status');
-  private actions = el('div', 'putt-actions');
-
+export class PuttingPanel extends CanvasGamePanel {
   private hole = 0;
   private strokes: number[] = [];
   private ball: Ball = { x: 0, y: 0, vx: 0, vy: 0 };
   private phase: Phase = 'aim';
   private pull: { x: number; y: number } | null = null;
   private lastShotFrom = { x: 0, y: 0 };
-  private banner: { text: string; sub: string; until: number } | null = null;
-  private raf = 0;
-  private lastT = 0;
   private acc = 0;
   /** Seconds into the current hole: Ranger's tail keeps swishing whether the ball's rolling or not. */
   private holeT = 0;
@@ -61,30 +51,12 @@ export class PuttingPanel {
   private ox = 0;
   private oy = 0;
 
-  constructor(private game: Game) {
-    this.panel.panel.classList.add('putt-panel');
-    this.canvas.style.touchAction = 'none';
-    this.canvas.addEventListener('pointerdown', (e) => this.onDown(e));
-    this.canvas.addEventListener('pointermove', (e) => this.onMove(e));
-    this.canvas.addEventListener('pointerup', (e) => this.onUp(e));
-    this.canvas.addEventListener('pointercancel', () => (this.pull = null));
-    const close = this.panel.close.bind(this.panel);
-    this.panel.close = () => {
-      close();
-      cancelAnimationFrame(this.raf);
-    };
+  constructor(game: Game) {
+    super(game, 'Putt-Putt', 'putt-mat');
   }
 
-  open() {
+  protected start() {
     this.startRound();
-    clear(this.panel.body);
-    this.panel.body.append(this.card, this.canvas, this.status, this.actions);
-    this.panel.open();
-    requestAnimationFrame(() => {
-      this.resize();
-      this.lastT = performance.now();
-      this.loop(this.lastT);
-    });
   }
 
   private startRound() {
@@ -112,16 +84,12 @@ export class PuttingPanel {
 
   private refresh() {
     const h = COURSE[this.hole];
-    clear(this.card);
     if (this.phase === 'done') {
-      this.card.append(el('span', 'putt-hole', 'Round complete'), el('span', 'putt-score', `${this.total} · ${toPar(this.total, COURSE_PAR)}`));
+      this.setCard('Round complete', `${this.total} · ${toPar(this.total, COURSE_PAR)}`);
     } else {
       const played = this.strokes.slice(0, this.hole).reduce((s, n) => s + n, 0);
       const parPlayed = COURSE.slice(0, this.hole).reduce((s, x) => s + x.par, 0);
-      this.card.append(
-        el('span', 'putt-hole', `Hole ${this.hole + 1}/${COURSE.length} · Par ${h.par}`),
-        el('span', 'putt-score', `Stroke ${this.strokes[this.hole] + (this.phase === 'aim' ? 1 : 0)} · Round ${this.hole === 0 ? 'E' : toPar(played, parPlayed)}`)
-      );
+      this.setCard(`Hole ${this.hole + 1}/${COURSE.length} · Par ${h.par}`, `Stroke ${this.strokes[this.hole] + (this.phase === 'aim' ? 1 : 0)} · Round ${this.hole === 0 ? 'E' : toPar(played, parPlayed)}`);
     }
     const best = bestRound(this.game.state.putting);
     if (this.phase === 'done') {
@@ -135,11 +103,10 @@ export class PuttingPanel {
     } else {
       this.status.textContent = best === null ? '' : `Best round: ${best} (${toPar(best, COURSE_PAR)})`;
     }
-    clear(this.actions);
     if (this.phase === 'done') {
-      this.actions.append(button('Play again', () => this.startRound()), button('Done', () => this.panel.close(), 'secondary-btn'));
+      this.setActions(button('Play again', () => this.restart()), button('Done', () => this.panel.close(), 'secondary-btn'));
     } else {
-      this.actions.append(button('Start over', () => this.startRound(), 'secondary-btn'));
+      this.setActions(button('Start over', () => this.restart(), 'secondary-btn'));
     }
   }
 
@@ -149,25 +116,27 @@ export class PuttingPanel {
 
   // ------------------------------------------------------------ input
 
-  private toCourse(e: PointerEvent) {
-    const r = this.canvas.getBoundingClientRect();
-    return { x: (e.clientX - r.left - this.ox) / this.scale, y: (e.clientY - r.top - this.oy) / this.scale };
+  private toCourse(p: CanvasPoint) {
+    return { x: (p.x - this.ox) / this.scale, y: (p.y - this.oy) / this.scale };
   }
 
-  private onDown(e: PointerEvent) {
+  protected onDown(p: CanvasPoint) {
     if (this.phase !== 'aim') return;
-    this.canvas.setPointerCapture(e.pointerId);
-    this.pull = this.toCourse(e);
+    this.pull = this.toCourse(p);
   }
 
-  private onMove(e: PointerEvent) {
+  protected onMove(p: CanvasPoint) {
     if (!this.pull) return;
-    this.pull = this.toCourse(e);
+    this.pull = this.toCourse(p);
   }
 
-  private onUp(e: PointerEvent) {
+  protected onCancel() {
+    this.pull = null;
+  }
+
+  protected onUp(p: CanvasPoint) {
     if (!this.pull || this.phase !== 'aim') return;
-    this.pull = this.toCourse(e);
+    this.pull = this.toCourse(p);
     const aim = this.aim();
     this.pull = null;
     // A tap, or barely any pull: not a putt.
@@ -191,10 +160,7 @@ export class PuttingPanel {
 
   // ------------------------------------------------------------ play
 
-  private loop = (t: number) => {
-    if (!this.panel.isOpen) return;
-    const dt = Math.min(0.05, (t - this.lastT) / 1000);
-    this.lastT = t;
+  protected update(dt: number) {
     this.holeT += dt;
     if (this.phase === 'rolling') {
       this.acc += dt;
@@ -205,9 +171,7 @@ export class PuttingPanel {
         if (this.phase === 'rolling' && !ballMoving(this.ball)) this.stopped();
       }
     } else this.acc = 0;
-    this.draw(t);
-    this.raf = requestAnimationFrame(this.loop);
-  };
+  }
 
   private stopped() {
     if (this.strokes[this.hole] >= STROKE_LIMIT) {
@@ -215,7 +179,7 @@ export class PuttingPanel {
       this.strokes[this.hole] = STROKE_LIMIT + 1;
       this.banner = { text: 'Picked up', sub: `${STROKE_LIMIT + 1} on this one`, until: performance.now() + 1800 };
       this.phase = 'holed';
-      setTimeout(() => this.next(), 1800);
+      this.later(1800, () => this.next());
       this.refresh();
       return;
     }
@@ -234,7 +198,7 @@ export class PuttingPanel {
     }
     this.game.audio.playDiscoveryChime();
     this.banner = { text: scoreName(n, h.par), sub, until: performance.now() + 2200 };
-    setTimeout(() => this.next(), 2200);
+    this.later(2200, () => this.next());
     this.refresh();
   }
 
@@ -258,25 +222,16 @@ export class PuttingPanel {
 
   // ------------------------------------------------------------ drawing
 
-  private resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = this.panel.body.clientWidth - 36;
-    // Leave room in the panel (at most 86% of the screen) for the header, scorecard, status and buttons.
-    const h = Math.max(240, Math.min(window.innerHeight * 0.86 - 250, 620));
-    this.canvas.style.width = `${w}px`;
-    this.canvas.style.height = `${h}px`;
-    this.canvas.width = Math.round(w * dpr);
-    this.canvas.height = Math.round(h * dpr);
+  protected layout() {
+    const w = this.cw;
+    const h = this.ch;
     const pad = 14;
     this.scale = Math.min((w - pad * 2) / COURSE_W, (h - pad * 2) / COURSE_L);
     this.ox = (w - COURSE_W * this.scale) / 2;
     this.oy = (h - COURSE_L * this.scale) / 2;
-    this.canvas.getContext('2d')!.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  private draw(t: number) {
-    const ctx = this.canvas.getContext('2d');
-    if (!ctx) return;
+  protected draw(ctx: CanvasRenderingContext2D, t: number) {
     const s = this.scale;
     const X = (x: number) => this.ox + x * s;
     const Y = (y: number) => this.oy + y * s;
@@ -430,8 +385,6 @@ export class PuttingPanel {
     ctx.lineTo(fx, fy - s * 0.62);
     ctx.closePath();
     ctx.fill();
-
-    if (this.banner && t < this.banner.until) this.drawBanner(ctx, this.banner);
   }
 
   /** A bath mat (soft, fringed: it drags), a magazine left open (glossy: it runs), or a paperback under the mat (a ramp: arrows show which way it leans). */
@@ -662,25 +615,5 @@ export class PuttingPanel {
       }
     }
     ctx.restore();
-  }
-
-  private drawBanner(ctx: CanvasRenderingContext2D, b: { text: string; sub: string }) {
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
-    const bw = Math.min(w - 24, 300);
-    const bh = 70;
-    const x = (w - bw) / 2;
-    const y = h * 0.42 - bh / 2;
-    ctx.fillStyle = 'rgba(20,30,20,0.82)';
-    ctx.beginPath();
-    ctx.roundRect(x, y, bw, bh, 12);
-    ctx.fill();
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#f4ecd8';
-    ctx.font = '600 22px system-ui, sans-serif';
-    ctx.fillText(b.text, w / 2, y + 31);
-    ctx.fillStyle = '#cfe6c6';
-    ctx.font = '13px system-ui, sans-serif';
-    ctx.fillText(b.sub, w / 2, y + 54);
   }
 }
