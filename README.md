@@ -196,7 +196,10 @@ grow in patches all over it.
 - **Follow Scout.** Every few hours out walking, Scout catches a scent and
   runs off a little way ahead. Follow her: she'll be standing over a
   curiosity — a hedgehog, a lost golf ball, a geode — nose down and tail
-  going, waiting for you to come and see.
+  going, waiting for you to come and see. Everything found comes home in
+  some form: Ellen's framed sketches of the creatures and insects fill the
+  living room walls, the split geode sits on the bookshelf, and the lost golf
+  ball goes on a tee by Scott's putting mat.
 - **Follow Scott.** Once cannabis starts coming up wild on its own, Scott
   keeps an eye out for it. When a new seedling shows, he drops what he's
   doing, walks out to it and waves you over.
