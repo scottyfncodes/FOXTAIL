@@ -1,5 +1,6 @@
 import type { Facing, ScoutState } from '../state';
 import { interiorWaypoint } from '../data/interior';
+import { overlandWaypoint } from '../data/worldMap';
 
 // Scout trails just behind and to the side of Ellen (a real walking-companion
 // offset, not stacked on top of her), catching up briskly when he falls far
@@ -51,7 +52,42 @@ export interface ScoutTickContext {
   indoors?: boolean;
 }
 
+/** How far ahead of Ellen Scout will go after a scent, in tiles. */
+export const SNIFF_MIN = 5;
+export const SNIFF_MAX = 9;
+/** Game-minutes between scents worth chasing, give or take. */
+export const SNIFF_GAP: [number, number] = [240, 540];
+
+/**
+ * Off after a scent: he runs to the curiosity, then stands over it, nose
+ * down and tail going, until Ellen comes to see (the game ends the lead once
+ * she's looked, or the thing has gone).
+ */
+function tickLead(scout: ScoutState, ctx: ScoutTickContext): void {
+  const to = scout.leadTo!;
+  const stand = { x: to.x - 0.55, y: to.y + 0.1 };
+  const d = dist(scout.x, scout.y, stand.x, stand.y);
+  if (d > 0.08) {
+    scout.behavior = 'leading';
+    // Round the house and over a bridge, like anyone else on foot.
+    const wp = overlandWaypoint(scout.x, scout.y, stand.x, stand.y);
+    const wd = dist(scout.x, scout.y, wp.x, wp.y) || 1;
+    const step = Math.min(CATCHUP_SPEED * ctx.dtSeconds, wd);
+    scout.x += ((wp.x - scout.x) / wd) * step;
+    scout.y += ((wp.y - scout.y) / wd) * step;
+    scout.facing = facingToward(wp.x - scout.x, wp.y - scout.y);
+    return;
+  }
+  scout.behavior = 'pointing';
+  scout.facing = facingToward(to.x - scout.x, to.y - scout.y);
+}
+
 export function tickScout(scout: ScoutState, ctx: ScoutTickContext): void {
+  if (scout.leadTo) {
+    tickLead(scout, ctx);
+    return;
+  }
+  if (scout.behavior === 'leading' || scout.behavior === 'pointing') scout.behavior = 'following';
   const [fx, fy] = FACING_VEC[ctx.playerFacing];
   // Trail behind Ellen's heading, offset slightly to her side so he reads as
   // walking alongside rather than glued to her back.

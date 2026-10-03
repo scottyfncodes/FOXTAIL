@@ -9,7 +9,7 @@ import { Renderer } from '../world/Renderer';
 import { generateObstacles, buildBlockingSet, type Obstacle } from '../world/Obstacles';
 import { isBlockedOutdoor, isBlockedIndoor, indoorSolids, type IndoorSolids } from '../world/Collision';
 import { tryMove } from '../world/Movement';
-import { HOUSE_DOOR, GRID_W, GRID_H, TILE_SIZE, zoneAt, rectContains, isInBounds, isWater, isInsideHomeFootprint } from '../data/worldMap';
+import { HOUSE_DOOR, GRID_W, GRID_H, TILE_SIZE, zoneAt, rectContains, isInBounds, isWater, isInsideHomeFootprint, segmentHitsRect, GREENHOUSE_FOOTPRINT, HOUSE_FOOTPRINT } from '../data/worldMap';
 import { FRONT_DOOR, roomAt, GREENHOUSE_DOORS, DOOR_OUTWARD, type GreenhouseDoor } from '../data/interior';
 import { FURNITURE_DEFS } from '../data/furniture';
 import { displaySlots, nurserySpots, placeFurniture, placeBlockReason, pickUpFurniture, findFurniture, fixtureOffset, footprint } from '../systems/furniture';
@@ -39,7 +39,7 @@ import {
   bedTurnBlock,
   rotateBed,
 } from '../systems/landscape';
-import { createFoxFinds, collectFoxFind, expireFoxFinds } from '../systems/foxFinds';
+import { createFoxFinds, collectFoxFind, expireFoxFinds, pickCuriosity, FOX_FIND_LIFETIME } from '../systems/foxFinds';
 import { findCuriosity } from '../data/curiosities';
 import { discoveryFlourish, discoveryAside, type Flourish } from '../systems/rarity';
 import type { CatInterest } from '../systems/cat';
@@ -53,8 +53,9 @@ import { findShopItem, type DecorId, type FurnitureId } from '../data/shop';
 import { ZONES } from '../data/zones';
 import type { OutdoorZoneId, ZoneId } from '../types';
 import { tickFox } from '../systems/fox';
-import { tickScout } from '../systems/scout';
-import { tickScott, tickChase, newChase, companySpots, truckSpots } from '../systems/scott';
+import { tickScout, SNIFF_MIN, SNIFF_MAX, SNIFF_GAP } from '../systems/scout';
+import { tickScott, tickChase, newChase, companySpots, truckSpots, CANNABIS } from '../systems/scott';
+import type { ScottSpot } from '../data/scottSpots';
 import { tickCat } from '../systems/cat';
 import { spotContent, collectSpot } from '../systems/spots';
 import { advanceWorld, canPlantAt, computeLushness, type LushField } from '../systems/wild';
@@ -459,6 +460,106 @@ export class Game {
     return !this.world.isSpot(tx, ty);
   };
 
+  /**
+   * Scott keeps an eye out for cannabis coming up on its own, out in the
+   * valley. When a new seedling shows, he drops whatever he's doing, walks
+   * out to it and waves Ellen over, and waits there until she comes to see
+   * (or, after a few hours, gives up and wanders off). Each plant only once,
+   * and only while it's still a seedling.
+   */
+  private scottShowSpot(): ScottSpot | null {
+    const st = this.state;
+    const sc = st.scott;
+    const now = st.clock.totalMinutes;
+    const wildCannabis = () => Object.values(st.plants).filter((p) => p.location.kind === 'wild' && p.bornWild && CANNABIS.includes(p.defId));
+    if (!sc.shownPlants) {
+      // Whatever was already growing when he started looking doesn't count as news.
+      sc.shownPlants = wildCannabis().map((p) => p.id);
+      return null;
+    }
+    const shown = sc.shownPlants;
+    if (sc.showPlant) {
+      const plant = st.plants[sc.showPlant.plantId];
+      const done = () => {
+        shown.push(sc.showPlant!.plantId);
+        delete sc.showPlant;
+        if (sc.activity === 'showingPlant') sc.nextChangeAt = Math.min(sc.nextChangeAt, now + 3);
+        return null;
+      };
+      if (!plant || plant.location.kind !== 'wild') return done();
+      const { x, y } = plant.location;
+      if (!st.player.inGreenhouse && Math.hypot(st.player.x - x, st.player.y - y) < 2.4 && sc.activity === 'showingPlant') {
+        this.pushToast(`Scott nods down at the ${PLANTS[plant.defId]?.name ?? 'seedling'}, grinning. “Came up all by itself.”`, 'discovery');
+        return done();
+      }
+      // He's waited his while and wandered off, or it's been hours: let it be.
+      if (now - sc.showPlant.since > 480 || (sc.currentSpotId === `show-${plant.id}` && sc.activity !== 'showingPlant')) return done();
+      return { id: `show-${plant.id}`, kind: 'show', zone: zoneAt(x + 0.7, y), x: x + 0.7, y, face: 'left' };
+    }
+    if (sc.activity === 'driving' || this.chase.kiss) return null;
+    for (const p of wildCannabis()) {
+      if (shown.includes(p.id) || p.location.kind !== 'wild') continue;
+      // Only news while it's just come up; anything older he lets be.
+      if (stageIndexOf(p.growth) > 0) {
+        shown.push(p.id);
+        continue;
+      }
+      sc.showPlant = { plantId: p.id, since: now };
+      this.pushToast(`Scott’s waving you over — something’s come up on its own in ${regionLabel(st, p.location.zone)}. Follow him.`, 'discovery', 'important');
+      return { id: `show-${p.id}`, kind: 'show', zone: zoneAt(p.location.x + 0.7, p.location.y), x: p.location.x + 0.7, y: p.location.y, face: 'left' };
+    }
+    return null;
+  }
+
+  /**
+   * Scout's nose: every so often, out walking, he catches a scent and
+   * runs off a little way ahead to a curiosity — a hedgehog, a geode, a
+   * moth — and waits there with it until Ellen comes to look. The lead
+   * ends once she's noted it down, it's gone, or she's gone indoors or
+   * into the truck.
+   */
+  private tendScoutLead() {
+    const st = this.state;
+    const sc = st.scout;
+    const now = st.clock.totalMinutes;
+    if (sc.leadTo) {
+      const find = st.foxFinds.find((f) => f.id === sc.leadTo!.findId);
+      if (!find || st.player.inGreenhouse || this.riding()) {
+        delete sc.leadTo;
+        sc.behavior = 'following';
+      }
+      return;
+    }
+    if (sc.nextSniffAt === undefined) sc.nextSniffAt = now + SNIFF_GAP[0];
+    if (now < sc.nextSniffAt || st.player.inGreenhouse || this.riding() || this.chase.kiss) return;
+    // Not while the fox has her on a trail: one guide at a time.
+    if (st.fox.behavior === 'leading' || st.fox.behavior === 'paused' || st.fox.behavior === 'lookingBack') return;
+    sc.nextSniffAt = now + SNIFF_GAP[0] + Math.random() * (SNIFF_GAP[1] - SNIFF_GAP[0]);
+    const p = st.player;
+    for (let attempt = 0; attempt < 24; attempt++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = SNIFF_MIN + Math.random() * (SNIFF_MAX - SNIFF_MIN);
+      const x = p.x + Math.cos(a) * r;
+      const y = p.y + Math.sin(a) * r;
+      const tx = Math.floor(x);
+      const ty = Math.floor(y);
+      const zone = zoneAt(tx, ty);
+      if (zone === 'greenhouse' || zone === 'creek' && isWater(tx, ty)) continue;
+      if (!this.isOpenGround(tx, ty) || this.blockedOutdoor(x, y)) continue;
+      // Somewhere she can see him go: not round the far side of the house, not over the creek.
+      if (segmentHitsRect(GREENHOUSE_FOOTPRINT, p.x, p.y, x, y) || segmentHitsRect(HOUSE_FOOTPRINT, p.x, p.y, x, y)) continue;
+      if ((p.x < 42) !== (x < 42)) continue;
+      const c = pickCuriosity(st, zone, { night: isNight(now), rain: st.weather.condition === 'rain' }, Math.random);
+      if (!c) continue;
+      const find = { id: makeUid('find'), kind: 'curiosity' as const, x, y, zone, seed: Math.floor(Math.random() * 1e9), curiosityId: c.id, createdAt: now, expiresAt: now + FOX_FIND_LIFETIME };
+      st.foxFinds.push(find);
+      sc.leadTo = { x, y, findId: find.id };
+      sc.behavior = 'leading';
+      this.pushToast('Scout’s caught a scent and he’s off — follow him and see what he’s found.', 'discovery');
+      return;
+    }
+  }
+
   /** Rebuilds everything that depends on which wild scrub has been cleared. */
   private refreshCleared() {
     this.cleared = new Set(this.state.clearedObstacles);
@@ -677,6 +778,7 @@ export class Game {
       endPlay(this.state.scout, this.state.cat, this.state.clock.totalMinutes);
     }
 
+    this.tendScoutLead();
     if (this.riding() && this.state.truck) {
       // Scout rides in the back while Ellen drives, nose into the wind.
       const t = this.state.truck;
@@ -708,7 +810,8 @@ export class Game {
       // The truck is Ellen's: he only gets his hands on it once she's bought it, and not while she's in it.
       const truck = this.state.player.riding ? null : this.state.truck;
       const extraSpots = [...eveningStroll(this.state, minuteOfDay(this.state.clock.totalMinutes)), ...companySpots(this.state), ...truckSpots(truck)];
-      const event = tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset, extraSpots, truck });
+      const summon = this.scottShowSpot();
+      const event = tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset, extraSpots, truck, summon });
       if (event === 'baked' && this.state.player.inGreenhouse) this.pushToast('Scott’s taken a loaf out of the oven. The whole house smells of warm bread.', 'info');
     }
     this.catInterestAcc += dtMs;

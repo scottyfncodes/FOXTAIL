@@ -1,7 +1,7 @@
 import type { DiscoverySpot, OutdoorZoneId, PlantDef, Rarity } from '../types';
 import type { GameState } from '../state';
 import { PLANTS, PLANT_LIST, rarityRank } from '../data/plants';
-import { SPOT_EPOCH_MINUTES } from '../data/discoveryPoints';
+import { DISCOVERY_SPOTS, SPOT_EPOCH_MINUTES } from '../data/discoveryPoints';
 import { hashString, mulberry32, weightedPick } from '../engine/Random';
 import { isNight } from '../engine/Clock';
 import { addToBasket, basketFull } from './basket';
@@ -52,6 +52,11 @@ export function spotContent(state: GameState, spot: DiscoverySpot): SpotContent 
     return { defId: hunch.defId, variantId: hunch.variantId, seed: hashString(`${spot.id}:${epoch}:hunch`) };
   }
 
+  // A fox's secret patch shows its rare plant once. After that it moves on.
+  if (spot.foxLed && ss?.collectedEpoch !== undefined) return null;
+  const wanderer = wanderingRareAt(state, spot, epoch);
+  if (wanderer) return wanderer;
+
   const rand = mulberry32(hashString(`${spot.id}:${epoch}`));
   const pool = spotPool(spot);
   let def = weightedPick(pool, (p) => SPECIES_WEIGHT[p.rarity], rand);
@@ -63,6 +68,51 @@ export function spotContent(state: GameState, spot: DiscoverySpot): SpotContent 
   // Only the forms already found, and the next one along the line, ever grow in a patch.
   const variant = weightedPick(def.variants, (v) => (v.sportOnly || !variantAllowed(state, def!.id, v.id) ? 0 : v === def!.variants[0] ? 100 : VARIANT_WEIGHT[v.rarity]), rand) ?? def.variants[0];
   return { defId: def.id, variantId: variant.id, seed: Math.floor(rand() * 1e9) };
+}
+
+/** Chance, each patch season, that a rare plant the fox once showed you comes up again somewhere in its region. */
+export const WANDER_CHANCE = 0.3;
+
+/** Ordinary patches in a region that a wandering rare plant might come up in. */
+function wanderHosts(zone: OutdoorZoneId): DiscoverySpot[] {
+  return DISCOVERY_SPOTS.filter((s) => s.zone === zone && !s.foxLed && !s.pool);
+}
+
+function rawWanderHost(origin: DiscoverySpot, epoch: number): number | null {
+  const rand = mulberry32(hashString(`${origin.id}:${epoch}:wander`));
+  if (rand() >= WANDER_CHANCE) return null;
+  return Math.floor(rand() * wanderHosts(origin.zone).length);
+}
+
+/**
+ * Where a fox patch's rare plant has come up this season, if anywhere: a
+ * different ordinary patch of its region each time it reappears, and never
+ * the same one two seasons running.
+ */
+export function wanderHost(origin: DiscoverySpot, epoch: number): DiscoverySpot | null {
+  const hosts = wanderHosts(origin.zone);
+  if (!hosts.length) return null;
+  const i = rawWanderHost(origin, epoch);
+  if (i === null) return null;
+  const prev = rawWanderHost(origin, epoch - 1);
+  return hosts[(prev === i ? i + 1 : i) % hosts.length];
+}
+
+/** The rare plant from a fox's patch, come up in this ordinary patch this season (once it's been picked from its first home). */
+function wanderingRareAt(state: GameState, spot: DiscoverySpot, epoch: number): SpotContent | null {
+  if (spot.foxLed || spot.pool) return null;
+  for (const origin of DISCOVERY_SPOTS) {
+    if (!origin.foxLed || origin.zone !== spot.zone) continue;
+    const os = state.spots[origin.id];
+    if (!os?.revealed || os.collectedEpoch === undefined) continue;
+    if (wanderHost(origin, epoch)?.id !== spot.id) continue;
+    const rand = mulberry32(hashString(`${origin.id}:${epoch}:wander:plant`));
+    const def = weightedPick(spotPool(origin).filter((d) => conditionMet(state, d)), (p) => SPECIES_WEIGHT[p.rarity] || 1, rand);
+    if (!def) continue;
+    const variant = weightedPick(def.variants, (v) => (v.sportOnly || !variantAllowed(state, def.id, v.id) ? 0 : v === def.variants[0] ? 100 : VARIANT_WEIGHT[v.rarity]), rand) ?? def.variants[0];
+    return { defId: def.id, variantId: variant.id, seed: Math.floor(rand() * 1e9) };
+  }
+  return null;
 }
 
 export interface HunchTarget {
