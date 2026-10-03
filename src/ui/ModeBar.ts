@@ -1,5 +1,4 @@
 import type { Game } from '../game/engine/Game';
-import { decorRotatable } from '../game/data/decor';
 import { el, clear } from './dom';
 import { SHOP_ITEMS, FURNITURE_IDS, DECOR_IDS } from '../game/data/shop';
 import { STALL_ID } from '../game/systems/yard';
@@ -110,14 +109,14 @@ export class ModeBar {
     if (m.pending) {
       const name = nameOf(m.pending.decorId).toLowerCase();
       status.textContent = m.pending.block ? `Not there — drag the ${name} onto open ground` : `Set the ${name} down here?`;
-      if (decorRotatable(m.pending.decorId)) row.append(bigButton('↻', 'shape', () => this.game.tools.rotateSelected()));
+      row.append(bigButton('↻', 'shape', () => this.game.rotateSelected()));
       row.append(bigButton('✕', 'cancel', () => this.game.tools.storeSelected()), bigButton('✓ Place', 'confirm', () => this.game.confirmTool(), !!m.pending.block));
       this.root.append(status, row);
       return;
     }
     if (m.selectedId === STALL_ID) {
-      status.textContent = 'Plant Stand & Supply · drag to move the whole stall';
-      row.append(done);
+      status.textContent = 'Plant Stand & Supply · drag to move the whole stall, ↻ to turn it round';
+      row.append(bigButton('↻', 'shape', () => this.game.rotateSelected()), done);
       this.root.append(status, row);
       return;
     }
@@ -125,7 +124,7 @@ export class ModeBar {
     if (sel) {
       const occupied = occupantOf(state, { slotId: sel.id });
       status.textContent = occupied ? `${nameOf(sel.decorId)} · with its ${specimenName(occupied.defId, occupied.variantId)} — drag to move them together` : `${nameOf(sel.decorId)} · drag to move`;
-      if (decorRotatable(sel.decorId)) row.append(bigButton('↻', 'shape', () => this.game.tools.rotateSelected()));
+      row.append(bigButton('↻', 'shape', () => this.game.rotateSelected()));
       row.append(bigButton('Put away', 'secondary', () => this.game.tools.storeSelected(), !!occupied), done);
       this.root.append(status, row);
       return;
@@ -146,7 +145,7 @@ export class ModeBar {
     if (m.pending) {
       const def = FURNITURE_DEFS[m.pending.kind];
       status.textContent = m.pending.block ? `Not there — drag the ${def.name.toLowerCase()} somewhere clear` : `Set the ${def.name.toLowerCase()} down here?`;
-      if (def.rotatable) row.append(bigButton('↻', 'shape', () => this.game.tools.rotateSelected()));
+      row.append(bigButton('↻', 'shape', () => this.game.rotateSelected()));
       row.append(bigButton('✕', 'cancel', () => this.game.tools.storeSelected()), bigButton('✓ Place', 'confirm', () => this.game.confirmTool(), !!m.pending.block));
       this.root.append(status, row);
       return;
@@ -156,7 +155,7 @@ export class ModeBar {
       const def = FURNITURE_DEFS[sel.kind];
       const occupied = occupantOf(state, { slotId: sel.id }) ?? occupantOf(state, { bedId: sel.id });
       status.textContent = occupied ? `${def.name} · with its ${specimenName(occupied.defId, occupied.variantId)} — drag to move them together` : `${def.name} · drag to move`;
-      if (def.rotatable) row.append(bigButton('↻', 'shape', () => this.game.tools.rotateSelected()));
+      row.append(bigButton('↻', 'shape', () => this.game.rotateSelected()));
       // The living room's own furniture moves but stays: there's nowhere to put a couch away.
       if (!def.fixed) row.append(bigButton('Put away', 'secondary', () => this.game.tools.storeSelected(), !!occupied));
       row.append(done);

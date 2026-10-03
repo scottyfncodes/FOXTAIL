@@ -1,3 +1,4 @@
+import { turnOffset, type TurnMode } from './turn';
 // Interior tile coords (greenhouse and living room share one space — see
 // interior.ts). The cat never goes outside. Kept clear of the fixed
 // greenhouse stations and Scott's own spots so nobody visually overlaps.
@@ -17,13 +18,29 @@ export interface CatSpot {
   anchor?: string;
 }
 
-/** How far a piece of furniture has moved from its original place. */
-export type AnchorOffset = (fixtureId: string) => { dx: number; dy: number };
+/**
+ * How a piece of furniture has moved from its original place: how far, and,
+ * if it's been turned, which way and about what centre (in its original
+ * place), so spots on it turn with it.
+ */
+export interface AnchorShift {
+  dx: number;
+  dy: number;
+  rot?: number;
+  turn?: TurnMode;
+  cx?: number;
+  cy?: number;
+}
+export type AnchorOffset = (fixtureId: string) => AnchorShift;
 
-/** Where a spot is right now, following the piece it belongs to. */
+/** Where a spot is right now, following the piece it belongs to — moved, and turned with it. */
 export function spotPosition(spot: { x: number; y: number; anchor?: string }, offset?: AnchorOffset): { x: number; y: number } {
   if (!spot.anchor || !offset) return { x: spot.x, y: spot.y };
-  const { dx, dy } = offset(spot.anchor);
+  const { dx, dy, rot, turn, cx, cy } = offset(spot.anchor);
+  if (rot && turn && cx !== undefined && cy !== undefined) {
+    const t = turnOffset(turn, rot, spot.x - cx, spot.y - cy);
+    return { x: cx + t.dx + dx, y: cy + t.dy + dy };
+  }
   return { x: spot.x + dx, y: spot.y + dy };
 }
 

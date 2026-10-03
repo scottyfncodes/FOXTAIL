@@ -80,12 +80,17 @@ grow in patches all over it.
   planters, hooks, lamps, rugs — can be dragged anywhere, turned, or put
   away (🪑 button indoors). Plants move with their pots. The living room's
   own furniture (couch, TV, cat bed, cat tree, putting mat…) can be moved
-  too, and Ranger and Scott follow their favourite spots wherever they go.
-  Outdoors, the 🌿 garden button's *Arrange the garden* does the same: drag
-  any decor — or the Plant Stand & Supply stall itself — somewhere new, and
-  turn anything with a long side (bench, fence, trellis, pergola, pond,
-  raised bed) to face the other way. A bed already dug or set down can be
-  turned from its card, plants and all.
+  and turned too, and Ranger and Scott follow their favourite spots
+  wherever they go — round with the couch if you turn it. Outdoors, the 🌿
+  garden button's *Arrange the garden* does the same: drag any decor — or
+  the Plant Stand & Supply stall itself — somewhere new. Anything you can
+  move, you can turn (↻, or R): pieces with a long side (beds, tables,
+  benches, fences, trellises, the pergola, the pond) and anything that lies
+  flat (rugs, mats, the couch) turn a quarter-turn at a time, all the way
+  round; things that stand up (lamps, the TV, stands, the lantern, the
+  birdbath, the stall) turn round to face the other way. A turn needs room
+  to swing. A bed already dug or set down can be turned from its card,
+  plants and all.
 - **Putt-putt.** Walk up to the putting mat in the living room for nine holes
   laid out with whatever was lying around — mugs, a slipper, books, and the
   cat. Drag back from the ball and let go; a faint line shows where it'll roll. The first hole in one on each hole

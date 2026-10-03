@@ -1,6 +1,6 @@
 import type { GameState, OwnedPlant } from '../state';
 import { RAISED_BED, type DecorId, type FurnitureId } from '../data/shop';
-import { FURNITURE_DEFS } from '../data/furniture';
+import { FURNITURE_DEFS, furnitureTurn } from '../data/furniture';
 import {
   allFurniture,
   findFurniture,
@@ -32,7 +32,8 @@ import {
 } from '../systems/landscape';
 import { plantOutdoors } from '../systems/propagation';
 import { pickUpDecor, rotateDecor, nextPondSize } from '../systems/decor';
-import { decorRotatable } from '../data/decor';
+import { decorTurn } from '../data/decor';
+import { nextRot } from '../data/turn';
 import {
   STALL_ID,
   findYardPiece,
@@ -248,8 +249,7 @@ export class ToolController {
     if (m.kind === 'yard') return this.rotateYardSelected();
     if (m.kind !== 'arrange') return false;
     if (m.pending) {
-      if (!FURNITURE_DEFS[m.pending.kind].rotatable) return false;
-      m.pending.rot = (m.pending.rot + 1) % 2;
+      m.pending.rot = nextRot(furnitureTurn(m.pending.kind), m.pending.rot);
       m.pending.block = this.pendingBlock();
       this.changed();
       return true;
@@ -316,18 +316,25 @@ export class ToolController {
     return best;
   }
 
-  /** A quarter-turn for the garden piece in hand or picked out, if it has a long side. */
+  /** Turns the garden piece in hand or picked out: a quarter-turn for one with a long side, round the other way for a standing one or the stall. */
   private rotateYardSelected(): boolean {
     const m = this.mode;
     if (m.kind !== 'yard') return false;
     if (m.pending) {
-      if (!decorRotatable(m.pending.decorId)) return false;
-      m.pending.rot = (m.pending.rot + 1) % 2;
+      m.pending.rot = nextRot(decorTurn(m.pending.decorId), m.pending.rot);
       m.pending.block = this.decorPendingBlock(m.pending.decorId, m.pending.x, m.pending.y, m.pending.rot);
       this.changed();
       return true;
     }
-    if (!m.selectedId || m.selectedId === STALL_ID) return false;
+    if (!m.selectedId) return false;
+    if (m.selectedId === STALL_ID) {
+      // The stall turns round to face the other way.
+      const st = this.host.state.stall;
+      st.rot = nextRot('mirror', st.rot ?? 0);
+      if (!st.rot) delete st.rot;
+      this.changed();
+      return true;
+    }
     const ok = rotateDecor(this.host.state, m.selectedId);
     this.changed();
     return ok;

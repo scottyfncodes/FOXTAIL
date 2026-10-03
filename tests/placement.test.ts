@@ -12,7 +12,9 @@ import {
   placeFurniture,
   rotateFurniture,
   sitBlockReason,
+  fixtureOffset,
 } from '../src/game/systems/furniture';
+import { CAT_SPOTS, spotPosition } from '../src/game/data/catSpots';
 import { indoorSolids, isBlockedIndoor } from '../src/game/world/Collision';
 import { growthMultiplier } from '../src/game/systems/growth';
 import { buyItem } from '../src/game/systems/market';
@@ -91,9 +93,44 @@ describe('free placement indoors', () => {
     const after = footprint('pottingTable', table.x, table.y, table.rot);
     expect(after.w).toBeCloseTo(before.h);
     expect(after.h).toBeCloseTo(before.w);
-    // Stands are round: nothing to turn.
+    // Four turns bring it back round: the second pair are the first pair mirrored.
+    for (const r of [2, 3, 0]) {
+      expect(rotateFurniture(state, table.id)).toBe(true);
+      expect(table.rot ?? 0).toBe(r);
+    }
+    // A stand turns too — round to face the other way, its footprint as it was.
     const stand = placeFurniture(state, 'plantStand', 14, 9)!;
-    expect(rotateFurniture(state, stand.id)).toBe(false);
+    const standBefore = footprint('plantStand', stand.x, stand.y, 0);
+    expect(rotateFurniture(state, stand.id)).toBe(true);
+    expect(stand.rot).toBe(2);
+    expect(footprint('plantStand', stand.x, stand.y, stand.rot)).toEqual(standBefore);
+    expect(rotateFurniture(state, stand.id)).toBe(true);
+    expect(stand.rot ?? 0).toBe(0);
+  });
+
+  it('turns everything you can move, the couch and the TV included, and Scott and Ranger turn with the couch', () => {
+    const state = createNewGame();
+    // Where it stands, turned, it would hit the coffee table — so first, out into the room.
+    expect(rotateFurniture(state, 'lr-couch')).toBe(false);
+    const home = findFurniture(state, 'lr-couch')!;
+    expect(moveFurniture(state, 'lr-couch', home.x, home.y + 2)).toBe(true);
+    for (const id of ['lr-couch', 'lr-tv', 'lr-rug', 'lr-catbed', 'lr-lamp', 'lr-bookshelf']) {
+      expect(rotateFurniture(state, id), id).toBe(true);
+    }
+    // The couch spins a quarter-turn: its footprint swaps.
+    const couch = state.furniture.find((f) => f.id === 'lr-couch')!;
+    expect(couch.rot).toBe(1);
+    const fp = footprint('couch', couch.x, couch.y, couch.rot);
+    expect(fp.h).toBeGreaterThan(fp.w);
+    // Ranger's nap spot on the couch is still on the couch.
+    const nap = CAT_SPOTS.find((s) => s.id === 'couch-nap')!;
+    const at = spotPosition(nap, (id) => fixtureOffset(state, id));
+    expect(at.x).toBeGreaterThan(fp.x - 0.05);
+    expect(at.x).toBeLessThan(fp.x + fp.w + 0.05);
+    expect(at.y).toBeGreaterThan(fp.y - 0.3);
+    expect(at.y).toBeLessThan(fp.y + fp.h + 0.3);
+    // The TV stands up: it turns round, not over.
+    expect(state.furniture.find((f) => f.id === 'lr-tv')!.rot).toBe(2);
   });
 
   it('puts an empty piece back in stock, but not one with a plant in it', () => {

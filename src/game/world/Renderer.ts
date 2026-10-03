@@ -1,3 +1,6 @@
+import { normalRot, type TurnMode } from '../data/turn';
+import { furnitureTurn } from '../data/furniture';
+import { decorTurn } from '../data/decor';
 import { Camera } from '../engine/Camera';
 import type { GameState, ScoutState, ScottState, CatState, Facing, OwnedPlant, PlacedDecor } from '../state';
 import type { Obstacle } from './Obstacles';
@@ -186,9 +189,9 @@ const NEIGHBORS: [number, number][] = [
   [0, -1],
 ];
 
-/** A living-room piece as the rect its art is drawn in. */
+/** A living-room piece as the rect its art is drawn in (as it stands unturned; turning is done by `turnPiece`). */
 function fixtureRect(f: PlacedFurniture): LivingFixture {
-  const fp = footprint(f.kind, f.x, f.y, f.rot ?? 0);
+  const fp = footprint(f.kind, f.x, f.y, 0);
   return { id: f.id, kind: f.kind as LivingFixture['kind'], x: fp.x, y: fp.y, w: fp.w, h: fp.h, solid: FURNITURE_DEFS[f.kind].layer === 'floor' };
 }
 
@@ -365,7 +368,7 @@ export class Renderer {
     for (const d of decor) {
       if (!inView(d.x, d.y)) continue;
       // A trellis stands just behind whatever is climbing it.
-      drawables.push({ y: d.decorId === 'gardenTrellis' ? d.y - 0.1 : d.y, draw: () => this.drawDecor(camera, d, state, now) });
+      drawables.push({ y: d.decorId === 'gardenTrellis' ? d.y - 0.1 : d.y, draw: () => this.turnDecor(camera, d, (p) => this.drawDecor(camera, p, state, now)) });
     }
     for (const tp of TOOL_PICKUPS) {
       if (state.tools[tp.tool] || !inView(tp.x, tp.y)) continue;
@@ -376,7 +379,19 @@ export class Renderer {
       drawables.push({ y: r.y, draw: () => this.drawPlaque(camera, r.x, r.y, r.name) });
     }
     if (inView(stall.x, stall.y, 4)) {
-      drawables.push({ y: stall.y + 0.8, draw: () => this.drawMarketStall(camera, state, now, stall) });
+      const stallRot = state.stall.rot ?? 0;
+      drawables.push({
+        y: stall.y + 0.8,
+        draw: () => {
+          // Turned round, the stall is mirrored — all but its sign, which still reads the right way.
+          if (!stallRot) return this.drawMarketStall(camera, state, now, stall);
+          const c = camera.worldToScreen((stall.x + stall.w / 2) * TILE_SIZE, (stall.y + stall.h / 2) * TILE_SIZE);
+          this.withTurn(c.x, c.y, 'mirror', stallRot, () => this.drawMarketStall(camera, state, now, stall, false));
+          const tile = TILE_SIZE * camera.zoom;
+          const tl = camera.worldToScreen(stall.x * TILE_SIZE, stall.y * TILE_SIZE);
+          drawMarketSign(this.ctx, tl.x + (stall.w * tile) / 2, tl.y - tile * 0.62 - tile * 0.3, stall.w * tile + tile * 0.1, tile);
+        },
+      });
     }
     if (state.fox.visible && !state.player.inGreenhouse) {
       const fade = foxFade(state);
@@ -1456,7 +1471,7 @@ export class Renderer {
    * and a chalkboard advertising what people are asking for today.
    * Upgrades show up on the stall itself.
    */
-  private drawMarketStall(camera: Camera, state: GameState, now: number, stall: Rect) {
+  private drawMarketStall(camera: Camera, state: GameState, now: number, stall: Rect, sign = true) {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
     const tl = camera.worldToScreen(stall.x * TILE_SIZE, stall.y * TILE_SIZE);
@@ -1486,7 +1501,7 @@ export class Renderer {
       ctx.fill();
     }
     // The sign across the top of the canopy.
-    drawMarketSign(ctx, tl.x + w / 2, top - tile * 0.3, w + tile * 0.1, tile);
+    if (sign) drawMarketSign(ctx, tl.x + w / 2, top - tile * 0.3, w + tile * 0.1, tile);
     // table
     const tableTop = tl.y + tile * 0.36;
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
@@ -1946,6 +1961,38 @@ export class Renderer {
     ctx.beginPath();
     ctx.arc(s.x, y + r * 0.42, r * 0.14, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  /**
+   * Draws something turned `rot` quarter-turns about (cx, cy) on screen, the
+   * way its kind turns (see data/turn.ts): spun flat for 'spin', mirrored
+   * for the second pair of turns otherwise. `draw` gets the turn its own art
+   * should show (only 'art' pieces have one: 0 or 1).
+   */
+  private withTurn(cx: number, cy: number, mode: TurnMode, rot: number, draw: (artRot: number) => void) {
+    const r = normalRot(mode, rot);
+    if (!r) return draw(0);
+    const { ctx } = this;
+    ctx.save();
+    ctx.translate(cx, cy);
+    if (mode === 'spin' && r % 2 === 1) ctx.rotate(r === 1 ? Math.PI / 2 : -Math.PI / 2);
+    else if (r >= 2) ctx.scale(-1, 1);
+    ctx.translate(-cx, -cy);
+    draw(mode === 'art' ? r % 2 : 0);
+    ctx.restore();
+  }
+
+  /** A piece of furniture, turned about its middle the way its kind turns. */
+  private turnFurniture(camera: Camera, f: PlacedFurniture, draw: (p: PlacedFurniture) => void) {
+    const c = camera.worldToScreen((f.x + 0.5) * TILE_SIZE, (f.y + 0.56) * TILE_SIZE);
+    this.withTurn(c.x, c.y, furnitureTurn(f.kind), f.rot ?? 0, (artRot) => draw(f.rot ? { ...f, rot: artRot } : f));
+  }
+
+  /** A piece of garden decor, turned about its middle the way its kind turns. */
+  private turnDecor(camera: Camera, d: PlacedDecor, draw: (p: PlacedDecor) => void) {
+    const fp = yardFootprint(d.decorId, d.x, d.y, d.rot ?? 0, d.w && d.h ? { w: d.w, h: d.h } : undefined);
+    const c = camera.worldToScreen((fp.x + fp.w / 2) * TILE_SIZE, (fp.y + fp.h / 2) * TILE_SIZE);
+    this.withTurn(c.x, c.y, decorTurn(d.decorId), d.rot ?? 0, (artRot) => draw(d.rot ? { ...d, rot: artRot } : d));
   }
 
   /** Draws a character scaled about its feet, so resizing never lifts it off the ground. */
@@ -4198,13 +4245,11 @@ export class Renderer {
     const flats = pieces.filter((f) => FURNITURE_DEFS[f.kind]?.layer === 'flat');
     for (const f of flats) {
       if (FURNITURE_DEFS[f.kind].reserves) continue;
-      if (FURNITURE_DEFS[f.kind].fixed) drawFixture(ctx, camera, fixtureRect(f), fc);
-      else this.drawHouseRug(camera, f);
+      this.turnFurniture(camera, f, (p) => (FURNITURE_DEFS[p.kind].fixed ? drawFixture(ctx, camera, fixtureRect(p), fc) : this.drawHouseRug(camera, p)));
     }
     for (const f of flats) {
       if (!FURNITURE_DEFS[f.kind].reserves) continue;
-      if (f.kind === 'scoutBed') this.drawScoutBed(camera, f);
-      else drawFixture(ctx, camera, fixtureRect(f), fc);
+      this.turnFurniture(camera, f, (p) => (p.kind === 'scoutBed' ? this.drawScoutBed(camera, p) : drawFixture(ctx, camera, fixtureRect(p), fc)));
     }
 
     const plantIn = (kind: 'nursery' | 'display', id: string) =>
@@ -4220,20 +4265,21 @@ export class Renderer {
       const def = FURNITURE_DEFS[f.kind];
       if (!def || def.layer === 'flat') continue;
       const fp = footprint(f.kind, f.x, f.y, f.rot ?? 0);
+      const turned = (draw: (p: PlacedFurniture) => void) => () => this.turnFurniture(camera, f, draw);
       if (def.role === 'nursery') {
-        drawables.push({ y: fp.y + fp.h, draw: () => this.drawNurseryPiece(camera, f, plantIn('nursery', f.id), now) });
+        drawables.push({ y: fp.y + fp.h, draw: turned((p) => this.drawNurseryPiece(camera, p, plantIn('nursery', f.id), now)) });
       } else if (def.role === 'display') {
         const slot: DisplaySlot = { id: f.id, x: f.x, y: f.y, kind: def.slotKind! };
         if (def.layer === 'overhead') hanging.push({ piece: f, slot });
-        else drawables.push({ y: fp.y + fp.h, draw: () => this.drawDisplaySlot(camera, slot, plantIn('display', f.id), now, f.rot ?? 0) });
+        else drawables.push({ y: fp.y + fp.h, draw: turned((p) => this.drawDisplaySlot(camera, slot, plantIn('display', f.id), now, p.rot ?? 0)) });
       } else if (f.kind === 'growLamp') {
-        drawables.push({ y: fp.y + fp.h, draw: () => this.drawGrowLamp(camera, f, now) });
+        drawables.push({ y: fp.y + fp.h, draw: turned((p) => this.drawGrowLamp(camera, p, now)) });
       } else if (f.kind === 'wateringCan') {
-        drawables.push({ y: fp.y + fp.h, draw: () => this.drawWateringCan(camera, f) });
+        drawables.push({ y: fp.y + fp.h, draw: turned((p) => this.drawWateringCan(camera, p)) });
       } else if (f.kind === 'ellenDesk') {
-        drawables.push({ y: fp.y + fp.h, draw: () => this.drawEllenDesk(camera, f) });
+        drawables.push({ y: fp.y + fp.h, draw: turned((p) => this.drawEllenDesk(camera, p)) });
       } else if (def.fixed) {
-        drawables.push({ y: fp.y + fp.h, draw: () => drawFixture(ctx, camera, fixtureRect(f), fc) });
+        drawables.push({ y: fp.y + fp.h, draw: turned((p) => drawFixture(ctx, camera, fixtureRect(p), fc)) });
       }
     }
 
@@ -4273,7 +4319,7 @@ export class Renderer {
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
     // Hanging pots are overhead, so they draw over everyone.
-    for (const h of hanging) this.drawDisplaySlot(camera, h.slot, plantIn('display', h.piece.id), now);
+    for (const h of hanging) this.turnFurniture(camera, h.piece, () => this.drawDisplaySlot(camera, h.slot, plantIn('display', h.piece.id), now));
 
     if (state.owned.includes('growLights')) this.drawGrowLights(camera, now);
 

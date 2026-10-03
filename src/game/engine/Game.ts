@@ -1517,6 +1517,15 @@ export class Game {
     this.onStateTouched?.();
   }
 
+  /** Turns whatever's picked out or in hand while arranging, and says so when there's no room to. */
+  rotateSelected(): boolean {
+    const m = this.tools.mode;
+    const holding = (m.kind === 'arrange' || m.kind === 'yard') && (!!m.pending || !!m.selectedId);
+    const ok = this.tools.rotateSelected();
+    if (!ok && holding) this.pushToast('No room to turn it here — move it somewhere clearer first.', 'info');
+    return ok;
+  }
+
   /** Turns a bed a quarter-turn where it lies, plants and all. */
   turnBed(id: string): boolean {
     const block = bedTurnBlock(this.state, id, this.world);
@@ -1894,7 +1903,7 @@ export class Game {
     if (!this.tools.active) return;
     if (e.key === 'Escape') this.cancelTool();
     else if (e.key === 'Enter' && this.tools.canConfirm()) this.confirmTool();
-    else if ((e.key === 'r' || e.key === 'R') && (this.tools.mode.kind === 'arrange' || this.tools.mode.kind === 'yard')) this.tools.rotateSelected();
+    else if ((e.key === 'r' || e.key === 'R') && (this.tools.mode.kind === 'arrange' || this.tools.mode.kind === 'yard')) this.rotateSelected();
   };
 
   /** A tap on the world: look at the plant, bed or path under the finger. */

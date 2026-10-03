@@ -359,7 +359,7 @@ export interface GameState {
   /** Every koi the player owns: in a pond (a pond lists it) or waiting in its bag. */
   koi: Koi[];
   /** Where the Plant Stand & Supply stall stands: its top-left tile. It can be moved like the decor. */
-  stall: { x: number; y: number };
+  stall: { x: number; y: number; /** Turned round to face the other way (2), or as built (0). */ rot?: number };
   /** Greenhouse furniture bought but not yet placed. */
   furnitureStock: Partial<Record<FurnitureId, number>>;
   /** Stands, hooks, trays, tables… the player has placed or moved indoors. */

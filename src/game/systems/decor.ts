@@ -1,7 +1,8 @@
 import type { GameState, PlacedDecor } from '../state';
 import { makeUid } from '../state';
 import type { DecorId } from '../data/shop';
-import { decorRotatable } from '../data/decor';
+import { decorTurn } from '../data/decor';
+import { nextRot, normalRot } from '../data/turn';
 import { POND_DEFAULT } from '../data/shop';
 import { occupantOf } from './propagation';
 
@@ -25,7 +26,8 @@ export function placeDecor(state: GameState, decorId: DecorId, x: number, y: num
   if (state.decor.some((d) => Math.hypot(d.x - x, d.y - y) < 0.7)) return null;
   state.decorStock[decorId] = (state.decorStock[decorId] ?? 0) - 1;
   const placed: PlacedDecor = { id: makeUid('decor'), decorId, x, y };
-  if (rot % 2 === 1 && decorRotatable(decorId)) placed.rot = 1;
+  const turn = normalRot(decorTurn(decorId), rot);
+  if (turn) placed.rot = turn;
   if (decorId === 'gardenPond') {
     // Dug to the size it was bought at (the original size for one bought before ponds came in sizes).
     const size = nextPondSize(state);
@@ -64,11 +66,13 @@ export function moveDecor(state: GameState, id: string, x: number, y: number): b
   return true;
 }
 
-/** A quarter-turn in place, for pieces that have a long side. Decor keeps clear of other decor by distance, so a turn always fits. */
+/** Turns a piece in place: a quarter-turn for pieces with a long side, round to face the other way for standing ones. Decor keeps clear of other decor by distance, so a turn always fits. */
 export function rotateDecor(state: GameState, id: string): boolean {
   const piece = state.decor.find((d) => d.id === id);
-  if (!piece || !decorRotatable(piece.decorId)) return false;
-  piece.rot = ((piece.rot ?? 0) + 1) % 2;
+  if (!piece) return false;
+  const rot = nextRot(decorTurn(piece.decorId), piece.rot ?? 0);
+  if (rot) piece.rot = rot;
+  else delete piece.rot;
   return true;
 }
 
