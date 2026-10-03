@@ -61,7 +61,9 @@ import { FIREFLY_AREAS, fireflies, fireflyStrength, pondFrogs, pondPads, pondTur
 import { drawBaskingStone, drawFrog, drawTurtle } from './WildlifeArt';
 import type { OctoberView } from '../systems/october';
 import { lanternsLit } from '../systems/october';
-import { LANTERN_POSTS, OLD_THINGS, PORCH_LANTERN, BLACK_CAT_SPOT } from '../data/october';
+import { LANTERN_POSTS, OLD_THINGS, PORCH_LANTERN, BLACK_CAT_SPOT, STRING_LIGHTS, HALLOWEEN_DECOR } from '../data/october';
+import { drawStringLights, drawHalloweenDecor, DECOR_LIGHT, drawMoonInWater, drawBatSwarm, drawHangingBats, drawSkullCandle } from './HalloweenArt';
+import { isOctober } from '../season';
 import { LIVING_WINDOWS, INTERIOR_W } from '../data/interior';
 import {
   LeafLitter,
@@ -79,6 +81,7 @@ import {
   drawOwl,
   drawBlackCat,
   drawMoth,
+  drawBat,
   drawGhostFigure,
   drawGhostReflection,
   drawBehindTrees,
@@ -385,6 +388,14 @@ export class Renderer {
       const p = camera.worldToScreen(g.x * TILE_SIZE, g.y * TILE_SIZE);
       drawGhostReflection(this.ctx, p.x, p.y, tilePx, g.shown, now, g.seed);
     }
+    // The moon, in the creek, a little way ahead of wherever you stand.
+    if (oct && oct.darkness > 0.4 && inView(42, state.player.y, 0)) {
+      const my = state.player.y - 3.2;
+      if (isWater(42, Math.floor(my))) {
+        const p = camera.worldToScreen(42 * TILE_SIZE, my * TILE_SIZE);
+        drawMoonInWater(this.ctx, p.x, p.y, tilePx, Math.min(1, (oct.darkness - 0.4) * 2.5), now);
+      }
+    }
     // Ground the player has worked: beds first, paths over them.
     for (const bed of state.gardenBeds) {
       if (!inView(bed.x, bed.y, bed.w + bed.h + 2)) continue;
@@ -590,11 +601,19 @@ export class Renderer {
     if (oct) {
       this.litter.drawFog(this.ctx, camera, bounds, oct.darkness, now);
       this.grade.draw(this.ctx, camera, oct.darkness);
+      // String lights, over the eaves and the bridges: drawn after dark falls, so they shine through it.
+      const tile = TILE_SIZE * camera.zoom;
+      const lit = lanternsLit(oct.darkness) ? Math.min(1, oct.darkness * 1.3) : 0;
+      STRING_LIGHTS.forEach((line, i) => {
+        if (!line.some((p) => inView(p.x, p.y, 3))) return;
+        drawStringLights(this.ctx, line.map((p) => camera.worldToScreen(p.x * TILE_SIZE, p.y * TILE_SIZE)), tile, lit, now, i);
+      });
     }
     this.drawNightLights(camera, state, bounds, now);
     if (oct) {
       drawNightAir(this.ctx, camera, bounds, oct.darkness, now);
-      drawBats(this.ctx, camera, [{ x: 72.5, y: 32.5 }, { x: 22, y: 14 }, { x: 60, y: 12 }], oct.darkness, now);
+      drawBats(this.ctx, camera, [{ x: 72.5, y: 32.5 }, { x: 22, y: 14 }, { x: 60, y: 12 }, { x: 64, y: 31 }, { x: 12, y: 50 }], oct.darkness, now);
+      drawBatSwarm(this.ctx, camera.viewW, camera.viewH, oct.darkness, now, (x, y, sz, ph) => drawBat(this.ctx, x, y, sz, ph));
       if (oct.darkness > 0.45) {
         const tile = TILE_SIZE * camera.zoom;
         for (const at of [PORCH_LANTERN, LANTERN_POSTS[0], LANTERN_POSTS[2]]) {
@@ -634,6 +653,13 @@ export class Renderer {
         },
       });
     });
+    for (const d of HALLOWEEN_DECOR) {
+      if (!inView(d.x, d.y, 2)) continue;
+      drawables.push({ y: d.kind === 'crow' ? 32 : d.y, draw: () => {
+        const s = camera.worldToScreen(d.x * TILE_SIZE, d.y * TILE_SIZE);
+        drawHalloweenDecor(ctx, d.kind, s.x, s.y, tile, lit ? oct.darkness : 0, now, d.v);
+      } });
+    }
     for (const o of OLD_THINGS) {
       if (!inView(o.x, o.y, 2)) continue;
       drawables.push({ y: o.y, draw: () => {
@@ -673,6 +699,11 @@ export class Renderer {
     for (const lp of LANTERN_POSTS) glow(lp.x + 0.16, lp.y - 1.0, 2.4, [255, 186, 96], 0.5 * level);
     glow(PORCH_LANTERN.x, PORCH_LANTERN.y + 0.1, 2.2, [255, 190, 100], 0.55 * level);
     for (const p of oct.pumpkins) if (p.face) glow(p.x, p.y - 0.05, 1.5 * p.size, [255, 150, 50], 0.5 * level);
+    for (const d of HALLOWEEN_DECOR) {
+      const l = DECOR_LIGHT[d.kind];
+      if (l) glow(d.x, d.y - 0.25, l[1], l[0], l[2] * level);
+    }
+
     DISTANT_LIGHTS.forEach((d, i) => {
       const l = distantLightLevel(i, now);
       if (l > 0.01) glow(d.x, d.y, 0.8, [200, 230, 170], 0.5 * l);
@@ -2917,6 +2948,28 @@ export class Renderer {
     // wide-brim field hat, sitting high enough to frame the face
     const drawHat = () => {
       const brimY = headY - headR * 0.62;
+      if (isOctober()) {
+        // In October, the field hat's put away for a witch's hat: wide brim, tall crown, a bend at the tip.
+        ctx.fillStyle = '#2c1d3a';
+        ctx.beginPath();
+        ctx.ellipse(cx + (isSide ? s * tile * 0.012 : 0), brimY, tile * (isSide ? 0.16 : 0.17), tile * 0.045, 0, 0, Math.PI * 2);
+        ctx.fill();
+        outline();
+        const lean = (isSide ? s : 1) * tile * 0.06;
+        ctx.beginPath();
+        ctx.moveTo(cx - tile * 0.08, brimY);
+        ctx.quadraticCurveTo(cx - tile * 0.04, brimY - tile * 0.16, cx + lean * 0.4, brimY - tile * 0.26);
+        ctx.quadraticCurveTo(cx + lean * 1.4, brimY - tile * 0.29, cx + lean * 1.8, brimY - tile * 0.22);
+        ctx.quadraticCurveTo(cx + lean * 0.8, brimY - tile * 0.2, cx + tile * 0.08, brimY);
+        ctx.closePath();
+        ctx.fill();
+        outline();
+        ctx.fillStyle = '#e07a24';
+        ctx.fillRect(cx - tile * 0.075, brimY - tile * 0.035, tile * 0.15, tile * 0.026);
+        ctx.fillStyle = '#f2c84a';
+        ctx.fillRect(cx - tile * 0.016, brimY - tile * 0.038, tile * 0.032, tile * 0.032);
+        return;
+      }
       ctx.fillStyle = ELLEN_APPEARANCE.hat;
       ctx.beginPath();
       ctx.ellipse(cx + (isSide ? s * tile * 0.012 : 0), brimY, tile * (isSide ? 0.15 : 0.16), tile * 0.042, 0, 0, Math.PI * 2);
@@ -3255,7 +3308,7 @@ export class Renderer {
     }
 
     // her green collar
-    ctx.strokeStyle = SCOUT_APPEARANCE.collar;
+    ctx.strokeStyle = (isOctober() ? '#f07a1e' : SCOUT_APPEARANCE.collar);
     ctx.lineWidth = Math.max(1, tile * 0.03);
     ctx.beginPath();
     ctx.arc(headX, headY + tile * 0.07, tile * 0.06, 0.1 * Math.PI, 0.9 * Math.PI);
@@ -4535,6 +4588,11 @@ export class Renderer {
       drawables.push({ y: 10.6, draw: () => { const s = at(2.3, 10.6); drawPumpkin(ctx, s.x, s.y, tile, 0.75, 'goofy', lit, now, 3); } });
       drawables.push({ y: 10.5, draw: () => { const s = at(20.9, 10.5); drawPumpkin(ctx, s.x, s.y, tile, 0.9, 'happy', lit, now, 5); } });
       drawables.push({ y: 10.55, draw: () => { const s = at(23.2, 10.55); drawPumpkin(ctx, s.x, s.y, tile, 0.7, null, 0, now, 6); } });
+      drawables.push({ y: 2.1, draw: () => { const s = at(1.6, 2.1); drawHalloweenDecor(ctx, 'cauldron', s.x, s.y, tile * 0.8, lit, now); } });
+      drawables.push({ y: 10.6, draw: () => { const s = at(6.2, 10.6); drawPumpkin(ctx, s.x, s.y, tile, 0.7, 'spooky', lit, now, 8); } });
+      drawables.push({ y: 10.6, draw: () => { const s = at(12.4, 10.6); drawPumpkin(ctx, s.x, s.y, tile, 0.8, 'happy', lit, now, 9); } });
+      drawables.push({ y: 10.4, draw: () => { const s = at(19.4, 10.4); drawHalloweenDecor(ctx, 'candyBowl', s.x, s.y, tile, lit, now); } });
+      drawables.push({ y: 10.6, draw: () => { const s = at(24.6, 10.6); drawHalloweenDecor(ctx, 'pumpkinStack', s.x, s.y, tile * 0.8, lit, now); } });
       const g = oct.ghost;
       if (g.mode === 'greenhouse') drawables.push({ y: g.y, draw: () => { const s = at(g.x, g.y); drawGhostFigure(ctx, s.x, s.y, tile, g.shown, now, { seed: g.seed, looking: true }); } });
     }
@@ -4571,6 +4629,13 @@ export class Renderer {
     }
     const c = at(PARTITION_X + 1.6, 1.25);
     drawCandles(ctx, c.x, c.y, tile, now);
+    const sk = at(PARTITION_X + 2.4, 1.3);
+    drawSkullCandle(ctx, sk.x, sk.y, tile, now);
+    // Paper bats turning on their threads, and string lights along the beams.
+    drawHangingBats(ctx, at, [{ x: 19.5, y: 2.4 }, { x: 21.8, y: 3.1 }, { x: 24.2, y: 2.2 }, { x: 25.4, y: 4.6 }, { x: 5.5, y: 2.6 }, { x: 11.5, y: 2.2 }], tile, now);
+    const glowLit = lanternsLit(oct.darkness) ? 1 : 0.6;
+    drawStringLights(ctx, [at(1, 0.95), at(6, 0.95), at(11, 0.95), at(16.5, 0.95)], tile, glowLit, now, 1);
+    drawStringLights(ctx, [at(PARTITION_X + 1, 0.95), at(22.5, 0.95), at(INTERIOR_W - 1, 0.95)], tile, glowLit, now, 2);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const glow = (x: number, y: number, r: number, col: [number, number, number], a: number) => {
@@ -4586,6 +4651,8 @@ export class Renderer {
     glow(1.45, 9.8, 1.0, [120, 200, 255], 0.3 * dark);
     glow(15.7, 9.6, 1.0, [200, 120, 255], 0.3 * dark);
     glow(16.2, 1.4, 0.9, [255, 160, 80], 0.3 * dark);
+    glow(1.6, 1.6, 1.4, [150, 255, 110], 0.3 * dark);
+    glow(24.6, 10.2, 1.5, [255, 150, 50], 0.3 * dark);
     const flick = 0.85 + 0.15 * Math.sin(now * 0.013);
     glow(PARTITION_X + 1.6, 1.0, 2.2, [255, 180, 90], 0.22 * flick);
     if (oct.ghost.mode === 'greenhouse') glow(oct.ghost.x, oct.ghost.y - 0.45, 1.3, [190, 210, 255], 0.25 * oct.ghost.shown);
@@ -4669,7 +4736,7 @@ export class Renderer {
       ctx.beginPath();
       ctx.ellipse(s.x, s.y + tile * 0.24, tile * 0.34, tile * 0.12, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = SCOUT_APPEARANCE.collar;
+      ctx.fillStyle = (isOctober() ? '#f07a1e' : SCOUT_APPEARANCE.collar);
       ctx.beginPath();
       ctx.ellipse(s.x, s.y + tile * 0.14, tile * 0.32, tile * 0.2, 0, 0, Math.PI * 2);
       ctx.fill();

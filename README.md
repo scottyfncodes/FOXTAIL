@@ -219,6 +219,14 @@ the middle of the screen stays clear while the edges go to dark, with
 moonlit pockets in the clearings. There are lantern posts by home and at
 the bridges, a lantern and a wreath on the front door, candles and curtains
 in the windows, cobwebs, a few old things left out in the valley, and
+orange-and-violet string lights along the eaves and over the bridges, a
+pretend graveyard on the east lawn (BRB), hay bales and corn stalks, a
+cauldron bubbling green, cheesecloth ghosts on shepherd's hooks, candles in
+paper bags down the path, crows on the roof, a skeleton in a witch's hat on
+the old bench in the damp forest, violet mist after dark in the strange
+places and the moon in the creek. Ellen swaps her field hat for a witch's
+hat and Scout gets an orange collar; the HUD and the title screen go pumpkin
+and violet. And there are
 pumpkins on the steps, by the stall and in a patch in the east meadow:
 walk up to one to carve it a face (and carve another, if you like — some
 faces turn up far less often than others). They're lit after dark. The

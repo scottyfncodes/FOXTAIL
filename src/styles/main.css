@@ -1932,3 +1932,130 @@ button {
   font-size: 11px;
   color: var(--ink-dim);
 }
+
+/* ---------------------------------------------------------------- October dress
+   The same HUD and panels, in pumpkin orange and witch violet. */
+.start-moon,
+.start-bats,
+.start-october {
+  display: none;
+}
+body.theme-october {
+  --accent: #ff9a3c;
+  --accent-soft: rgba(255, 140, 50, 0.18);
+  --accent-strong: #b8561a;
+  --panel-bg: rgba(26, 16, 34, 0.93);
+  --panel-border: rgba(196, 130, 255, 0.32);
+  --bg-deep: #160d1e;
+  --warm: #ff8a2a;
+}
+body.theme-october .hud-chip,
+body.theme-october .icon-btn {
+  box-shadow: 0 0 0 1px rgba(255, 140, 50, 0.12), 0 6px 18px rgba(20, 0, 30, 0.5), inset 0 -2px 8px rgba(255, 120, 30, 0.08);
+}
+body.theme-october .toast {
+  border-color: rgba(255, 150, 60, 0.55);
+}
+body.theme-october .toast.discovery,
+body.theme-october .toast.sig-major {
+  box-shadow: 0 0 22px rgba(255, 130, 40, 0.35), var(--shadow);
+}
+body.theme-october .action-btn {
+  background: radial-gradient(circle at 40% 35%, #ffb060, #d0601c 65%, #7a2e0c);
+  border-color: rgba(255, 210, 140, 0.6);
+}
+body.theme-october .joystick-zone {
+  border-color: rgba(196, 130, 255, 0.35);
+}
+body.theme-october .panel-header h2 {
+  color: #8a3a12;
+}
+body.theme-october .panel-tab.active {
+  background: rgba(255, 140, 50, 0.18);
+  border-color: #c0601c;
+  color: #8a3a10;
+}
+/* The title screen, by moonlight. */
+body.theme-october .start-overlay {
+  background: linear-gradient(180deg, #120a1c 0%, #2a1636 42%, #4a2228 78%, #6a3418 100%);
+}
+body.theme-october .start-sky {
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 30%, rgba(255, 170, 90, 0.08), transparent 70%),
+    radial-gradient(ellipse 120% 80% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
+}
+body.theme-october .start-firefly {
+  background: #ffb060;
+  box-shadow: 0 0 12px 4px rgba(255, 140, 50, 0.5);
+}
+body.theme-october .start-moon {
+  display: block;
+  position: absolute;
+  top: 7%;
+  right: 12%;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 36%, #fff8e0, #f3dca0 55%, #d8b870);
+  box-shadow: 0 0 40px 14px rgba(255, 220, 150, 0.28), 0 0 120px 40px rgba(255, 170, 90, 0.12);
+  pointer-events: none;
+}
+body.theme-october .start-bats {
+  display: block;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.start-bat {
+  position: absolute;
+  left: -40px;
+  font-style: normal;
+  filter: brightness(0.35) saturate(0);
+  animation: start-bat-fly 10s linear infinite;
+}
+@keyframes start-bat-fly {
+  0% { transform: translate(0, 0) scale(1, 1); }
+  25% { transform: translate(28vw, -14px) scale(1, 0.6); }
+  50% { transform: translate(56vw, 8px) scale(1, 1); }
+  75% { transform: translate(84vw, -10px) scale(1, 0.6); }
+  100% { transform: translate(115vw, 0) scale(1, 1); }
+}
+body.theme-october .start-october {
+  display: block;
+  font-size: 13px;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: #ffb070;
+  text-shadow: 0 0 10px rgba(255, 130, 40, 0.5);
+}
+body.theme-october .start-overlay h1 {
+  color: #ffb468;
+  text-shadow: 0 0 18px rgba(255, 120, 30, 0.45), 0 2px 0 #3a1a08;
+}
+@media (prefers-reduced-motion: reduce) {
+  .start-bat {
+    animation: none;
+    display: none;
+  }
+}
+body.theme-october .start-overlay .primary-btn {
+  background: linear-gradient(180deg, #ff9a3c, #c8561a);
+  border-color: rgba(255, 210, 140, 0.6);
+  box-shadow: 0 0 24px rgba(255, 130, 40, 0.45);
+}
+body.theme-october .start-hills svg {
+  filter: sepia(0.45) hue-rotate(-25deg) saturate(0.8) brightness(0.75);
+}
+body.theme-october .start-bat {
+  filter: brightness(0);
+  opacity: 0.75;
+}
+@media (max-width: 520px) {
+  body.theme-october .start-moon {
+    top: 3%;
+    right: 5%;
+    width: 60px;
+    height: 60px;
+  }
+}

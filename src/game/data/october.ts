@@ -87,12 +87,12 @@ export const OLD_THINGS: { kind: OldThingKind; x: number; y: number }[] = [
 ];
 
 /** Low ground where the mist lies: the creek, the damp forest's hollows, the overgrown hollow. */
-export const FOG_BANKS: { x: number; y: number; w: number; h: number; night?: boolean }[] = [
+export const FOG_BANKS: { x: number; y: number; w: number; h: number; night?: boolean; tint?: 'violet' | 'green' }[] = [
   { x: 37, y: 0, w: 10, h: 64 },
-  { x: 47, y: 2, w: 20, h: 14 },
+  { x: 47, y: 2, w: 20, h: 14, tint: 'violet' },
   { x: 70, y: 6, w: 18, h: 12 },
-  { x: 3, y: 41, w: 22, h: 16 },
-  { x: 15, y: 11, w: 18, h: 13, night: true },
+  { x: 3, y: 41, w: 22, h: 16, tint: 'violet' },
+  { x: 15, y: 11, w: 18, h: 13, night: true, tint: 'green' },
   { x: 48, y: 25, w: 28, h: 5, night: true },
 ];
 
@@ -163,4 +163,67 @@ export const OCTOBER_NOTES: OctoberNote[] = [
     { after: 3, text: 'The same each time. It never comes any closer. I don’t think it needs to.' },
     { after: 5, text: 'The ground where it stood is warm.' },
   ] },
+];
+
+// ---------------------------------------------------------------- Halloween, properly
+
+/**
+ * Strings of orange and purple bulbs, as polylines of world points. They
+ * sag between their points and light up after dark.
+ */
+export const STRING_LIGHTS: { x: number; y: number }[][] = [
+  // Along the greenhouse's front eave.
+  [{ x: 60.1, y: 39.85 }, { x: 62.6, y: 39.85 }, { x: 65.0, y: 39.85 }, { x: 67.5, y: 39.85 }, { x: 69.9, y: 39.85 }],
+  // Along the house's eave.
+  [{ x: 70.1, y: 36.75 }, { x: 72.5, y: 36.75 }, { x: 74.9, y: 36.75 }],
+  // From the house corner out to the lantern post.
+  [{ x: 74.95, y: 38.6 }, { x: 75.95, y: 40.35 }],
+  // Over the bridges.
+  [{ x: 39.3, y: 12.2 }, { x: 44.7, y: 12.2 }],
+  [{ x: 39.3, y: 48.2 }, { x: 44.7, y: 48.2 }],
+];
+
+export type DecorKind = 'grave' | 'oldGrave' | 'hayBale' | 'cornStalks' | 'cauldron' | 'hangingGhost' | 'skeleton' | 'broom' | 'candyBowl' | 'luminaria' | 'pumpkinStack' | 'booSign' | 'crow';
+
+/** The yard dressed for Halloween, and a few older, stranger things further out. */
+export const HALLOWEEN_DECOR: { kind: DecorKind; x: number; y: number; v?: number }[] = [
+  // A little made-up graveyard on the east lawn, picket fence and all.
+  { kind: 'grave', x: 77.1, y: 42.7, v: 0 },
+  { kind: 'grave', x: 78.4, y: 43.1, v: 1 },
+  { kind: 'grave', x: 79.6, y: 42.6, v: 2 },
+  { kind: 'grave', x: 78.9, y: 44.3, v: 3 },
+  { kind: 'booSign', x: 76.6, y: 44.3 },
+  // Real ones, old and leaning, where nobody goes.
+  { kind: 'oldGrave', x: 11.8, y: 52.2, v: 0 },
+  { kind: 'oldGrave', x: 13.2, y: 52.7, v: 1 },
+  { kind: 'oldGrave', x: 14.6, y: 51.9, v: 2 },
+  { kind: 'oldGrave', x: 12.6, y: 54.1, v: 3 },
+  // Hay, gourds and corn by the door and the stall.
+  { kind: 'hayBale', x: 66.9, y: 42.35 },
+  { kind: 'hayBale', x: 82.9, y: 39.7 },
+  { kind: 'cornStalks', x: 70.5, y: 40.3 },
+  { kind: 'cornStalks', x: 74.95, y: 40.3 },
+  { kind: 'pumpkinStack', x: 61.2, y: 41.0 },
+  { kind: 'cauldron', x: 77.4, y: 40.5 },
+  { kind: 'hangingGhost', x: 61.5, y: 43.2, v: 0 },
+  { kind: 'hangingGhost', x: 77.9, y: 45.4, v: 1 },
+  { kind: 'skeleton', x: 55.25, y: 21.52 },
+  { kind: 'broom', x: 71.95, y: 39.95 },
+  { kind: 'candyBowl', x: 72.95, y: 40.25 },
+  // Candles in paper bags down the flagstones, and over the bridges.
+  { kind: 'luminaria', x: 71.75, y: 41.5 },
+  { kind: 'luminaria', x: 73.3, y: 41.5 },
+  { kind: 'luminaria', x: 71.75, y: 42.5 },
+  { kind: 'luminaria', x: 73.3, y: 42.5 },
+  { kind: 'luminaria', x: 64.3, y: 41.6 },
+  { kind: 'luminaria', x: 65.75, y: 41.6 },
+  { kind: 'luminaria', x: 39.7, y: 13.4 },
+  { kind: 'luminaria', x: 44.3, y: 15.6 },
+  { kind: 'luminaria', x: 39.7, y: 49.4 },
+  { kind: 'luminaria', x: 44.3, y: 51.6 },
+  // Crows on the roof ridge, and one on the scarecrow.
+  { kind: 'crow', x: 71.3, y: 32.55, v: 0 },
+  { kind: 'crow', x: 72.9, y: 32.5, v: 1 },
+  { kind: 'crow', x: 74.2, y: 32.6, v: 2 },
+  { kind: 'crow', x: 81.0, y: 34.3, v: 3 },
 ];
