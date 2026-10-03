@@ -35,7 +35,7 @@ import {
 /** A drag this long (as a share of the canvas height) is a full-strength throw. */
 const FULL_PULL = 0.3;
 /** How much of the arc the aiming guide shows: a hint, not the answer. */
-const GUIDE = 0.3;
+const GUIDE = 0.22;
 const S = SCOUT_APPEARANCE;
 const P = SCOTT_APPEARANCE;
 
@@ -133,9 +133,9 @@ export class StickFetchPanel extends MiniGamePanel {
   }
 
   private chips() {
-    const w = Math.min(74, this.cw * 0.21);
+    const w = Math.min(76, this.cw * 0.2);
     const y = this.ch - 30;
-    return STICK_ORDER.map((kind, i) => ({ kind, x: this.cw * [0.12, 0.31, 0.875][i], y, w, h: 50 }));
+    return STICK_ORDER.map((kind, i) => ({ kind, x: [w / 2 + 4, w * 1.5 + 12, this.cw - w / 2 - 4][i], y, w, h: 50 }));
   }
 
   // ------------------------------------------------------------ input
@@ -580,7 +580,8 @@ export class StickFetchPanel extends MiniGamePanel {
   private drawScout(ctx: CanvasRenderingContext2D, t: number) {
     const sc = this.g.scout;
     const q = this.project(sc.x, sc.y, sc.hop * 0.55);
-    const tile = q.m * 4.2;
+    // Drawn a bit larger than life, so she reads at the far end of the meadow.
+    const tile = q.m * 5.4;
     const mode = sc.mode;
     const sitting = mode === 'sit' || mode === 'wag' || (mode === 'distracted' && sc.distraction === 'butterfly');
     const running = sc.moving && (mode === 'run' || mode === 'return');
@@ -810,10 +811,12 @@ export class StickFetchPanel extends MiniGamePanel {
     ctx.stroke();
     // Throwing arm: drawn back while aiming, whipped up and over on the throw.
     const since = (t - this.thrownAt) / 1000;
+    // (0 is hanging down, π straight up over his head.)
     let armA: number;
-    if (aim) armA = Math.PI * 0.55 + aim.power * Math.PI * 0.35;
-    else if (since < 0.35) armA = Math.PI * (0.9 - (since / 0.35) * 1.15);
-    else armA = Math.PI * 0.62;
+    if (aim) armA = Math.PI * (0.55 + aim.power * 0.3);
+    else if (since < 0.3) armA = Math.PI * (0.85 + (since / 0.3) * 0.2);
+    else if (since < 0.8) armA = Math.PI * (1.05 - ((since - 0.3) / 0.5) * 0.93);
+    else armA = this.g.phase === 'aim' ? Math.PI * 0.45 : Math.PI * 0.12;
     const sx = x + u * 1.6;
     const sy = feet - u * 7.6;
     const hx = sx + Math.sin(armA) * u * 2.8 * 0.6;

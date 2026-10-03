@@ -10,9 +10,9 @@
 
 /** Modest: a slingshot sends a pinecone out flat and quick. */
 export const GRAVITY = 6;
-export const MAX_SPEED = 15;
+export const MAX_SPEED = 13.5;
 export const MIN_SPEED = 3;
-export const CONE_R = 0.09;
+export const CONE_R = 0.075;
 /** Where the pouch rests, between the fork's prongs: the launch point. */
 export const POUCH = { x: 0.3, y: 1.25 };
 const GROUND_BOUNCE = 0.32;
@@ -23,7 +23,7 @@ const ROLL = 3;
 const STOP_SPEED = 0.12;
 const REST_TIME = 0.2;
 const MAX_TIME = 6;
-const FAR_X = 12;
+const FAR_X = 10;
 const NEAR_X = -2;
 
 export type TargetKind = 'disc' | 'small' | 'duck' | 'swing' | 'windmill';
@@ -50,27 +50,27 @@ export interface Round {
   cones: number;
 }
 
-const disc = (x: number, y: number): TargetDef => ({ kind: 'disc', x, y, r: 0.3, points: 1 });
-const small = (x: number, y: number): TargetDef => ({ kind: 'small', x, y, r: 0.2, points: 2 });
-const windmill = (x: number, y: number): TargetDef => ({ kind: 'windmill', x, y, r: 0.26, points: 1 });
-const duck = (x: number, y: number, dx: number, period: number, phase = 0): TargetDef => ({ kind: 'duck', x, y, r: 0.25, points: 2, slide: { dx, period, phase } });
+const disc = (x: number, y: number): TargetDef => ({ kind: 'disc', x, y, r: 0.24, points: 1 });
+const small = (x: number, y: number): TargetDef => ({ kind: 'small', x, y, r: 0.16, points: 2 });
+const windmill = (x: number, y: number): TargetDef => ({ kind: 'windmill', x, y, r: 0.2, points: 1 });
+const duck = (x: number, y: number, dx: number, period: number, phase = 0): TargetDef => ({ kind: 'duck', x, y, r: 0.22, points: 2, slide: { dx, period, phase } });
 const swing = (x: number, y: number, len: number, amp: number, period: number, phase = 0): TargetDef => ({
   kind: 'swing',
   x,
   y,
-  r: 0.24,
+  r: 0.2,
   points: 2,
   swing: { len, amp, period, phase },
 });
 
 /** Four arrangements: a few on posts, then smaller and further, then moving, then all sorts. */
 export const ROUNDS: Round[] = [
-  { name: 'Three on posts', targets: [disc(3.6, 1.1), disc(5.0, 1.45), disc(6.4, 1.0)], cones: 5 },
-  { name: 'Smaller and further', targets: [disc(4.2, 1.6), small(5.4, 1.0), windmill(6.3, 1.9), small(7.3, 1.3)], cones: 6 },
-  { name: 'On the move', targets: [disc(3.8, 1.3), duck(5.4, 0.95, 0.9, 4.2), swing(6.9, 3.3, 1.7, 0.42, 3.0)], cones: 5 },
+  { name: 'Three on posts', targets: [disc(2.9, 1.1), disc(4.0, 1.45), disc(5.1, 1.0)], cones: 5 },
+  { name: 'Smaller and further', targets: [disc(3.4, 1.6), small(4.3, 1.0), windmill(5.0, 1.9), small(5.8, 1.3)], cones: 6 },
+  { name: 'On the move', targets: [disc(3.0, 1.3), duck(4.3, 0.95, 0.75, 4.2), swing(5.5, 3.3, 1.7, 0.42, 3.0)], cones: 5 },
   {
     name: 'All sorts',
-    targets: [small(3.9, 1.15), duck(5.1, 0.85, 0.8, 3.4, 0.3), small(5.6, 2.1), swing(6.6, 3.3, 1.75, 0.5, 2.7, 0.5), windmill(7.5, 1.6)],
+    targets: [small(3.1, 1.15), duck(4.1, 0.85, 0.65, 3.4, 0.3), small(4.6, 2.1), swing(5.3, 3.3, 1.75, 0.5, 2.7, 0.5), windmill(6.0, 1.6)],
     cones: 7,
   },
 ];

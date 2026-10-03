@@ -116,7 +116,7 @@ export class AcornPitchPanel extends MiniGamePanel {
 
   private refresh() {
     const n = Math.min(ACORNS_PER_TARGET, this.thrown + (this.phase === 'aim' ? 1 : 0));
-    this.setCard(`Target ${this.ti + 1}/${TARGETS.length} · Acorn ${Math.max(1, n)} of ${ACORNS_PER_TARGET}`, `${this.total} points`);
+    this.setCard(`Target ${this.ti + 1}/${TARGETS.length} · Acorn ${Math.max(1, n)} of ${ACORNS_PER_TARGET}`, `${this.total} point${this.total === 1 ? '' : 's'}`);
   }
 
   // ------------------------------------------------------------ input

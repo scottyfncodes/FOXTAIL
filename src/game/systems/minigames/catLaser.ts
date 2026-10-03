@@ -361,7 +361,7 @@ function stepCat(g: LaserGame, dt: number) {
           break;
         }
         // He leaps for where the dot is right now — and he's only as good a shot as he is keen.
-        const spread = 0.25 + 0.7 * (1 - g.interest) ** 2 + 0.1 * d;
+        const spread = 0.3 + 0.7 * (1 - g.interest) ** 2 + 0.1 * d;
         const err = spread * g.rng();
         const ea = g.rng() * Math.PI * 2;
         c.from = { x: c.x, y: c.y };

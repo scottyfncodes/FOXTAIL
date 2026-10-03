@@ -91,7 +91,7 @@ export const FLAGS: Pt[] = [
 ];
 
 /** Where Scout sits, at Scott's feet. */
-export const HOME: Pt = { x: 1, y: 0.8 };
+export const HOME: Pt = { x: 2.2, y: 1.4 };
 
 export type Lie = 'grass' | 'bush' | 'puddle' | 'creek' | 'log';
 
