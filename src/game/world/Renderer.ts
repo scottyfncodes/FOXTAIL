@@ -488,9 +488,6 @@ export class Renderer {
     }
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
-    // A little "!" over Scout standing over what she's sniffed out, and over Scott waving her over.
-    if (state.scout.behavior === 'pointing' && !state.player.riding) this.drawCallout(camera, state.scout.x, state.scout.y - 0.85, now);
-    if (state.scott.activity === 'showingPlant' && state.scott.zone !== 'greenhouse') this.drawCallout(camera, state.scott.x, state.scott.y - 1.35, now);
 
     // Low foreground vegetation drawn last, so tall grass/reeds partially
     // overlap the characters' feet instead of characters always reading on
@@ -1071,14 +1068,64 @@ export class Renderer {
         ctx.fillStyle = night ? 'rgba(255,205,130,0.6)' : 'rgba(160,196,182,0.9)';
         ctx.fillRect(s.x + tile * 0.16, s.y + tile * 0.88, tile * 0.68, tile * 0.3);
       } else {
+        // The side door, in a little glazed porch built out from the west
+        // glass: it stands on the ground beside the greenhouse, with its own
+        // pitched roof, a brick footing like the rest, and the door in its face.
+        const px = s.x + tile * 0.08;
+        const pw = tile * 0.92;
+        const base = s.y + tile * 1.0;
+        const eaves = base - tile * 1.3;
+        const ridge = eaves - tile * 0.32;
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fillRect(px + tile * 0.06, base - tile * 0.02, pw, tile * 0.14);
+        // roof
+        ctx.fillStyle = night ? '#6e8a7c' : '#c4ddd2';
+        ctx.beginPath();
+        ctx.moveTo(px - tile * 0.06, eaves);
+        ctx.lineTo(px + pw / 2, ridge);
+        ctx.lineTo(px + pw + tile * 0.06, eaves);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#eef0e6';
+        ctx.lineWidth = Math.max(1, tile * 0.04);
+        ctx.stroke();
+        // brick footing
+        ctx.fillStyle = '#9a5c44';
+        ctx.fillRect(px, base - tile * 0.22, pw, tile * 0.22);
+        ctx.strokeStyle = 'rgba(232,214,190,0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px, base - tile * 0.11);
+        ctx.lineTo(px + pw, base - tile * 0.11);
+        ctx.stroke();
+        // glazed sides either side of the door
+        ctx.fillStyle = night ? 'rgba(255,205,130,0.55)' : 'rgba(185,214,200,0.95)';
+        ctx.fillRect(px, eaves, pw, base - tile * 0.22 - eaves);
+        // the door: timber, glazed above, with a brass handle
+        const dx = px + pw * 0.2;
+        const dw = pw * 0.6;
+        const dTop = eaves + tile * 0.08;
         ctx.fillStyle = '#4a3623';
-        ctx.fillRect(s.x + tile * 0.8, s.y + tile * 0.05, tile * 0.45, tile * 0.9);
-        ctx.fillStyle = night ? 'rgba(255,205,130,0.6)' : 'rgba(160,196,182,0.9)';
-        ctx.fillRect(s.x + tile * 0.88, s.y + tile * 0.12, tile * 0.29, tile * 0.5);
+        ctx.fillRect(dx - tile * 0.03, dTop - tile * 0.03, dw + tile * 0.06, base - dTop + tile * 0.03);
+        ctx.fillStyle = night ? 'rgba(255,205,130,0.8)' : 'rgba(190,220,206,0.95)';
+        ctx.fillRect(dx, dTop, dw, (base - dTop) * 0.5);
+        ctx.fillStyle = '#5c4430';
+        ctx.fillRect(dx, dTop + (base - dTop) * 0.5, dw, (base - dTop) * 0.5);
         ctx.fillStyle = '#d8b24a';
         ctx.beginPath();
-        ctx.arc(s.x + tile * 1.1, s.y + tile * 0.72, tile * 0.03, 0, Math.PI * 2);
+        ctx.arc(dx + dw - tile * 0.07, dTop + (base - dTop) * 0.55, tile * 0.03, 0, Math.PI * 2);
         ctx.fill();
+        // frame and glazing bars
+        ctx.strokeStyle = '#eef0e6';
+        ctx.lineWidth = Math.max(1, tile * 0.035);
+        ctx.strokeRect(px, eaves, pw, base - eaves);
+        ctx.beginPath();
+        ctx.moveTo(dx + dw / 2, dTop);
+        ctx.lineTo(dx + dw / 2, dTop + (base - dTop) * 0.5);
+        ctx.stroke();
+        // a worn step
+        ctx.fillStyle = '#8a8274';
+        ctx.fillRect(px + pw * 0.12, base - tile * 0.02, pw * 0.76, tile * 0.12);
       }
     }
   }
@@ -1952,30 +1999,6 @@ export class Renderer {
       }
     }
     ctx.restore();
-  }
-
-  /** A small bobbing speech bubble with a "!", to say "over here". */
-  private drawCallout(camera: Camera, wx: number, wy: number, now: number) {
-    const { ctx } = this;
-    const tile = TILE_SIZE * camera.zoom;
-    const s = camera.worldToScreen(wx * TILE_SIZE, wy * TILE_SIZE);
-    const y = s.y + Math.sin(now * 0.006) * tile * 0.04;
-    const r = tile * 0.16;
-    ctx.fillStyle = 'rgba(250,246,234,0.95)';
-    ctx.strokeStyle = 'rgba(40,30,20,0.6)';
-    ctx.lineWidth = Math.max(1, tile * 0.02);
-    ctx.beginPath();
-    ctx.arc(s.x, y, r, 0, Math.PI * 2);
-    ctx.moveTo(s.x - r * 0.35, y + r * 0.85);
-    ctx.lineTo(s.x, y + r * 1.5);
-    ctx.lineTo(s.x + r * 0.35, y + r * 0.85);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#c8553d';
-    ctx.fillRect(s.x - r * 0.12, y - r * 0.6, r * 0.24, r * 0.75);
-    ctx.beginPath();
-    ctx.arc(s.x, y + r * 0.42, r * 0.14, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   /**
@@ -4287,8 +4310,6 @@ export class Renderer {
         const slot: DisplaySlot = { id: f.id, x: f.x, y: f.y, kind: def.slotKind! };
         if (def.layer === 'overhead') hanging.push({ piece: f, slot });
         else drawables.push({ y: fp.y + fp.h, draw: turned((p) => this.drawDisplaySlot(camera, slot, plantIn('display', f.id), now, p.rot ?? 0)) });
-      } else if (f.kind === 'growLamp') {
-        drawables.push({ y: fp.y + fp.h, draw: turned((p) => this.drawGrowLamp(camera, p, now)) });
       } else if (f.kind === 'wateringCan') {
         drawables.push({ y: fp.y + fp.h, draw: turned((p) => this.drawWateringCan(camera, p)) });
       } else if (f.kind === 'ellenDesk') {
@@ -4556,40 +4577,6 @@ export class Renderer {
       ctx.roundRect(a.x + (i * tile) / 12, a.y + (i * tile) / 12, w - (i * tile) / 6, h - (i * tile) / 6, tile * 0.06);
       ctx.stroke();
     }
-  }
-
-  private drawGrowLamp(camera: Camera, piece: PlacedFurniture, now: number) {
-    const { ctx } = this;
-    const tile = TILE_SIZE * camera.zoom;
-    const s = camera.worldToScreen((piece.x + 0.5) * TILE_SIZE, (piece.y + 0.6) * TILE_SIZE);
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    ctx.beginPath();
-    ctx.ellipse(s.x, s.y + tile * 0.1, tile * 0.16, tile * 0.05, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#2f2f2c';
-    ctx.fillRect(s.x - tile * 0.02, s.y - tile * 1.3, tile * 0.04, tile * 1.4);
-    ctx.beginPath();
-    ctx.ellipse(s.x, s.y + tile * 0.08, tile * 0.12, tile * 0.04, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#444';
-    ctx.beginPath();
-    ctx.moveTo(s.x - tile * 0.22, s.y - tile * 1.18);
-    ctx.lineTo(s.x + tile * 0.22, s.y - tile * 1.18);
-    ctx.lineTo(s.x + tile * 0.1, s.y - tile * 1.38);
-    ctx.lineTo(s.x - tile * 0.1, s.y - tile * 1.38);
-    ctx.closePath();
-    ctx.fill();
-    const flicker = 0.92 + 0.08 * Math.sin(now * 0.003 + piece.x);
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(255,150,210,${0.5 * flicker})`;
-    ctx.fillRect(s.x - tile * 0.2, s.y - tile * 1.2, tile * 0.4, tile * 0.04);
-    const g = ctx.createRadialGradient(s.x, s.y - tile * 0.4, 0, s.x, s.y - tile * 0.2, tile * 2.6);
-    g.addColorStop(0, `rgba(255,160,220,${0.16 * flicker})`);
-    g.addColorStop(1, 'rgba(255,160,220,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(s.x - tile * 2.6, s.y - tile * 2.8, tile * 5.2, tile * 5.4);
-    ctx.restore();
   }
 
   private drawWateringCan(camera: Camera, piece: PlacedFurniture) {

@@ -154,27 +154,16 @@ describe('free placement indoors', () => {
     expect(isBlockedIndoor(hook.x + 0.5, hook.y + 0.5, solids)).toBe(false);
   });
 
-  it('sells new kinds of furniture: nursery beds that root cuttings, tables, planters, lamps', () => {
+  it('sells new kinds of furniture: nursery beds that root cuttings, tables and planters', () => {
     const state = createNewGame();
     state.coins = 10_000;
     // Each comes in once the one before it in its line has been bought.
     state.owned.push('growLights');
     state.bought.push('plantStand', 'ironPedestal');
-    for (const id of ['doubleNurseryBed', 'pottingTable', 'floorPlanter', 'growLamp', 'wateringCan', 'houseRug']) expect(buyItem(state, id)).toBe(true);
+    for (const id of ['doubleNurseryBed', 'pottingTable', 'floorPlanter', 'wateringCan', 'houseRug']) expect(buyItem(state, id)).toBe(true);
     const tray = placeFurniture(state, 'nurseryBed', 12, 9)!;
     expect(nurserySpots(state).some((n) => n.id === tray.id)).toBe(true);
     const planter = placeFurniture(state, 'floorPlanter', 14, 9)!;
     expect(displaySlots(state).find((s) => s.id === planter.id)?.kind).toBe('planter');
-  });
-
-  it('grows plants near a grow lamp a third faster', () => {
-    const state = createNewGame();
-    potted(state, 'near', { slotId: 'stand1' });
-    potted(state, 'far', { slotId: 'stand6' });
-    const base = growthMultiplier(state, state.plants.near);
-    state.furnitureStock = { growLamp: 1 };
-    placeFurniture(state, 'growLamp', 10, 4.4);
-    expect(growthMultiplier(state, state.plants.near)).toBeCloseTo(base * 1.3);
-    expect(growthMultiplier(state, state.plants.far)).toBeCloseTo(base);
   });
 });

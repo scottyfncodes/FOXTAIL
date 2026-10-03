@@ -41,7 +41,6 @@ export const FURNITURE_DEFS: Record<FurnitureId, FurnitureDef> = {
   floorPlanter: { id: 'floorPlanter', name: 'Floor Planter', role: 'display', slotKind: 'planter', w: 0.7, h: 0.5, layer: 'floor' },
   pottingTable: { id: 'pottingTable', name: 'Potting Table', role: 'display', slotKind: 'table', w: 1.3, h: 0.55, layer: 'floor', rotatable: true },
   nurseryBed: { id: 'nurseryBed', name: 'Nursery Bed', role: 'nursery', w: 0.9, h: 0.45, layer: 'floor', rotatable: true },
-  growLamp: { id: 'growLamp', name: 'Grow Lamp', role: 'lamp', w: 0.32, h: 0.32, layer: 'floor' },
   wateringCan: { id: 'wateringCan', name: 'Watering Can', role: 'decor', w: 0.36, h: 0.26, layer: 'floor' },
   houseRug: { id: 'houseRug', name: 'Woven Rug', role: 'decor', w: 1.8, h: 1.2, layer: 'flat', rotatable: true },
   // The living room. Sizes match the layout in interior.ts.
@@ -68,6 +67,3 @@ export function furnitureTurn(kind: FurnitureId): TurnMode {
   return def?.rotatable ? 'art' : def?.turn ?? 'mirror';
 }
 
-/** How far a grow lamp's light reaches, in tiles, and how much it speeds things up. */
-export const GROW_LAMP_RADIUS = 2.6;
-export const GROW_LAMP_BOOST = 1.3;

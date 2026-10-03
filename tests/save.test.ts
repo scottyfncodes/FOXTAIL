@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createNewGame, SAVE_KEY, SAVE_VERSION } from '../src/game/state';
-import { loadGame, saveGame, loadOrCreate, resetGame, migrateSave, clearAllSaves } from '../src/game/engine/SaveManager';
+import { loadGame, saveGame, loadOrCreate, resetGame, migrateSave, clearAllSaves, GROW_LAMP_REFUND } from '../src/game/engine/SaveManager';
 import { findScottSpot } from '../src/game/data/scottSpots';
 import { addToBasket } from '../src/game/systems/basket';
 import { HOUSE_FOOTPRINT } from '../src/game/data/worldMap';
@@ -158,11 +158,27 @@ describe('save migration', () => {
 describe('the world the player made persists', () => {
   beforeEach(() => localStorage.clear());
 
+  it('buys back the old single grow lamps, placed or in stock, at what they cost', () => {
+    const state = createNewGame();
+    state.coins = 100;
+    const loose = state as unknown as { furniture: unknown[]; furnitureStock: Record<string, number> };
+    loose.furniture.push({ id: 'lamp1', kind: 'growLamp', x: 10, y: 4 }, { id: 'lamp2', kind: 'growLamp', x: 12, y: 4 });
+    loose.furnitureStock.growLamp = 1;
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    const loaded = loadGame()!;
+    expect(loaded.coins).toBe(100 + 3 * GROW_LAMP_REFUND);
+    expect(loaded.furniture.some((f) => (f.kind as string) === 'growLamp')).toBe(false);
+    expect(loaded.furnitureStock).not.toHaveProperty('growLamp');
+    // Saved again and reloaded, it isn't paid twice.
+    saveGame(loaded);
+    expect(loadGame()!.coins).toBe(100 + 3 * GROW_LAMP_REFUND);
+  });
+
   it('round-trips furniture positions, beds, paths, cleared scrub, fox history and curiosities', () => {
     const state = createNewGame();
     state.furniture.push({ id: 'bed1', kind: 'nurseryBed', x: 6.25, y: 6.5, rot: 1 });
     state.seededFixtures.push('bed1');
-    state.furniture.push({ id: 'lamp', kind: 'growLamp', x: 12.125, y: 8.375 });
+    state.furniture.push({ id: 'can', kind: 'wateringCan', x: 12.125, y: 8.375 });
     state.gardenBeds.push({ id: 'gb', x: 50, y: 20, w: 3.5, h: 2.25, shape: 'oval', createdAt: 10 });
     state.paths.push({ id: 'pa', points: [50, 30, 51.5, 30.2, 53, 30.9], width: 1.15, createdAt: 20 });
     state.clearedObstacles.push('51,30');
