@@ -109,8 +109,8 @@ export interface GatorAt {
   wet: number;
 }
 
-/** Where the creek's alligator suns itself: hauled out on the east bank, snout to the water, between the turtles' stones. */
-export const GATOR_BANK = { x: CREEK_WATER.x + CREEK_WATER.w + 0.3, y: 29.5 };
+/** Where the creek's alligator suns itself: hauled out on the east bank, snout to the water, between the turtles' stones and clear of Scott's fishing spot. */
+export const GATOR_BANK = { x: CREEK_WATER.x + CREEK_WATER.w + 0.3, y: 33 };
 /** How far up and down the creek it cruises from there: well clear of both bridges. */
 export const GATOR_REACH = 9.5;
 const GATOR_PERIOD_MS = 150000;
