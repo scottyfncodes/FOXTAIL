@@ -23,7 +23,7 @@ describe('market organisation', () => {
   });
 
   it('classes growing capacity as production', () => {
-    for (const id of ['doubleNurseryBed', 'growLights', 'growLamp']) expect(findShopItem(id)!.purpose, id).toBe('production');
+    for (const id of ['doubleNurseryBed', 'growLights']) expect(findShopItem(id)!.purpose, id).toBe('production');
   });
 
   it('classes stands, shelves, hooks and decor as display, and the sun room as space', () => {
@@ -47,7 +47,7 @@ describe('prices and formulas are unchanged', () => {
   it('keeps every fixed shop price', () => {
     const expected: Record<string, number> = {
       hangingHooks: 90, plantShelf: 120, tieredStand: 240, growLights: 360, plantStand: 45, ironPedestal: 80, ceilingHook: 40,
-      wallTrellis: 95, pottingTable: 85, floorPlanter: 110, growLamp: 150, wateringCan: 15, houseRug: 40, sunRoom: 700, pottingAnnex: 3500, orangery: 6000, roofLights: 9000,
+      wallTrellis: 95, pottingTable: 85, floorPlanter: 110, wateringCan: 15, houseRug: 40, sunRoom: 700, pottingAnnex: 3500, orangery: 6000, roofLights: 9000,
       potGlazed: 25, potSpeckled: 35, potBasket: 40, potCopper: 70, potPorcelain: 140, potGilded: 900, potMidnight: 2400, weathervane: 1200, pergola: 1800, gardenPond: 3000,
       raisedBed: 90, steppingStones: 6, picketFence: 12, gardenLantern: 30, birdbath: 45, gardenBench: 60, gardenTrellis: 55,
       koi: 120,

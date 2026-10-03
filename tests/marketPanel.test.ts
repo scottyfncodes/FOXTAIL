@@ -25,7 +25,7 @@ describe('market Buy tab', () => {
     expect(subheads).toEqual(['🌱Production', '🏡Space', '🪴Display']);
     const production = Array.from(body.querySelectorAll('.shop-row.purpose-production .entry-name')).map((n) => n.textContent);
     expect(production).toEqual(expect.arrayContaining(['Double Nursery Bed', 'Grow Lights']));
-    // The grow lamp waits until the grow lights are in.
+    // The standing grow lamps are gone; the grow lights do their job.
     expect(production).not.toContain('Grow Lamp');
     expect(production).not.toContain('Nursery Bed');
     expect(production).not.toContain('Extra Nursery Beds');

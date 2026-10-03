@@ -15,6 +15,8 @@ const LEGACY_KEYS = ['foxtrot-save-v3', 'foxtrot-save-v2', 'foxtrot-save-v1'];
 
 // Fields that are small fixed-shape records: a field added to one of these
 // later is filled from the defaults instead of being left undefined.
+/** What a grow lamp cost, refunded for each one an older save still had. */
+export const GROW_LAMP_REFUND = 150;
 const STRUCT_FIELDS = ['stall', 'player', 'clock', 'weather', 'tools', 'fox', 'scout', 'scott', 'cat', 'market', 'foxLog', 'putting', 'commissions'] as const;
 const ARRAY_FIELDS = ['basket', 'owned', 'bought', 'decor', 'pondStock', 'koi', 'hints', 'furniture', 'seededFixtures', 'seenShop', 'gardenBeds', 'paths', 'clearedObstacles', 'foxFinds'] as const;
 const RECORD_FIELDS = ['plants', 'collection', 'spots', 'decorStock', 'furnitureStock', 'curiosities', 'purchases', 'regions', 'regionTier', 'minigames'] as const;
@@ -131,6 +133,15 @@ export function migrateSave(raw: unknown): GameState | null {
     // new to the market (or unlocks later) gets the NEW tag.
     const owned = Array.isArray(state.owned) ? state.owned : [];
     state.seenShop = SHOP_ITEMS.filter((s) => !INTRODUCED_IN_V7.includes(s.id) && (!s.after || owned.includes(s.after) || owned.includes(s.id))).map((s) => s.id);
+  }
+  // The single grow lamps are gone from the market: whatever of them a save
+  // had, placed or still in stock, is bought back at what it cost.
+  {
+    const placed = (state.furniture as unknown as Loose[]).filter((f) => isRecord(f) && f.kind === 'growLamp').length;
+    const stock = state.furnitureStock as Record<string, number>;
+    const lamps = placed + (typeof stock.growLamp === 'number' ? stock.growLamp : 0);
+    if (lamps > 0) state.coins += lamps * GROW_LAMP_REFUND;
+    delete stock.growLamp;
   }
   state.furniture = state.furniture.filter((f) => isRecord(f) && !!FURNITURE_DEFS[f.kind] && Number.isFinite(f.x) && Number.isFinite(f.y));
   if (!Number.isInteger(state.stall.x) || !Number.isInteger(state.stall.y)) state.stall = createNewGame().stall;

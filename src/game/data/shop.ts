@@ -77,7 +77,6 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'wallTrellis', name: 'Wall Trellis', category: 'greenhouse', price: 95, after: 'plantShelf', repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot vines can climb', description: 'A tall cedar lattice. Any vine or trailer planted at its foot climbs it instead of trailing — best along a wall.' },
   { id: 'pottingTable', name: 'Potting Table', category: 'greenhouse', price: 85, after: 'plantStand', repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 plant', description: 'A long, scrubbed table. Sets one plant at a comfortable height. Turns to fit along any wall.' },
   { id: 'floorPlanter', name: 'Floor Planter', category: 'greenhouse', price: 110, after: 'ironPedestal', repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 big plant', description: 'A deep glazed planter that sits on the floor. Big plants love the extra root room.' },
-  { id: 'growLamp', name: 'Grow Lamp', category: 'greenhouse', price: 150, after: 'growLights', repeatable: true, purpose: 'production', role: 'expansion', blurb: 'Plants nearby grow 1.3× faster', description: 'A standing lamp with a warm, pinkish glow. Plants close to it grow a third faster.' },
   { id: 'wateringCan', name: 'Watering Can', category: 'greenhouse', price: 15, repeatable: true, purpose: 'display', role: 'decoration', blurb: 'Decoration', description: 'A dented brass can. Purely for the look of the place.' },
   { id: 'houseRug', name: 'Woven Rug', category: 'greenhouse', price: 40, after: 'wateringCan', repeatable: true, purpose: 'display', role: 'decoration', blurb: 'Decoration', description: 'A soft jute rug to put down anywhere indoors. Things stand on it happily.' },
   { id: 'weathervane', name: 'Fox Weathervane', category: 'greenhouse', price: 1200, after: 'sunRoom', purpose: 'display', role: 'decoration', blurb: 'On the greenhouse roof', description: 'A copper fox on the ridge of the greenhouse, nose to the wind. It does nothing at all, and everyone who comes up the lane looks at it.' },
@@ -172,7 +171,6 @@ export type FurnitureId =
   | 'wallTrellis'
   | 'pottingTable'
   | 'floorPlanter'
-  | 'growLamp'
   | 'wateringCan'
   | 'houseRug'
   | 'nurseryBed'
@@ -202,7 +200,6 @@ export const FURNITURE_IDS: FurnitureId[] = [
   'wallTrellis',
   'pottingTable',
   'floorPlanter',
-  'growLamp',
   'wateringCan',
   'houseRug',
   'nurseryBed',

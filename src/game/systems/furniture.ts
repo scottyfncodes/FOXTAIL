@@ -2,7 +2,7 @@ import type { GameState, PlacedFurniture } from '../state';
 import { makeUid } from '../state';
 import type { FurnitureId } from '../data/shop';
 import { DISPLAY_SLOTS, GREENHOUSE_FURNITURE, NURSERY_BEDS, STORAGE_CRATES, type DisplayKind, type DisplaySlot } from '../data/stations';
-import { FURNITURE_DEFS, GROW_LAMP_RADIUS, furnitureTurn, type FurnitureDef } from '../data/furniture';
+import { FURNITURE_DEFS, furnitureTurn, type FurnitureDef } from '../data/furniture';
 import { nextRot, normalRot, swapsFootprint } from '../data/turn';
 import { spotPosition, type AnchorShift } from '../data/catSpots';
 import { INTERIOR_H, INTERIOR_W, LIVING_FIXTURES, PARTITION_X, PUTTING_CUP_OFFSET, isKeepClearTile, type InteriorRect, type LivingFixture } from '../data/interior';
@@ -256,13 +256,3 @@ export function climbsTrellis(defId: string): boolean {
   return !!def && (trailsUpTrellis(def.form) || !!def.vine);
 }
 
-/** Centres of every grow lamp, for growth. */
-export function growLampCenters(state: GameState): { x: number; y: number }[] {
-  return state.furniture.filter((f) => f.kind === 'growLamp').map((f) => ({ x: f.x + 0.5, y: f.y + 0.5 }));
-}
-
-/** Whether an indoor plant living in this piece sits in a grow lamp's light. */
-export function underGrowLamp(lamps: { x: number; y: number }[], piece: PlacedFurniture | undefined): boolean {
-  if (!piece || lamps.length === 0) return false;
-  return lamps.some((l) => Math.hypot(l.x - (piece.x + 0.5), l.y - (piece.y + 0.5)) <= GROW_LAMP_RADIUS);
-}
