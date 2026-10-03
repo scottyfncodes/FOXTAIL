@@ -41,18 +41,29 @@ export const CLEAR_VERB: Record<string, { label: string; done: string; name: str
   bush: { label: 'Have this bush grubbed out', done: 'Bush grubbed out', name: 'A bush' },
 };
 
+/** The tool from the stall that each kind of clearing needs before it can be done at all. */
+export const CLEAR_TOOL: Record<string, 'rockHammer' | 'chainsaw'> = { rock: 'rockHammer', tree: 'chainsaw', bush: 'chainsaw' };
+export const TOOL_NAME: Record<'rockHammer' | 'chainsaw', string> = { rockHammer: 'rock hammer', chainsaw: 'chainsaw' };
+
+/** Whether Ellen owns the tool this kind of thing needs to be cleared. */
+export function hasClearTool(state: Pick<GameState, 'owned'>, kind: string): boolean {
+  const tool = CLEAR_TOOL[kind];
+  return !tool || state.owned.includes(tool);
+}
+
 /** What it costs to clear whatever stands on this tile, or null if nothing clearable does. */
 export function clearCost(world: LandscapeWorld, tx: number, ty: number): number | null {
   const kind = world.obstacleAt(tx, ty);
   return kind && kind in CLEAR_COST ? CLEAR_COST[kind] : null;
 }
 
-export type RockBlock = 'no-rock' | 'coins';
-export type ClearBlock = 'nothing' | 'coins';
+export type RockBlock = 'no-rock' | 'tool' | 'coins';
+export type ClearBlock = 'nothing' | 'tool' | 'coins';
 
 export function clearBlock(state: GameState, world: LandscapeWorld, tx: number, ty: number): ClearBlock | null {
   const cost = clearCost(world, tx, ty);
   if (cost === null) return 'nothing';
+  if (!hasClearTool(state, world.obstacleAt(tx, ty)!)) return 'tool';
   if (state.coins < cost) return 'coins';
   return null;
 }
@@ -69,6 +80,7 @@ export function clearObstacle(state: GameState, world: LandscapeWorld, tx: numbe
 
 export function rockRemovalBlock(state: GameState, world: LandscapeWorld, tx: number, ty: number): RockBlock | null {
   if (world.obstacleAt(tx, ty) !== 'rock') return 'no-rock';
+  if (!hasClearTool(state, 'rock')) return 'tool';
   if (state.coins < ROCK_REMOVAL_COST) return 'coins';
   return null;
 }
@@ -429,7 +441,7 @@ export function onPath(state: GameState, x: number, y: number, now: number, forS
   return undefined;
 }
 
-export type PathBlock = 'too-short' | 'blocked' | 'bed' | 'coins';
+export type PathBlock = 'too-short' | 'blocked' | 'bed' | 'tool' | 'coins';
 
 /** What a path costs: the labour by the pace, and a lot more for every tree felled and rock dug out. */
 export const PATH_BASE_COST = 30;
@@ -512,8 +524,23 @@ export function previewPath(state: GameState, points: number[], world: Landscape
     if (distToRoute(points, p.location.x, p.location.y) < half + currentRadius(p) * 0.35) res.plants.push(p);
   }
   res.cost = pathCost(routeLength(points), res.trees.length, res.rocks.length);
+  // Felling trees and breaking rocks needs the tools for it; the scrub just gets trampled.
+  if (!res.block && pathToolsNeeded(state, res).length) res.block = 'tool';
   if (!res.block && state.coins < res.cost) res.block = 'coins';
   return res;
+}
+
+/** The tools a path would need that Ellen hasn't got: a chainsaw for trees on it, a rock hammer for rocks. */
+export function pathToolsNeeded(state: Pick<GameState, 'owned'>, p: Pick<PathPreview, 'trees' | 'rocks'>): ('rockHammer' | 'chainsaw')[] {
+  const out: ('rockHammer' | 'chainsaw')[] = [];
+  if (p.trees.length && !hasClearTool(state, 'tree')) out.push('chainsaw');
+  if (p.rocks.length && !hasClearTool(state, 'rock')) out.push('rockHammer');
+  return out;
+}
+
+/** "a chainsaw", "a rock hammer", or "a chainsaw and a rock hammer". */
+export function toolList(tools: ('rockHammer' | 'chainsaw')[]): string {
+  return tools.map((t) => `a ${TOOL_NAME[t]}`).join(' and ');
 }
 
 export interface PathResult {

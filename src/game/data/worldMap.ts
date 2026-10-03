@@ -155,6 +155,37 @@ export function outdoorWaypoint(fx: number, fy: number, tx: number, ty: number, 
   return nodes[step];
 }
 
+/**
+ * Where someone on foot heads next from (fx, fy) toward (tx, ty) outdoors:
+ * round the house, and over a bridge if the creek is in the way — nobody
+ * wades across it. Picks whichever bridge makes the shorter walk.
+ */
+export function overlandWaypoint(fx: number, fy: number, tx: number, ty: number): { x: number; y: number } {
+  const side = (x: number) => (x < CREEK_WATER.x + CREEK_WATER.w / 2 ? -1 : 1);
+  const mid = (b: Rect) => b.y + b.h / 2;
+  const overWater = (x: number) => x > CREEK_WATER.x && x < CREEK_WATER.x + CREEK_WATER.w;
+  // Out on a bridge, bound for the bank: walk off its end first, rather than
+  // stepping off the side into the creek.
+  if (overWater(fx) && !overWater(tx)) {
+    const deck = BRIDGES.find((b) => fy >= b.y - 0.3 && fy <= b.y + b.h + 0.3);
+    if (deck) {
+      const end = { x: side(tx) < 0 ? deck.x - 0.8 : deck.x + deck.w + 0.8, y: Math.min(deck.y + deck.h - 0.5, Math.max(deck.y + 0.5, fy)) };
+      if (Math.abs(fx - end.x) > 0.3) return end;
+    }
+  }
+  if (side(fx) === side(tx)) return outdoorWaypoint(fx, fy, tx, ty);
+  const bridge = [...BRIDGES].sort((a, b) => Math.abs(mid(a) - fy) + Math.abs(mid(a) - ty) - (Math.abs(mid(b) - fy) + Math.abs(mid(b) - ty)))[0];
+  const by = mid(bridge);
+  // On the deck already, or lined up square at its end: straight across. Anywhere
+  // else near it, first line up, so nobody cuts the corner through the water.
+  const onDeck = fx >= bridge.x && fx <= bridge.x + bridge.w && Math.abs(fy - by) < 1.3;
+  const atEnd = fx >= bridge.x - 0.5 && fx <= bridge.x + bridge.w + 0.5 && Math.abs(fy - by) < 0.3;
+  const onBridge = onDeck || atEnd;
+  if (onBridge) return { x: side(fx) < 0 ? bridge.x + bridge.w + 0.8 : bridge.x - 0.8, y: by };
+  const entry = { x: side(fx) < 0 ? bridge.x - 0.3 : bridge.x + bridge.w + 0.3, y: by };
+  return outdoorWaypoint(fx, fy, entry.x, entry.y);
+}
+
 export function zoneAt(x: number, y: number): ZoneId {
   if (isInsideGreenhouseFootprint(x, y)) return 'greenhouse';
   if (rectContains(CREEK_BAND, x, y)) return 'creek';

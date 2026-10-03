@@ -4,7 +4,7 @@ import { DRIVE_LOOP, SCOTT_SPOTS, VISIT_KINDS, findScottSpot, type ScottSpot, ty
 import { catLift } from './cat';
 import { interiorWaypoint } from '../data/interior';
 import { spotPosition, type AnchorOffset } from '../data/catSpots';
-import { outdoorWaypoint, TRUCK_KEEPOUT, zoneAt } from '../data/worldMap';
+import { outdoorWaypoint, overlandWaypoint, TRUCK_KEEPOUT, zoneAt } from '../data/worldMap';
 import type { ZoneId } from '../types';
 
 // Ellen's husband, ambient and independent of the player: he potters
@@ -183,7 +183,7 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): ScottEvent 
   const d = Math.hypot(at.x - scott.x, at.y - scott.y);
   if (d > ARRIVE_DIST) {
     // Indoors, the living room and greenhouse are joined by one doorway.
-    const wp = scott.zone === 'greenhouse' ? interiorWaypoint(scott.x, scott.y, at.x, at.y) : outdoorWaypoint(scott.x, scott.y, at.x, at.y);
+    const wp = scott.zone === 'greenhouse' ? interiorWaypoint(scott.x, scott.y, at.x, at.y) : overlandWaypoint(scott.x, scott.y, at.x, at.y);
     stepToward(scott, wp, TRAVEL_SPEED * (scott.hurrying ? HURRY_FACTOR : 1) * ctx.dtSeconds);
     return null;
   }

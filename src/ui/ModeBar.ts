@@ -7,6 +7,7 @@ import { FURNITURE_DEFS } from '../game/data/furniture';
 import { findFurniture } from '../game/systems/furniture';
 import { occupantOf } from '../game/systems/propagation';
 import { specimenName } from '../game/data/plants';
+import { pathToolsNeeded, toolList } from '../game/systems/landscape';
 
 // The bar along the bottom of the screen while the player is using their
 // hands on the world: what's happening, in a few words, and big ✓ / ✕
@@ -84,6 +85,8 @@ export class ModeBar {
           ? 'Keep tracing…'
           : p.block === 'bed'
             ? 'Paths go around garden beds, not through them'
+            : p.block === 'tool'
+              ? `Needs ${toolList(pathToolsNeeded(state, p))} from the stall to clear the way`
             : p.block === 'coins'
               ? `Costs ${p.cost} coins — you have ${state.coins}`
               : p.block

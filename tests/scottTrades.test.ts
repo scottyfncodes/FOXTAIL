@@ -151,3 +151,32 @@ describe('Scott and his family', () => {
     expect(s.x).toBe(60);
   });
 });
+
+describe('Scott and the creek', () => {
+  it('never wades across: he walks round by a bridge, whichever side he starts on', async () => {
+    const { isWater } = await import('../src/game/data/worldMap');
+    const cases = [
+      { from: { x: 60, y: 30 }, to: findScottSpotOrThrow('woodland-woodpile') },
+      { from: { x: 29, y: 22 }, to: findScottSpotOrThrow('meadow-driving-range') },
+      { from: { x: 20, y: 45 }, to: findScottSpotOrThrow('creek-fishing') },
+    ];
+    for (const { from, to } of cases) {
+      const state = createNewGame();
+      const s = state.scott;
+      Object.assign(s, { zone: zoneAt(from.x, from.y), x: from.x, y: from.y, activity: 'traveling', targetSpotId: to.id, currentSpotId: null });
+      let guard = 0;
+      while (s.activity === 'traveling' && guard < 4000) {
+        tickScott(s, { dtSeconds: 0.05, now: 100, rand: () => 0.5 });
+        expect(isWater(Math.floor(s.x), Math.floor(s.y)), `${to.id} at ${s.x.toFixed(1)},${s.y.toFixed(1)}`).toBe(false);
+        guard++;
+      }
+      expect(s.currentSpotId).toBe(to.id);
+    }
+  });
+});
+
+function findScottSpotOrThrow(id: string) {
+  const s = findScottSpot(id);
+  if (!s) throw new Error(id);
+  return s;
+}
