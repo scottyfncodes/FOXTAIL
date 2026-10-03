@@ -38,6 +38,7 @@ import type { PlacedFurniture } from '../state';
 import {
   drawHouseExterior,
   drawGardenBed,
+  drawGardenClearing,
   drawGardenPath,
   drawPlantPreview,
   drawBedPreview,
@@ -420,16 +421,26 @@ export class Renderer {
         drawMoonInWater(this.ctx, p.x, p.y, tilePx, Math.min(1, (oct.darkness - 0.4) * 2.5), now);
       }
     }
-    // Ground the player has worked: beds first, paths over them.
+    // Ground the player has worked: paths and clearings in the order they
+    // were made, each newer one lying over what it crosses; beds on top
+    // (nothing is ever cut through a bed).
+    const worked = [...state.paths.map((p) => ({ at: p.createdAt, path: p })), ...(state.clearings ?? []).map((c) => ({ at: c.createdAt, clearing: c }))].sort((a, b) => a.at - b.at);
+    for (const w of worked) {
+      if ('clearing' in w && w.clearing) {
+        const c = w.clearing;
+        if (c.x + c.size < bounds.minX - 2 || c.x > bounds.maxX + 2 || c.y + c.size < bounds.minY - 2 || c.y > bounds.maxY + 2) continue;
+        drawGardenClearing(this.ctx, camera, c);
+      } else if ('path' in w && w.path) {
+        const path = w.path;
+        const xs = path.points.filter((_, i) => i % 2 === 0);
+        const ys = path.points.filter((_, i) => i % 2 === 1);
+        if (Math.max(...xs) < bounds.minX - 2 || Math.min(...xs) > bounds.maxX + 2 || Math.max(...ys) < bounds.minY - 2 || Math.min(...ys) > bounds.maxY + 2) continue;
+        drawGardenPath(this.ctx, camera, path, gm);
+      }
+    }
     for (const bed of state.gardenBeds) {
       if (!inView(bed.x, bed.y, bed.w + bed.h + 2)) continue;
       drawGardenBed(this.ctx, camera, bed, gm);
-    }
-    for (const path of state.paths) {
-      const xs = path.points.filter((_, i) => i % 2 === 0);
-      const ys = path.points.filter((_, i) => i % 2 === 1);
-      if (Math.max(...xs) < bounds.minX - 2 || Math.min(...xs) > bounds.maxX + 2 || Math.max(...ys) < bounds.minY - 2 || Math.min(...ys) > bounds.maxY + 2) continue;
-      drawGardenPath(this.ctx, camera, path, gm);
     }
     this.drawGreenhouseExterior(camera, state.clock.totalMinutes, state.owned.includes('weathervane'), now);
     drawHouseExterior(this.ctx, camera, state.clock.totalMinutes);

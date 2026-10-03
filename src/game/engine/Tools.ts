@@ -779,7 +779,7 @@ export class ToolController {
       }
       case 'clear': {
         const spec = this.clearingSpec();
-        const res = spec ? createClearing(state, spec, this.host.world) : null;
+        const res = spec ? createClearing(state, spec, this.host.world, now) : null;
         if (res) out = { kind: 'clearing', result: res };
         this.mode = { kind: 'play' };
         break;

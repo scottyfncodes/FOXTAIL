@@ -179,6 +179,16 @@ export interface GardenPath {
   createdAt: number;
 }
 
+/** Ground cleared back to bare earth in a square or a circle: a fresh start, drawn over whatever was worked there before. */
+export interface GardenClearing {
+  id: string;
+  x: number;
+  y: number;
+  size: number;
+  shape: 'square' | 'circle';
+  createdAt: number;
+}
+
 export type FoxFindKind = 'plant' | 'grove' | 'curiosity';
 
 /** Something the fox led the player to. It waits, hidden, until found or forgotten. */
@@ -411,6 +421,8 @@ export interface GameState {
   seededFixtures: string[];
   gardenBeds: GardenBed[];
   paths: GardenPath[];
+  /** Squares and circles cleared to bare earth, oldest first: each newer one lies over what it covers. */
+  clearings: GardenClearing[];
   /** Wild bushes, flowers and reeds cleared away by paths and beds ("x,y" tiles). */
   clearedObstacles: string[];
   foxFinds: FoxFind[];
@@ -483,6 +495,7 @@ export function createNewGame(): GameState {
     seededFixtures: [],
     gardenBeds: [],
     paths: [],
+    clearings: [],
     clearedObstacles: [],
     foxFinds: [],
     foxLog: { sightings: 0, trailsStarted: 0, trailsFollowed: 0, trailsLost: 0, finds: 0, lastTrailAt: null, hunchMisses: 0 },

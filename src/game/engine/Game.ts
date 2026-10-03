@@ -1615,6 +1615,7 @@ export class Game {
       if (r.rocks) cleared.push(`${r.rocks} rock${r.rocks === 1 ? '' : 's'}`);
       if (r.composted) cleared.push(`${r.composted} plant${r.composted === 1 ? '' : 's'}`);
       if (r.scrub) cleared.push(`${r.scrub} patch${r.scrub === 1 ? '' : 'es'} of scrub`);
+      if (r.paths) cleared.push(`the path${r.paths === 1 ? '' : 's'} through it`);
       this.pushToast(`Cleared the ground back to bare earth for ${r.cost} coins.${cleared.length ? ` Out came ${cleared.join(', ')}.` : ''}`, 'growth');
     }
     this.onStateTouched?.();

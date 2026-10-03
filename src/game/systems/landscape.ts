@@ -1,5 +1,5 @@
 import { inPond } from './koi';
-import type { GameState, GardenBed, GardenPath, OwnedPlant } from '../state';
+import type { GameState, GardenBed, GardenClearing, GardenPath, OwnedPlant } from '../state';
 import { makeUid } from '../state';
 import type { OutdoorZoneId } from '../types';
 import { PLANTS, lookFor, specimenName } from '../data/plants';
@@ -582,10 +582,10 @@ export function pathAt(state: GameState, x: number, y: number, slack = 0.2): Gar
 
 // ---------------------------------------------------------------- clearings
 
-// A clearing isn't a bed: nothing is dug and nothing is left behind. It's
-// the ground under a square or a circle taken right back to bare earth —
-// scrub, trees, rocks and whatever was growing there — for a fresh start.
-// What grows there next is up to you (and, in time, the wild).
+// A clearing isn't a bed: nothing is dug. It's the ground under a square or
+// a circle taken right back to bare earth — scrub, trees, rocks, whatever
+// was growing there, and any path or older clearing it covers — for a fresh
+// start. What grows there next is up to you (and, in time, the wild).
 
 export type ClearingShape = 'square' | 'circle';
 
@@ -609,7 +609,7 @@ export const CLEARING_MAX = 12;
 export const CLEARING_BASE_COST = 20;
 export const CLEARING_COST_PER_TILE = 3;
 
-export type ClearingBlock = 'too-small' | 'too-big' | 'empty' | 'coins';
+export type ClearingBlock = 'too-small' | 'too-big' | 'coins';
 
 export interface ClearingPreview {
   block: ClearingBlock | null;
@@ -659,27 +659,70 @@ export function previewClearing(state: GameState, spec: ClearingSpec, world: Lan
   }
   const hired = pathToolsNeeded(state, res);
   res.cost = clearingCost(spec.size, spec.shape, res.trees.length, res.rocks.length, { chainsaw: hired.includes('chainsaw'), rockHammer: hired.includes('rockHammer') });
-  if (!res.block && !res.plants.length && !res.scrub.length && !res.trees.length && !res.rocks.length) res.block = 'empty';
   if (!res.block && state.coins < res.cost) res.block = 'coins';
   return res;
 }
 
 export interface ClearingResult {
+  clearing: GardenClearing;
   composted: number;
   scrub: number;
   trees: number;
   rocks: number;
+  /** Paths it cut through (each is trimmed back to the clearing's edge). */
+  paths: number;
   cost: number;
 }
 
-/** Clears the ground under a square or circle back to bare earth, for a price. */
-export function createClearing(state: GameState, spec: ClearingSpec, world: LandscapeWorld): ClearingResult | null {
+/**
+ * Cuts a path back to the clearing's edge: the stretch inside it is gone,
+ * and whatever's left either side carries on as a path of its own (if it's
+ * still long enough to be one). Returns the pieces, or null if it never
+ * entered the clearing.
+ */
+export function trimPathByClearing(path: GardenPath, spec: ClearingSpec): GardenPath[] | null {
+  const pts = pathPairs(path.points);
+  if (!pts.some(([x, y]) => inClearing(spec, x, y))) return null;
+  const pieces: number[][] = [];
+  let run: number[] = [];
+  for (const [x, y] of pts) {
+    if (inClearing(spec, x, y)) {
+      if (run.length) pieces.push(run);
+      run = [];
+    } else run.push(x, y);
+  }
+  if (run.length) pieces.push(run);
+  return pieces
+    .filter((pp) => pp.length >= 4 && routeLength(pp) >= PATH_MIN_LENGTH / 2)
+    .map((points, i) => ({ ...path, id: i === 0 ? path.id : makeUid('path'), points }));
+}
+
+/** Clears the ground under a square or circle back to bare earth, for a price, over any path or older clearing there. */
+export function createClearing(state: GameState, spec: ClearingSpec, world: LandscapeWorld, now: number): ClearingResult | null {
   const preview = previewClearing(state, spec, world);
   if (preview.block) return null;
   for (const p of preview.plants) delete state.plants[p.id];
   state.coins -= preview.cost;
   for (const key of [...preview.scrub, ...preview.trees, ...preview.rocks]) if (!state.clearedObstacles.includes(key)) state.clearedObstacles.push(key);
-  return { composted: preview.plants.length, scrub: preview.scrub.length, trees: preview.trees.length, rocks: preview.rocks.length, cost: preview.cost };
+  let cut = 0;
+  state.paths = state.paths.flatMap((p) => {
+    const trimmed = trimPathByClearing(p, spec);
+    if (!trimmed) return [p];
+    cut++;
+    return trimmed;
+  });
+  // An older clearing this one covers completely is simply gone; one it only
+  // overlaps stays underneath, the new one drawn over it.
+  const covers = (c: GardenClearing) => {
+    const corners = c.shape === 'circle'
+      ? Array.from({ length: 12 }, (_, i) => [c.x + c.size / 2 + (Math.cos((i * Math.PI) / 6) * c.size) / 2, c.y + c.size / 2 + (Math.sin((i * Math.PI) / 6) * c.size) / 2])
+      : [[c.x, c.y], [c.x + c.size, c.y], [c.x, c.y + c.size], [c.x + c.size, c.y + c.size]];
+    return corners.every(([x, y]) => inClearing(spec, x, y, -0.01));
+  };
+  state.clearings = (state.clearings ?? []).filter((c) => !covers(c));
+  const clearing: GardenClearing = { id: makeUid('clearing'), x: spec.x, y: spec.y, size: spec.size, shape: spec.shape, createdAt: now };
+  state.clearings.push(clearing);
+  return { clearing, composted: preview.plants.length, scrub: preview.scrub.length, trees: preview.trees.length, rocks: preview.rocks.length, paths: cut, cost: preview.cost };
 }
 
 // ---------------------------------------------------------------- compost

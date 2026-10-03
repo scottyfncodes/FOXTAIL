@@ -587,16 +587,17 @@ describe('clearing ground', () => {
     expect(p.trees).toEqual(['60,30']);
     expect(p.scrub).toEqual(expect.arrayContaining(['62,30', '63,31']));
     expect(p.plants.map((x) => x.id)).toEqual(['a']);
-    const res = createClearing(state, spec, world())!;
+    const res = createClearing(state, spec, world(), 0)!;
     expect(res.trees).toBe(1);
     expect(res.composted).toBe(1);
     expect(state.plants.a).toBeUndefined();
     expect(state.plants.far).toBeDefined();
     expect(state.clearedObstacles).toEqual(expect.arrayContaining(['60,30', '62,30', '63,31']));
     expect(state.coins).toBe(1000 - res.cost);
-    // Nothing is left behind: no bed, no path.
+    // It isn't a bed: it's bare ground, kept as a clearing.
     expect(state.gardenBeds).toHaveLength(0);
-    expect(state.paths).toHaveLength(0);
+    expect(state.clearings).toHaveLength(1);
+    expect(state.clearings[0]).toMatchObject({ x: 59.5, y: 29.5, size: 4, shape: 'square' });
   });
 
   it('leaves a circle’s corners, garden beds, and the water alone', () => {
@@ -612,9 +613,27 @@ describe('clearing ground', () => {
     expect(p.plants.map((x) => x.id)).toEqual(['middle']);
   });
 
-  it('won’t clear nothing, too much, or more than you can pay for', () => {
+  it('clears fresh ground over any path or older clearing it covers', () => {
     const state = createNewGame();
-    expect(previewClearing(state, { x: 50, y: 34, size: 2, shape: 'square' }, world()).block).toBe('empty');
+    state.coins = 1000;
+    // A path straight through, east to west.
+    state.paths.push({ id: 'p', points: [44, 36, 47, 36, 50, 36, 53, 36, 56, 36, 59, 36, 62, 36], width: 0.9, createdAt: 0 });
+    // An older clearing it swallows whole, and one it only overlaps.
+    state.clearings.push({ id: 'small', x: 51, y: 35, size: 2, shape: 'circle', createdAt: 0 });
+    state.clearings.push({ id: 'big', x: 53, y: 33, size: 6, shape: 'square', createdAt: 0 });
+    const res = createClearing(state, { x: 49, y: 33, size: 6, shape: 'square' }, world(), 10)!;
+    expect(res).not.toBeNull();
+    expect(res.paths).toBe(1);
+    // The path is cut back to either edge, and carries on beyond.
+    expect(state.paths).toHaveLength(2);
+    for (const p of state.paths) for (let i = 0; i < p.points.length; i += 2) expect(p.points[i] < 49 || p.points[i] > 55).toBe(true);
+    expect(state.clearings.map((c) => c.id)).toEqual(['big', res.clearing.id]);
+    // Clearing empty ground is fine: it's still a fresh start.
+    expect(previewClearing(state, { x: 50, y: 34, size: 2, shape: 'square' }, world()).block).toBeNull();
+  });
+
+  it('won’t clear too much, or more than you can pay for', () => {
+    const state = createNewGame();
     expect(previewClearing(state, { x: 50, y: 20, size: CLEARING_MAX + 1, shape: 'square' }, world()).block).toBe('too-big');
     state.coins = 0;
     expect(previewClearing(state, { x: 59.5, y: 29.5, size: 2, shape: 'square' }, world()).block).toBe('coins');

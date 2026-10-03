@@ -1,5 +1,5 @@
 import type { Camera } from '../engine/Camera';
-import type { FoxState, GardenBed, GardenPath, GameState, OwnedPlant } from '../state';
+import type { FoxState, GardenBed, GardenClearing, GardenPath, GameState, OwnedPlant } from '../state';
 import type { Rarity } from '../types';
 import { TILE_SIZE, HOUSE_FOOTPRINT, HOUSE_DOOR, HOUSE_BACK_DOOR, zoneAt } from '../data/worldMap';
 import { isNight } from '../engine/Clock';
@@ -293,6 +293,50 @@ function pathDirt(zoneAtStart: string): [string, string] {
   return ['#7d6647', '#9a8260'];
 }
 
+/** A square or circle of fresh bare earth, raked over, a few stones turned up. */
+export function drawGardenClearing(ctx: Ctx, camera: Camera, c: GardenClearing) {
+  const tile = TILE_SIZE * camera.zoom;
+  const [dark, light] = pathDirt(zoneAt(Math.floor(c.x + c.size / 2), Math.floor(c.y + c.size / 2)));
+  const shape = (grow: number) => {
+    const tl = camera.worldToScreen((c.x - grow) * TILE_SIZE, (c.y - grow) * TILE_SIZE);
+    const s = (c.size + grow * 2) * tile;
+    ctx.beginPath();
+    if (c.shape === 'circle') ctx.ellipse(tl.x + s / 2, tl.y + s / 2, s / 2, s / 2, 0, 0, Math.PI * 2);
+    else ctx.roundRect(tl.x, tl.y, s, s, tile * 0.12);
+  };
+  ctx.save();
+  // A soft, darker lip where the turf was cut back.
+  shape(0.06);
+  ctx.fillStyle = 'rgba(30,24,12,0.22)';
+  ctx.fill();
+  shape(0);
+  ctx.fillStyle = dark;
+  ctx.fill();
+  ctx.clip();
+  // Rake lines across it, and the odd stone.
+  const tl = camera.worldToScreen(c.x * TILE_SIZE, c.y * TILE_SIZE);
+  ctx.strokeStyle = light;
+  ctx.globalAlpha = 0.45;
+  ctx.lineWidth = Math.max(1, tile * 0.04);
+  ctx.beginPath();
+  for (let k = 0.25; k < c.size; k += 0.3) {
+    ctx.moveTo(tl.x, tl.y + k * tile);
+    ctx.lineTo(tl.x + c.size * tile, tl.y + k * tile);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  const n = Math.round(c.size * c.size * 2);
+  for (let i = 0; i < n; i++) {
+    const hx = hash2(c.x * 13 + i, c.y * 7);
+    const hy = hash2(c.y * 11 + i, c.x * 5 + 1);
+    ctx.fillStyle = i % 3 ? 'rgba(60,48,30,0.35)' : 'rgba(170,160,140,0.8)';
+    ctx.beginPath();
+    ctx.ellipse(tl.x + hx * c.size * tile, tl.y + hy * c.size * tile, tile * 0.05, tile * 0.035, hx * 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 /** A trodden-earth path: soft-edged, pebbled, its verges slowly creeping back in. */
 export function drawGardenPath(ctx: Ctx, camera: Camera, path: GardenPath, now: number) {
   const pts = pathPairs(path.points);
@@ -471,7 +515,6 @@ export function drawBedPreview(ctx: Ctx, camera: Camera, spec: Pick<GardenBed, '
 const CLEARING_BLOCK_TEXT: Record<string, string> = {
   'too-small': 'Drag it bigger',
   'too-big': 'Too big to clear in one go',
-  empty: 'Nothing to clear here',
 };
 
 /** The square or circle about to be cleared, with what's coming out of it marked. */
