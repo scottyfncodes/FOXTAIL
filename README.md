@@ -67,14 +67,14 @@ grow in patches all over it.
   the rest shown as silhouettes and "???". Finding one isn't enough: it's
   recorded once you've grown it — once a plant of it roots in your care.
 - **Come home.** The greenhouse is attached to a house. The front door opens
-  into a living room — couch, TV, Ranger the cat's bed, a putting mat, doorways to
+  into a living room — couch, TV, the bed of Ranger (a fluffy orange-and-white tomcat with a long plumed tail), a putting mat, doorways to
   the rest of the house — and a doorway leads through into the greenhouse,
   whose garden door opens onto the valley. Scott is sometimes home watching
   the ball game, practising his putting, asleep on the couch or in the
   kitchen doorway kneading a loaf (it cools on the coffee table after, and
   the house smells of it); Ranger has
-  her own places, and her own ideas about your plants. In the greenhouse,
-  she and Scout can't leave each other alone: one stalks, pounces and chases,
+  his own places, and his own ideas about your plants. In the greenhouse,
+  he and Scout can't leave each other alone: one stalks, pounces and chases,
   then it's the other's turn.
 - **Arrange it yourself.** Everything indoors — beds, trays, stands, tables,
   planters, hooks, lamps, rugs — can be dragged anywhere, turned, or put
@@ -151,7 +151,7 @@ grow in patches all over it.
   up where the growth is thickest, the valley calls the place by that name
   from then on, and Scott takes to walking out there in the evening. If
   the fox ever shows you its den, it's wherever the valley has grown
-  thickest. Ranger, for her part, won't go near a carnivore.
+  thickest. Ranger, for his part, won't go near a carnivore.
 - **Follow the fox.** Sometimes it runs. Sometimes it's worth following.
   A rare plant it shows you in one of its secret patches doesn't grow back
   there: after you've picked it, it turns up now and then in a different

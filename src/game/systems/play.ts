@@ -207,7 +207,7 @@ function startChase(play: PlayState, quarry: Body, hunter: Body, ctx: PlayContex
   play.fleeTo = pickFleeTarget(quarry, hunter, ctx);
 }
 
-/** Play's over (Ellen left the room): the cat goes back to her own business, Scout to Ellen. */
+/** Play's over (Ellen left the room): the cat goes back to his own business, Scout to Ellen. */
 export function endPlay(scout: ScoutState, cat: CatState, now: number) {
   scout.behavior = 'following';
   cat.activity = 'sitting';

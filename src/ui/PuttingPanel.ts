@@ -434,7 +434,7 @@ export class PuttingPanel {
       ctx.arc(cx, cy, r * 0.72, 0, Math.PI * 2);
       ctx.fill();
     } else if (o.kind === 'cat' && o.shape === 'circle') {
-      // Curled up asleep, tail round her nose, breathing slowly.
+      // Ranger, curled up asleep, his fluffy tail round his nose, breathing slowly.
       const cx = X(o.x);
       const cy = Y(o.y);
       const r = o.r * s * (1 + Math.sin(t / 700) * 0.02);
@@ -461,12 +461,15 @@ export class PuttingPanel {
         ctx.lineTo(cx + r * 0.45 + side * r * 0.02, cy + r * 0.06);
         ctx.fill();
       }
-      ctx.strokeStyle = CAT_APPEARANCE.furDark;
-      ctx.lineWidth = r * 0.16;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.arc(cx, cy, r * 0.95, Math.PI * 0.05, Math.PI * 0.75);
-      ctx.stroke();
+      // The long plumed tail, orange to a white tip.
+      for (let i = 0; i <= 10; i++) {
+        const u = i / 10;
+        const a = Math.PI * (0.05 + u * 0.8);
+        ctx.fillStyle = u > 0.75 ? CAT_APPEARANCE.furLight : CAT_APPEARANCE.furBase;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(a) * r * 0.98, cy + Math.sin(a) * r * 0.86, r * (0.2 - u * 0.05), 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else if (o.shape === 'rect') {
       const x = X(o.x);
       const y = Y(o.y);

@@ -50,13 +50,15 @@ export const SCOTT_APPEARANCE = {
   flag: '#c8553d',
 };
 
+/** Ranger: a fluffy orange-and-white boy with a long, plumed tail. */
 export const CAT_APPEARANCE = {
-  furBase: '#d98a3d',
-  furDark: '#b5691f',
-  furLight: '#f0c98a',
-  belly: '#f5e3c3',
+  furBase: '#e08a3c', // orange back, head and tail
+  furDark: '#b8661f', // soft shading in the orange
+  furLight: '#f8f2e8', // white: chest, bib, muzzle, paws, tail tip
+  whiteShade: '#e2d7c6', // the white in shadow
+  belly: '#fbf7ef',
   eye: '#5a8a3c',
-  nose: '#c96a5a',
+  nose: '#e09a9a',
 };
 
 /**

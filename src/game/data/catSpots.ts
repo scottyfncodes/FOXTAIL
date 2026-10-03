@@ -9,7 +9,7 @@ export interface CatSpot {
   kind: CatSpotKind;
   x: number;
   y: number;
-  /** She's up on something here (the couch, a table, the TV): drawn raised, and in front of it. */
+  /** He's up on something here (the couch, a table, the TV): drawn raised, and in front of it. */
   lift?: number;
   /** Relative odds of picking this spot (default 1). Odd places are rare. */
   weight?: number;

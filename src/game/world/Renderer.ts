@@ -3796,13 +3796,16 @@ export class Renderer {
   }
 
   /**
-   * The greenhouse cat: small, orange, indoor-only, and drawn only from
-   * `renderIndoor` — she has no outdoor coordinate space to speak of.
+   * Ranger: a fluffy orange-and-white boy, indoor-only, and drawn only from
+   * `renderIndoor` — he has no outdoor coordinate space to speak of. Orange
+   * back and head, white chest, muzzle and paws, a ruff of fur round his
+   * cheeks, and a long plumed tail, white at the tip.
    */
   private drawCat(camera: Camera, cat: CatState, now: number) {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
     const screen = camera.worldToScreen(cat.x * TILE_SIZE, cat.y * TILE_SIZE);
+    const A = CAT_APPEARANCE;
 
     if (cat.activity === 'sleeping') {
       this.drawCatSleeping(screen, tile, now);
@@ -3813,56 +3816,102 @@ export class Renderer {
     const moving = cat.activity === 'wandering';
     const sitting = cat.activity === 'sitting' || cat.activity === 'hiding';
     const grooming = cat.activity === 'grooming';
+    const upright = sitting || grooming;
 
     const walkPhase = now * 0.015;
     const bob = moving ? Math.sin(walkPhase) * tile * 0.015 : 0;
     const legSwing = moving ? Math.sin(walkPhase * 2) * tile * 0.03 : 0;
-    const bodyScaleY = sitting || grooming ? 1.15 : 1;
+    const bodyScaleY = upright ? 1.15 : 1;
 
     const cx = screen.x;
     const cy = screen.y + bob;
 
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath();
-    ctx.ellipse(cx, screen.y + tile * 0.13, tile * 0.13, tile * 0.05, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, screen.y + tile * 0.13, tile * 0.15, tile * 0.055, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // tail: curled up at rest, low and out while walking
+    // The tail: long and plumed, a run of overlapping tufts thinning to a
+    // white tip. Sitting, it sweeps round in front of his paws; walking, it's
+    // carried up and out behind with a slow wave.
     const tailBaseX = cx - dir[0] * tile * 0.1;
-    const tailBaseY = cy - tile * 0.02;
-    ctx.strokeStyle = CAT_APPEARANCE.furDark;
-    ctx.lineWidth = Math.max(1, tile * 0.03);
-    ctx.beginPath();
-    ctx.moveTo(tailBaseX, tailBaseY);
-    if (sitting || grooming) {
-      ctx.quadraticCurveTo(tailBaseX - dir[0] * tile * 0.1, tailBaseY - tile * 0.14, tailBaseX + tile * 0.03, tailBaseY - tile * 0.16);
-    } else {
-      ctx.quadraticCurveTo(
-        tailBaseX - dir[0] * tile * 0.12,
-        tailBaseY - tile * 0.02 + Math.sin(now * 0.01) * tile * 0.03,
-        tailBaseX - dir[0] * tile * 0.16,
-        tailBaseY - tile * 0.08
-      );
-    }
-    ctx.stroke();
+    const tailBaseY = cy - tile * 0.01;
+    const sway = Math.sin(now * 0.004) * tile * 0.03;
+    const tailAt = (u: number): [number, number] => {
+      if (upright) {
+        // Round from behind him along the floor, the tip coming to rest by his front paws.
+        const k = dir[0] < 0 ? -1 : 1;
+        return [cx - k * tile * 0.12 + k * u * tile * 0.22, tailBaseY + tile * 0.07 + Math.sin(u * Math.PI) * tile * 0.035];
+      }
+      // Carried up in a loose question mark, the tip curling over.
+      const bx = tailBaseX - dir[0] * tile * (0.2 * u - 0.05 * u * u * u);
+      const by = tailBaseY - tile * 0.2 * Math.sin(u * Math.PI * 0.6) + (dir[0] === 0 ? -tile * 0.06 * u : 0) + sway * u * u;
+      return [bx + (dir[0] === 0 ? Math.sin(u * 3 + now * 0.004) * tile * 0.05 : 0), by];
+    };
+    const drawTail = () => {
+      const N = 11;
+      const plume = (shade: boolean) => {
+        for (let i = 0; i <= N; i++) {
+          const u = i / N;
+          const [tx, ty] = tailAt(u);
+          // Fullest partway along, like a real plume.
+          const r = tile * (0.035 + 0.018 * Math.sin(u * Math.PI * 0.85)) * (1 + 0.1 * Math.sin(i * 1.7));
+          ctx.fillStyle = shade ? 'rgba(150,80,24,0.55)' : u > 0.8 ? A.furLight : A.furBase;
+          ctx.beginPath();
+          ctx.arc(tx, ty + (shade ? r * 0.3 : 0), r * (shade ? 1.02 : 1), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      };
+      // A soft shadow along its underside first, then the plume itself.
+      plume(true);
+      plume(false);
+      // a few wisps off the plume
+      ctx.strokeStyle = A.furBase;
+      ctx.lineWidth = Math.max(0.6, tile * 0.008);
+      for (let i = 2; i < N; i += 2) {
+        const [tx, ty] = tailAt(i / N);
+        ctx.beginPath();
+        ctx.moveTo(tx, ty - tile * 0.035);
+        ctx.lineTo(tx + Math.sin(i + now * 0.003) * tile * 0.02, ty - tile * 0.065);
+        ctx.stroke();
+      }
+    };
+    // Facing away, the tail is in front of him; otherwise it's behind.
+    const tailInFront = dir[1] < 0 && !upright;
+    if (!tailInFront) drawTail();
 
-    if (!sitting && !grooming) {
+    // A fluffy blob: an ellipse with a scalloped edge of tufts.
+    const fluffy = (x: number, y: number, rx: number, ry: number, color: string, tufts: number, seed: number) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      for (let i = 0; i < tufts; i++) {
+        const a = (i / tufts) * Math.PI * 2 + seed;
+        const r = Math.min(rx, ry) * (0.32 + 0.1 * Math.sin(i * 2.3 + seed));
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * rx * 0.9, y + Math.sin(a) * ry * 0.9, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+
+    if (!upright) {
       this.drawQuadrupedLegs(cx, cy, dir, tile, {
         along: tile * 0.065,
         spread: tile * 0.05,
         top: tile * 0.0,
         paw: tile * 0.1,
-        width: tile * 0.026,
+        width: tile * 0.03,
         swing: legSwing,
-        near: CAT_APPEARANCE.furBase,
-        far: CAT_APPEARANCE.furDark,
+        near: A.furLight,
+        far: A.whiteShade,
       });
     } else {
-      // sitting upright: front legs straight down, paws together
+      // Sitting upright: white front legs straight down, paws together.
       for (const side of [-1, 1]) {
         const lx = cx + dir[0] * tile * 0.05 + side * tile * (dir[0] !== 0 ? 0.012 : 0.03);
-        ctx.strokeStyle = CAT_APPEARANCE.furLight;
-        ctx.lineWidth = Math.max(1, tile * 0.024);
+        ctx.strokeStyle = A.furLight;
+        ctx.lineWidth = Math.max(1, tile * 0.028);
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(lx, cy);
@@ -3872,96 +3921,141 @@ export class Renderer {
       }
     }
 
-    // body, orange tabby
-    ctx.fillStyle = CAT_APPEARANCE.furBase;
+    // Body: orange on top, a white chest and belly underneath, all fluff.
+    const bodyY = cy - tile * 0.02;
+    fluffy(cx, bodyY, tile * 0.11, tile * 0.08 * bodyScaleY, A.furBase, 10, 0.4);
+    ctx.fillStyle = A.furLight;
     ctx.beginPath();
-    ctx.ellipse(cx, cy - tile * 0.02, tile * 0.1, tile * 0.075 * bodyScaleY, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + dir[0] * tile * 0.03, bodyY + tile * 0.03 * bodyScaleY, tile * 0.075, tile * 0.045 * bodyScaleY, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = CAT_APPEARANCE.furDark;
-    ctx.lineWidth = Math.max(1, tile * 0.015);
-    for (let i = -1; i <= 1; i++) {
+    // a soft darker saddle along the back
+    ctx.fillStyle = 'rgba(184,102,31,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(cx - dir[0] * tile * 0.02, bodyY - tile * 0.04 * bodyScaleY, tile * 0.06, tile * 0.025, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Head, with a white bib under the chin and a ruff of cheek fur.
+    const headX = cx + dir[0] * tile * 0.1;
+    const headY = cy + dir[1] * tile * 0.06 - tile * 0.065;
+    if (dir[1] >= 0) fluffy(headX, headY + tile * 0.055, tile * 0.055, tile * 0.03, A.furLight, 7, 1.1);
+    fluffy(headX, headY, tile * 0.068, tile * 0.062, A.furBase, 9, 0.2);
+
+    // Pointed ears with tufted, pale insides.
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = A.furBase;
       ctx.beginPath();
-      ctx.moveTo(cx + i * tile * 0.025, cy - tile * 0.07 * bodyScaleY);
-      ctx.lineTo(cx + i * tile * 0.025, cy + tile * 0.01);
-      ctx.stroke();
+      ctx.moveTo(headX + side * tile * 0.055, headY - tile * 0.025);
+      ctx.lineTo(headX + side * tile * 0.075, headY - tile * 0.11);
+      ctx.lineTo(headX + side * tile * 0.012, headY - tile * 0.055);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = A.whiteShade;
+      ctx.beginPath();
+      ctx.moveTo(headX + side * tile * 0.05, headY - tile * 0.04);
+      ctx.lineTo(headX + side * tile * 0.066, headY - tile * 0.09);
+      ctx.lineTo(headX + side * tile * 0.025, headY - tile * 0.055);
+      ctx.closePath();
+      ctx.fill();
     }
 
-    // head
-    const headX = cx + dir[0] * tile * 0.1;
-    const headY = cy + dir[1] * tile * 0.06 - tile * 0.06;
-    ctx.fillStyle = CAT_APPEARANCE.furBase;
-    ctx.beginPath();
-    ctx.arc(headX, headY, tile * 0.065, 0, Math.PI * 2);
-    ctx.fill();
+    if (dir[1] >= 0 || dir[0] !== 0) {
+      // White blaze down the nose, and a white muzzle.
+      ctx.fillStyle = A.furLight;
+      ctx.beginPath();
+      ctx.moveTo(headX + dir[0] * tile * 0.012 - tile * 0.012, headY - tile * 0.05);
+      ctx.lineTo(headX + dir[0] * tile * 0.012 + tile * 0.012, headY - tile * 0.05);
+      ctx.lineTo(headX + dir[0] * tile * 0.022 + tile * 0.022, headY + tile * 0.02);
+      ctx.lineTo(headX + dir[0] * tile * 0.022 - tile * 0.022, headY + tile * 0.02);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(headX + dir[0] * tile * 0.022, headY + tile * 0.03, tile * 0.04, tile * 0.028, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = A.nose;
+      ctx.beginPath();
+      ctx.arc(headX + dir[0] * tile * 0.032, headY + tile * 0.018, tile * 0.012, 0, Math.PI * 2);
+      ctx.fill();
+      // whiskers
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = Math.max(0.5, tile * 0.005);
+      ctx.beginPath();
+      for (const side of [-1, 1]) {
+        for (const k of [-1, 1]) {
+          ctx.moveTo(headX + dir[0] * tile * 0.03 + side * tile * 0.025, headY + tile * 0.03);
+          ctx.lineTo(headX + dir[0] * tile * 0.03 + side * tile * 0.085, headY + tile * (0.03 + k * 0.012));
+        }
+      }
+      ctx.stroke();
 
-    // pointed ears
-    ctx.fillStyle = CAT_APPEARANCE.furBase;
-    ctx.beginPath();
-    ctx.moveTo(headX - tile * 0.05, headY - tile * 0.03);
-    ctx.lineTo(headX - tile * 0.07, headY - tile * 0.1);
-    ctx.lineTo(headX - tile * 0.01, headY - tile * 0.05);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(headX + tile * 0.05, headY - tile * 0.03);
-    ctx.lineTo(headX + tile * 0.07, headY - tile * 0.1);
-    ctx.lineTo(headX + tile * 0.01, headY - tile * 0.05);
-    ctx.closePath();
-    ctx.fill();
+      // eyes
+      ctx.fillStyle = A.eye;
+      ctx.beginPath();
+      ctx.arc(headX - dir[1] * tile * 0.03 + dir[0] * tile * 0.008, headY - tile * 0.008, tile * 0.013, 0, Math.PI * 2);
+      if (dir[0] === 0) ctx.arc(headX + dir[1] * tile * 0.03, headY - tile * 0.008, tile * 0.013, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-    // muzzle + nose
-    ctx.fillStyle = CAT_APPEARANCE.belly;
-    ctx.beginPath();
-    ctx.ellipse(headX + dir[0] * tile * 0.02, headY + tile * 0.03, tile * 0.035, tile * 0.025, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = CAT_APPEARANCE.nose;
-    ctx.beginPath();
-    ctx.arc(headX + dir[0] * tile * 0.03, headY + tile * 0.02, tile * 0.012, 0, Math.PI * 2);
-    ctx.fill();
-
-    // eyes
-    ctx.fillStyle = CAT_APPEARANCE.eye;
-    ctx.beginPath();
-    ctx.arc(headX - dir[1] * tile * 0.03 + dir[0] * tile * 0.005, headY - tile * 0.005, tile * 0.012, 0, Math.PI * 2);
-    ctx.arc(headX + dir[1] * tile * 0.03 + dir[0] * tile * 0.005, headY - tile * 0.005, tile * 0.012, 0, Math.PI * 2);
-    ctx.fill();
+    if (tailInFront) drawTail();
 
     if (grooming) {
-      // one paw raised to the side of her head, mid-lick
+      // one white paw raised to the side of his head, mid-lick
       const liftPhase = Math.sin(now * 0.018) * tile * 0.02;
-      ctx.fillStyle = CAT_APPEARANCE.furLight;
+      ctx.fillStyle = A.furLight;
       ctx.beginPath();
-      ctx.ellipse(headX - dir[0] * tile * 0.02, headY + tile * 0.06 + liftPhase, tile * 0.02, tile * 0.03, 0, 0, Math.PI * 2);
+      ctx.ellipse(headX - dir[0] * tile * 0.02, headY + tile * 0.06 + liftPhase, tile * 0.022, tile * 0.032, 0, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
   private drawCatSleeping(screen: { x: number; y: number }, tile: number, now: number) {
     const { ctx } = this;
+    const A = CAT_APPEARANCE;
     const breathe = Math.sin(now * 0.004) * tile * 0.01;
+    const y = screen.y + tile * 0.02 + breathe;
 
     ctx.fillStyle = 'rgba(0,0,0,0.16)';
     ctx.beginPath();
-    ctx.ellipse(screen.x, screen.y + tile * 0.06, tile * 0.14, tile * 0.06, 0, 0, Math.PI * 2);
+    ctx.ellipse(screen.x, screen.y + tile * 0.07, tile * 0.16, tile * 0.065, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // curled into a ball
-    ctx.fillStyle = CAT_APPEARANCE.furBase;
+    // Curled into a fluffy ball, orange on top, a white front tucked in.
+    ctx.fillStyle = A.furBase;
     ctx.beginPath();
-    ctx.ellipse(screen.x, screen.y + tile * 0.02 + breathe, tile * 0.11, tile * 0.09, 0, 0, Math.PI * 2);
+    ctx.ellipse(screen.x, y, tile * 0.12, tile * 0.095, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = CAT_APPEARANCE.furDark;
-    ctx.lineWidth = Math.max(1, tile * 0.015);
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(screen.x + Math.cos(a) * tile * 0.11, y + Math.sin(a) * tile * 0.085, tile * 0.03, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = A.furLight;
     ctx.beginPath();
-    ctx.arc(screen.x, screen.y + tile * 0.02 + breathe, tile * 0.09, 0.2 * Math.PI, 0.8 * Math.PI);
-    ctx.stroke();
-
-    // tail wrapped over the nose
-    ctx.strokeStyle = CAT_APPEARANCE.furDark;
-    ctx.lineWidth = Math.max(1, tile * 0.025);
+    ctx.ellipse(screen.x + tile * 0.04, y + tile * 0.035, tile * 0.065, tile * 0.04, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // His head, tucked down, ears just showing.
+    ctx.fillStyle = A.furBase;
     ctx.beginPath();
-    ctx.arc(screen.x, screen.y + tile * 0.02 + breathe, tile * 0.1, -0.3 * Math.PI, 0.15 * Math.PI);
-    ctx.stroke();
+    ctx.arc(screen.x + tile * 0.07, y - tile * 0.01, tile * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+    for (const ex of [0.045, 0.1]) {
+      ctx.beginPath();
+      ctx.moveTo(screen.x + tile * (ex - 0.02), y - tile * 0.04);
+      ctx.lineTo(screen.x + tile * ex, y - tile * 0.095);
+      ctx.lineTo(screen.x + tile * (ex + 0.025), y - tile * 0.045);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // The long plumed tail wrapped round over his nose, white at the tip.
+    for (let i = 0; i <= 12; i++) {
+      const u = i / 12;
+      const a = Math.PI * (0.95 - u * 1.25);
+      const r = tile * (0.04 - u * 0.01);
+      ctx.fillStyle = u > 0.8 ? A.furLight : A.furBase;
+      ctx.beginPath();
+      ctx.arc(screen.x + Math.cos(a) * tile * 0.12, y + Math.sin(a) * tile * 0.095 + tile * 0.01, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.fillStyle = 'rgba(240,236,216,0.7)';
     ctx.font = `${Math.round(tile * 0.1)}px Georgia`;
