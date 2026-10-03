@@ -142,6 +142,7 @@ export const PLANTS: Record<string, PlantDef> = {
     ],
     growthRate: 1.15,
     spread: 0.7,
+    vine: true,
   },
 
   monstera: {
@@ -163,6 +164,7 @@ export const PLANTS: Record<string, PlantDef> = {
     ],
     growthRate: 0.85,
     spread: 0.45,
+    vine: true,
   },
 
   swissCheeseVine: {
@@ -185,6 +187,7 @@ export const PLANTS: Record<string, PlantDef> = {
     ],
     growthRate: 1.2,
     spread: 0.7,
+    vine: true,
   },
 
   dieffenbachia: {
@@ -357,6 +360,7 @@ export const PLANTS: Record<string, PlantDef> = {
     ],
     growthRate: 1.15,
     spread: 0.75,
+    vine: true,
   },
 
   peperomia: {
@@ -1022,6 +1026,7 @@ export const PLANTS: Record<string, PlantDef> = {
     growthRate: 0.75,
     spread: 0.35,
     appearsWhen: 'rain',
+    vine: true,
   },
 
   // ---------------------------------------------------------------- Ground layer, clumps and climbers

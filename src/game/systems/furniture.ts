@@ -7,6 +7,7 @@ import { nextRot, normalRot, swapsFootprint } from '../data/turn';
 import { spotPosition, type AnchorShift } from '../data/catSpots';
 import { INTERIOR_H, INTERIOR_W, LIVING_FIXTURES, PARTITION_X, PUTTING_CUP_OFFSET, isKeepClearTile, type InteriorRect, type LivingFixture } from '../data/interior';
 import { occupantOf } from './propagation';
+import { PLANTS } from '../data/plants';
 
 // Indoor furniture: everything that stands, hangs or lies in the house and
 // greenhouse, placed freely (any fraction of a tile) and moved whenever the
@@ -244,9 +245,15 @@ export function pickUpFurniture(state: GameState, id: string): boolean {
   return true;
 }
 
-/** Vines and trailers climb a trellis; anything else just sits in its pot at the foot. */
-export function climbsTrellis(form: string): boolean {
+/** Forms that already hang in long strands: on a trellis their hanging form is turned to grow upward. */
+export function trailsUpTrellis(form: string): boolean {
   return form === 'trailing' || form === 'beads' || form === 'climber';
+}
+
+/** Every vine and trailer climbs a trellis — heart-leaved, split-leaved or pitcher-hung alike; anything else just sits in its pot at the foot. */
+export function climbsTrellis(defId: string): boolean {
+  const def = PLANTS[defId];
+  return !!def && (trailsUpTrellis(def.form) || !!def.vine);
 }
 
 /** Centres of every grow lamp, for growth. */
