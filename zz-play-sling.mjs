@@ -22,8 +22,10 @@ const st = () => page.evaluate(() => { const p = window.__foxtail.miniGames.slin
 function solve(round, up, t) {
   let best = null;
   up.forEach((u, i) => { if (!u) return;
-    for (let p = 0.6; p <= 1; p += 0.1) { const sols = []; for (let a = -6; a <= 35; a += 0.5) { const r = S.simulateShot(round, up.slice(), t, a * DEG, p); if (r.hits.includes(i)) sols.push(a); }
-      if (sols.length && (!best || sols.length > best.n)) best = { n: sols.length, a: sols.reduce((x, y) => x + y, 0) / sols.length, p }; }
+    for (let p = 0.5; p <= 1; p += 0.1) { let run = [], cur = [];
+      for (let a = -6; a <= 40; a += 0.5) { const r = S.simulateShot(round, up.slice(), t, a * DEG, p); if (r.hits.includes(i)) cur.push(a); else { if (cur.length > run.length) run = cur; cur = []; } }
+      if (cur.length > run.length) run = cur;
+      if (run.length && (!best || run.length > best.n)) best = { n: run.length, a: run[Math.floor(run.length / 2)], p }; }
   });
   return best ?? { a: 10, p: 0.8 };
 }

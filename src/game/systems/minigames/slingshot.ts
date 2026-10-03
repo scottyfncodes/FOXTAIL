@@ -65,12 +65,12 @@ const swing = (x: number, y: number, len: number, amp: number, period: number, p
 
 /** Four arrangements: a few on posts, then smaller and further, then moving, then all sorts. */
 export const ROUNDS: Round[] = [
-  { name: 'Three on posts', targets: [disc(2.9, 1.1), disc(4.0, 1.45), disc(5.1, 1.0)], cones: 5 },
-  { name: 'Smaller and further', targets: [disc(3.4, 1.6), small(4.3, 1.0), windmill(5.0, 1.9), small(5.8, 1.3)], cones: 6 },
-  { name: 'On the move', targets: [disc(3.0, 1.3), duck(4.3, 0.95, 0.75, 4.2), swing(5.5, 3.3, 1.7, 0.42, 3.0)], cones: 5 },
+  { name: 'Three on posts', targets: [disc(2.9, 1.0), disc(4.0, 1.3), disc(5.1, 1.65)], cones: 5 },
+  { name: 'Smaller and further', targets: [disc(3.3, 1.05), small(4.2, 1.75), windmill(5.0, 1.25), small(5.8, 1.95)], cones: 6 },
+  { name: 'On the move', targets: [disc(3.0, 0.75), duck(4.3, 0.95, 0.75, 4.2), swing(5.5, 3.3, 1.7, 0.42, 3.0)], cones: 5 },
   {
     name: 'All sorts',
-    targets: [small(3.1, 1.15), duck(4.1, 0.85, 0.65, 3.4, 0.3), small(4.6, 2.1), swing(5.3, 3.3, 1.75, 0.5, 2.7, 0.5), windmill(6.0, 1.6)],
+    targets: [small(2.8, 0.7), duck(4.1, 0.85, 0.65, 3.4, 0.3), small(5.5, 1.0), swing(5.0, 3.3, 1.75, 0.5, 2.7, 0.5), windmill(6.0, 2.2)],
     cones: 7,
   },
 ];
@@ -90,6 +90,9 @@ export function targetPos(d: TargetDef, t: number): { x: number; y: number; angl
   return { x: d.x, y: d.y, angle: 0 };
 }
 
+/** How far the duck's rail runs past the ends of its slide. */
+export const RAIL_END = 0.28;
+
 export interface Rect {
   x0: number;
   y0: number;
@@ -106,7 +109,7 @@ export function solids(round: Round): Rect[] {
     } else if (d.kind === 'duck' && d.slide) {
       // The rail the duck rides on, on two short legs.
       const top = d.y - d.r * 0.85;
-      out.push({ x0: d.x - d.slide.dx - 0.35, y0: top - 0.05, x1: d.x + d.slide.dx + 0.35, y1: top });
+      out.push({ x0: d.x - d.slide.dx - RAIL_END, y0: top - 0.05, x1: d.x + d.slide.dx + RAIL_END, y1: top });
     }
   }
   return out;

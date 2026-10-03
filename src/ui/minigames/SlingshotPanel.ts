@@ -5,6 +5,7 @@ import type { CanvasPoint } from '../CanvasGamePanel';
 import {
   CONE_R,
   POUCH,
+  RAIL_END,
   ROUNDS,
   STEP,
   aimGuide,
@@ -508,8 +509,8 @@ export class SlingshotPanel extends MiniGamePanel {
     } else if (d.kind === 'duck' && d.slide) {
       // The rail, on two short legs, and the plywood duck riding it.
       const top = d.y - d.r * 0.85;
-      const x0 = this.X(d.x - d.slide.dx - 0.35);
-      const x1 = this.X(d.x + d.slide.dx + 0.35);
+      const x0 = this.X(d.x - d.slide.dx - RAIL_END);
+      const x1 = this.X(d.x + d.slide.dx + RAIL_END);
       ctx.fillStyle = WOOD_DARK;
       ctx.fillRect(x0, this.Y(top), x1 - x0, 0.05 * s);
       for (const lx of [x0 + 4, x1 - 8]) ctx.fillRect(lx, this.Y(top), 4, top * s);
