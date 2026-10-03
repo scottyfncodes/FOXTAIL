@@ -2,7 +2,7 @@ import { Camera } from '../engine/Camera';
 import type { GameState, ScoutState, ScottState, CatState, Facing, OwnedPlant, PlacedDecor } from '../state';
 import type { Obstacle } from './Obstacles';
 import type { DiscoverySpot, ZoneId } from '../types';
-import { TILE_SIZE, GRID_W, GREENHOUSE_FOOTPRINT, zoneAt, isWater, type Rect } from '../data/worldMap';
+import { TILE_SIZE, GRID_W, GREENHOUSE_FOOTPRINT, GREENHOUSE_DOOR, zoneAt, isWater, type Rect } from '../data/worldMap';
 import { ZONES } from '../data/zones';
 import { GREENHOUSE_GRID_W, GREENHOUSE_GRID_H, GREENHOUSE_EXIT, NURSERY_BEDS, STORAGE_CRATES, type DisplaySlot } from '../data/stations';
 import { displaySlots, climbsTrellis } from '../systems/furniture';
@@ -51,7 +51,7 @@ import { catLift } from '../systems/cat';
 import { foxFade } from '../systems/fox';
 import { isCouchNap, isCouchSpot } from '../data/scottSpots';
 import { PATH_WIDTH, bedCost } from '../systems/landscape';
-import { dipAmount, smiling, DIP_END, scottTruck, type ChaseReaction } from '../systems/scott';
+import { dipAmount, smiling, DIP_END, type ChaseReaction } from '../systems/scott';
 import { FIREFLY_AREAS, fireflies, fireflyStrength, pondFrogs, pondPads, pondTurtleAt, pondTurtleCount, riverFrogs, riverTurtles, TURTLE_STONES } from '../systems/wildlife';
 import { drawBaskingStone, drawFrog, drawTurtle } from './WildlifeArt';
 
@@ -440,15 +440,11 @@ export class Renderer {
         drawables.push({ y: state.player.y, draw: () => this.atScale(camera, state.player.x, state.player.y, CHARACTER_SCALE.ellen, () => this.drawEllen(camera, state.player.x, state.player.y, state.player.facing, now, moving, crouching)) });
       }
     }
-    // Scott's own truck: parked by the house, or out on the road with him in it.
-    const st = scottTruck(state.scott);
-    if (inView(st.x, st.y, 3)) {
-      const driving = state.scott.activity === 'driving';
-      drawables.push({ y: st.y + 0.05, draw: () => this.drawTruck(camera, { ...st, bed: [] }, now, driving, driving, 'scott') });
-    }
+    // The truck, parked — or out on the road with Scott at the wheel.
     if (state.truck && !state.player.riding && inView(state.truck.x, state.truck.y, 3)) {
       const t = state.truck;
-      drawables.push({ y: t.y + 0.05, draw: () => this.drawTruck(camera, t, now, false, false) });
+      const scottAtWheel = state.scott.activity === 'driving';
+      drawables.push({ y: t.y + 0.05, draw: () => this.drawTruck(camera, t, now, scottAtWheel, scottAtWheel, scottAtWheel ? 'scott' : 'ellen') });
     }
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
@@ -660,42 +656,386 @@ export class Renderer {
     }
   }
 
+  /**
+   * The greenhouse from outside, in the same three-quarter view as the
+   * house beside it: a pitched glass roof with a crested ridge and a couple
+   * of vents propped open, a glazed front wall on a brick footing, and the
+   * plants inside showing through the glass. White-painted glazing bars, a
+   * gutter and downpipe into a rain barrel, a potting bench by the door.
+   * After dark the whole thing glows from inside.
+   */
   private drawGreenhouseExterior(camera: Camera, gameMinutes: number, weathervane = false, now = 0) {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
-    const topLeft = camera.worldToScreen(GREENHOUSE_FOOTPRINT.x * TILE_SIZE, GREENHOUSE_FOOTPRINT.y * TILE_SIZE);
-    const w = GREENHOUSE_FOOTPRINT.w * tile;
-    const h = GREENHOUSE_FOOTPRINT.h * tile;
-    const grad = ctx.createLinearGradient(topLeft.x, topLeft.y, topLeft.x, topLeft.y + h);
+    const f = GREENHOUSE_FOOTPRINT;
+    const tl = camera.worldToScreen(f.x * TILE_SIZE, f.y * TILE_SIZE);
+    const w = f.w * tile;
+    const h = f.h * tile;
     const night = isNight(gameMinutes);
-    grad.addColorStop(0, night ? '#8fae9e' : '#bcd8c8');
-    grad.addColorStop(1, night ? '#3c5a4d' : '#6f8f7c');
-    ctx.fillStyle = grad;
-    ctx.fillRect(topLeft.x, topLeft.y, w, h);
-    ctx.strokeStyle = '#2c3d33';
-    ctx.lineWidth = Math.max(1, tile * 0.06);
-    ctx.strokeRect(topLeft.x, topLeft.y, w, h);
-    // Pane lines
-    ctx.strokeStyle = 'rgba(40,60,50,0.4)';
-    ctx.lineWidth = 1;
-    for (let i = 1; i < GREENHOUSE_FOOTPRINT.w; i++) {
+    const ridgeY = tl.y + h * 0.2;
+    const wallTop = tl.y + h * 0.58;
+    const footTop = tl.y + h - tile * 0.42;
+    const bottom = tl.y + h;
+    const FRAME = '#eef0e6';
+    const FRAME_SHADE = '#c9cec0';
+    const hashN = (n: number) => {
+      const v = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+      return v - Math.floor(v);
+    };
+
+    // Shadow on the grass.
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(tl.x + tile * 0.15, bottom - tile * 0.05, w, tile * 0.22);
+
+    // ---------------------------------------------------------------- roof
+    // Back slope (above the ridge, catching less light) and front slope.
+    const back = ctx.createLinearGradient(0, tl.y, 0, ridgeY);
+    back.addColorStop(0, night ? '#4f6a60' : '#9fbdb2');
+    back.addColorStop(1, night ? '#6e8a7c' : '#c4ddd2');
+    ctx.fillStyle = back;
+    ctx.fillRect(tl.x, tl.y, w, ridgeY - tl.y);
+    const front = ctx.createLinearGradient(0, ridgeY, 0, wallTop);
+    front.addColorStop(0, night ? '#8aa898' : '#d6eae0');
+    front.addColorStop(1, night ? '#5c7a6c' : '#a9c8bb');
+    ctx.fillStyle = front;
+    ctx.fillRect(tl.x, ridgeY, w, wallTop - ridgeY);
+    // Benches and leaves seen down through the roof glass, softened by it.
+    for (let i = 0; i < f.w * 3; i++) {
+      const lx = tl.x + (i + 0.5) * (w / (f.w * 3)) + (hashN(i) - 0.5) * tile * 0.2;
+      const ly = ridgeY + (wallTop - ridgeY) * (0.35 + hashN(i + 50) * 0.5);
+      ctx.fillStyle = `rgba(${60 + Math.round(hashN(i + 9) * 30)},${110 + Math.round(hashN(i + 3) * 40)},70,${night ? 0.28 : 0.22})`;
       ctx.beginPath();
-      ctx.moveTo(topLeft.x + i * tile, topLeft.y);
-      ctx.lineTo(topLeft.x + i * tile, topLeft.y + h);
+      ctx.ellipse(lx, ly, tile * (0.18 + hashN(i + 7) * 0.16), tile * (0.12 + hashN(i + 8) * 0.08), hashN(i + 2) * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Glazing bars, one to every tile, on both slopes.
+    ctx.strokeStyle = FRAME_SHADE;
+    ctx.lineWidth = Math.max(1, tile * 0.035);
+    ctx.beginPath();
+    for (let i = 1; i < f.w; i++) {
+      const x = tl.x + i * tile;
+      ctx.moveTo(x, tl.y);
+      ctx.lineTo(x, wallTop);
+    }
+    ctx.stroke();
+    // Two vents propped open on the front slope — wider on a warm afternoon.
+    const mod = gameMinutes % 1440;
+    const open = night ? 0.25 : mod > 11 * 60 && mod < 17 * 60 ? 1 : 0.6;
+    for (const col of [2, f.w - 3]) {
+      const vx = tl.x + col * tile + tile * 0.06;
+      const vw = tile * 0.88;
+      const vy = ridgeY + tile * 0.08;
+      const lift = tile * 0.22 * open;
+      ctx.fillStyle = 'rgba(30,50,42,0.45)';
+      ctx.fillRect(vx, vy, vw, tile * 0.55);
+      ctx.fillStyle = night ? 'rgba(170,200,186,0.85)' : 'rgba(225,240,232,0.92)';
+      ctx.beginPath();
+      ctx.moveTo(vx, vy);
+      ctx.lineTo(vx + vw, vy);
+      ctx.lineTo(vx + vw, vy + tile * 0.55 - lift);
+      ctx.lineTo(vx, vy + tile * 0.55 - lift);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = FRAME;
+      ctx.lineWidth = Math.max(1, tile * 0.03);
+      ctx.stroke();
+      // the stay holding it open
+      ctx.strokeStyle = '#6b6b62';
+      ctx.lineWidth = Math.max(1, tile * 0.015);
+      ctx.beginPath();
+      ctx.moveTo(vx + vw * 0.5, vy + tile * 0.55);
+      ctx.lineTo(vx + vw * 0.5, vy + tile * 0.55 - lift);
       ctx.stroke();
     }
-    // Warm interior glow
-    ctx.fillStyle = night ? 'rgba(255,200,120,0.18)' : 'rgba(255,220,150,0.08)';
-    ctx.fillRect(topLeft.x + tile, topLeft.y + tile, w - tile * 2, h - tile * 2);
-    if (weathervane) this.drawWeathervane(topLeft.x + w * 0.28, topLeft.y + tile * 1.25, tile, now);
-    // Doors: the garden door at the front, a back door and a side door,
-    // each a timber frame straddling the glass wall it opens through.
-    ctx.fillStyle = '#4a3623';
+    // Ridge cap, with a little iron cresting and a finial at each end.
+    ctx.fillStyle = FRAME;
+    ctx.fillRect(tl.x - tile * 0.04, ridgeY - tile * 0.05, w + tile * 0.08, tile * 0.1);
+    ctx.strokeStyle = '#3a4a42';
+    ctx.lineWidth = Math.max(1, tile * 0.02);
+    ctx.beginPath();
+    for (let x = tl.x + tile * 0.25; x < tl.x + w - tile * 0.1; x += tile * 0.25) {
+      ctx.moveTo(x, ridgeY - tile * 0.05);
+      ctx.lineTo(x, ridgeY - tile * 0.18);
+    }
+    ctx.moveTo(tl.x + tile * 0.25, ridgeY - tile * 0.14);
+    ctx.lineTo(tl.x + w - tile * 0.25, ridgeY - tile * 0.14);
+    ctx.stroke();
+    ctx.fillStyle = '#3a4a42';
+    for (const x of [tl.x + tile * 0.02, tl.x + w - tile * 0.02]) {
+      ctx.fillRect(x - tile * 0.025, ridgeY - tile * 0.32, tile * 0.05, tile * 0.3);
+      ctx.beginPath();
+      ctx.arc(x, ridgeY - tile * 0.34, tile * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Eaves and gutter where the roof meets the wall, with a downpipe at the left corner.
+    ctx.fillStyle = FRAME;
+    ctx.fillRect(tl.x - tile * 0.08, wallTop - tile * 0.04, w + tile * 0.16, tile * 0.09);
+    ctx.fillStyle = '#3d5248';
+    ctx.fillRect(tl.x - tile * 0.1, wallTop + tile * 0.04, w + tile * 0.2, tile * 0.07);
+
+    // ---------------------------------------------------------------- front wall
+    const glassH = footTop - wallTop - tile * 0.1;
+    const gy = wallTop + tile * 0.1;
+    const wallGrad = ctx.createLinearGradient(0, gy, 0, footTop);
+    wallGrad.addColorStop(0, night ? '#6a8a7a' : '#b9d6c8');
+    wallGrad.addColorStop(1, night ? '#3e5a4c' : '#86a898');
+    ctx.fillStyle = wallGrad;
+    ctx.fillRect(tl.x, gy, w, glassH);
+    // Through the glass: shelves of pots, leaves pressing at the panes, a hanging basket or two.
+    ctx.fillStyle = 'rgba(70,52,36,0.45)';
+    ctx.fillRect(tl.x + tile * 0.1, gy + glassH * 0.62, w - tile * 0.2, tile * 0.06);
+    for (let i = 0; i < f.w * 2; i++) {
+      if (Math.abs(tl.x + (i + 0.5) * tile * 0.5 - (tl.x + (GREENHOUSE_DOOR.x - f.x + 0.5) * tile)) < tile * 0.6) continue;
+      const px = tl.x + (i + 0.5) * tile * 0.5;
+      const py = gy + glassH * 0.62;
+      ctx.fillStyle = 'rgba(180,99,63,0.55)';
+      ctx.fillRect(px - tile * 0.07, py - tile * 0.12, tile * 0.14, tile * 0.12);
+      const hue = 95 + hashN(i + 20) * 50;
+      ctx.fillStyle = `hsla(${hue},40%,${34 + hashN(i + 21) * 14}%,0.7)`;
+      const leaves = 3 + Math.floor(hashN(i + 22) * 3);
+      for (let k = 0; k < leaves; k++) {
+        const a = -Math.PI / 2 + (k - (leaves - 1) / 2) * 0.55;
+        const r = tile * (0.12 + hashN(i * 7 + k) * 0.12);
+        ctx.beginPath();
+        ctx.ellipse(px + Math.cos(a) * r, py - tile * 0.14 + Math.sin(a) * r, tile * 0.07, tile * 0.035, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (i % 5 === 2) {
+        // a trailing plant hung from the roof
+        ctx.strokeStyle = 'rgba(60,50,40,0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px, gy);
+        ctx.lineTo(px, gy + glassH * 0.18);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(70,120,60,0.65)';
+        for (let k = 0; k < 4; k++) {
+          ctx.beginPath();
+          ctx.arc(px + (k - 1.5) * tile * 0.05, gy + glassH * (0.22 + (k % 2) * 0.08) + k * tile * 0.03, tile * 0.04, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    // Warm light inside after dark.
+    if (night) {
+      const g = ctx.createLinearGradient(0, gy, 0, footTop);
+      g.addColorStop(0, 'rgba(255,205,130,0.32)');
+      g.addColorStop(1, 'rgba(255,190,110,0.16)');
+      ctx.fillStyle = g;
+      ctx.fillRect(tl.x, gy, w, glassH);
+      ctx.fillStyle = 'rgba(255,214,140,0.1)';
+      ctx.fillRect(tl.x, ridgeY, w, wallTop - ridgeY);
+    } else {
+      // A little condensation misting the bottom of each pane.
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(tl.x, footTop - glassH * 0.22, w, glassH * 0.22);
+    }
+    // Glazing bars and a transom across the wall.
+    ctx.strokeStyle = FRAME;
+    ctx.lineWidth = Math.max(1, tile * 0.05);
+    ctx.beginPath();
+    for (let i = 0; i <= f.w; i++) {
+      const x = tl.x + i * tile;
+      ctx.moveTo(x, gy);
+      ctx.lineTo(x, footTop);
+    }
+    ctx.moveTo(tl.x, gy + glassH * 0.3);
+    ctx.lineTo(tl.x + w, gy + glassH * 0.3);
+    ctx.stroke();
+
+    // Reflections: a couple of long diagonal glints across the glass.
+    if (!night) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(tl.x, tl.y, w, footTop - tl.y);
+      ctx.clip();
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      for (const [x0, ww] of [
+        [0.12, 0.5],
+        [0.45, 0.25],
+        [0.7, 0.4],
+      ] as const) {
+        const x = tl.x + w * x0;
+        ctx.beginPath();
+        ctx.moveTo(x, tl.y);
+        ctx.lineTo(x + tile * ww, tl.y);
+        ctx.lineTo(x + tile * ww - h * 0.45, footTop);
+        ctx.lineTo(x - h * 0.45, footTop);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Brick footing, with a little moss along its foot.
+    ctx.fillStyle = '#9a5c44';
+    ctx.fillRect(tl.x, footTop, w, bottom - footTop);
+    ctx.strokeStyle = 'rgba(232,214,190,0.5)';
+    ctx.lineWidth = 1;
+    const course = (bottom - footTop) / 3;
+    ctx.beginPath();
+    for (let r = 1; r < 3; r++) {
+      ctx.moveTo(tl.x, footTop + r * course);
+      ctx.lineTo(tl.x + w, footTop + r * course);
+    }
+    for (let r = 0; r < 3; r++) {
+      for (let x = tl.x + (r % 2 ? tile * 0.2 : 0); x < tl.x + w; x += tile * 0.4) {
+        ctx.moveTo(x, footTop + r * course);
+        ctx.lineTo(x, footTop + (r + 1) * course);
+      }
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#7e8a52';
+    for (let i = 0; i < f.w * 3; i++) {
+      ctx.beginPath();
+      ctx.arc(tl.x + (i + hashN(i + 70)) * (w / (f.w * 3)), bottom - tile * 0.02, tile * (0.04 + hashN(i + 71) * 0.05), Math.PI, 0);
+      ctx.fill();
+    }
+    // The frame round the outside.
+    ctx.strokeStyle = FRAME;
+    ctx.lineWidth = Math.max(1, tile * 0.06);
+    ctx.strokeRect(tl.x, tl.y, w, footTop - tl.y);
+    ctx.strokeStyle = 'rgba(30,44,38,0.6)';
+    ctx.lineWidth = Math.max(1, tile * 0.02);
+    ctx.strokeRect(tl.x - tile * 0.03, tl.y - tile * 0.03, w + tile * 0.06, h + tile * 0.06);
+
+    // Downpipe into a rain barrel at the front-left corner.
+    ctx.fillStyle = '#3d5248';
+    ctx.fillRect(tl.x + tile * 0.12, wallTop + tile * 0.08, tile * 0.07, bottom - wallTop - tile * 0.4);
+    const bx = tl.x + tile * 0.16;
+    const by = bottom + tile * 0.02;
+    ctx.fillStyle = '#6b4a2e';
+    ctx.beginPath();
+    ctx.ellipse(bx, by - tile * 0.18, tile * 0.2, tile * 0.07, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(bx - tile * 0.2, by - tile * 0.5, tile * 0.4, tile * 0.32);
+    ctx.fillStyle = '#7d5a38';
+    ctx.beginPath();
+    ctx.ellipse(bx, by - tile * 0.5, tile * 0.2, tile * 0.07, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = night ? '#24343a' : '#4e7e86';
+    ctx.beginPath();
+    ctx.ellipse(bx, by - tile * 0.49, tile * 0.16, tile * 0.05, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#3a3026';
+    ctx.lineWidth = Math.max(1, tile * 0.025);
+    for (const yy of [by - tile * 0.42, by - tile * 0.26]) {
+      ctx.beginPath();
+      ctx.moveTo(bx - tile * 0.2, yy);
+      ctx.lineTo(bx + tile * 0.2, yy);
+      ctx.stroke();
+    }
+
+    // A potting bench against the footing, left of the garden door: pots, a trowel, a watering can.
+    const door = camera.worldToScreen(GREENHOUSE_DOOR.x * TILE_SIZE, GREENHOUSE_DOOR.y * TILE_SIZE);
+    const benchX = door.x - tile * 2.3;
+    const benchY = bottom - tile * 0.04;
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(benchX + tile * 0.05, benchY + tile * 0.02, tile * 1.4, tile * 0.1);
+    ctx.fillStyle = '#6b4a2e';
+    ctx.fillRect(benchX + tile * 0.06, benchY - tile * 0.32, tile * 0.06, tile * 0.32);
+    ctx.fillRect(benchX + tile * 1.28, benchY - tile * 0.32, tile * 0.06, tile * 0.32);
+    ctx.fillStyle = '#8f6540';
+    ctx.fillRect(benchX, benchY - tile * 0.38, tile * 1.4, tile * 0.08);
+    for (let i = 0; i < 3; i++) {
+      const px = benchX + tile * (0.22 + i * 0.3);
+      ctx.fillStyle = '#b4633f';
+      ctx.beginPath();
+      ctx.moveTo(px - tile * 0.09, benchY - tile * 0.56);
+      ctx.lineTo(px + tile * 0.09, benchY - tile * 0.56);
+      ctx.lineTo(px + tile * 0.06, benchY - tile * 0.38);
+      ctx.lineTo(px - tile * 0.06, benchY - tile * 0.38);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#c97a52';
+      ctx.fillRect(px - tile * 0.1, benchY - tile * 0.58, tile * 0.2, tile * 0.04);
+      if (i !== 1) {
+        ctx.fillStyle = i ? '#5a9a4a' : '#4f8a44';
+        for (let k = 0; k < 3; k++) {
+          ctx.beginPath();
+          ctx.ellipse(px + (k - 1) * tile * 0.06, benchY - tile * 0.66 - (k % 2) * tile * 0.04, tile * 0.06, tile * 0.035, (k - 1) * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    // a stack of empty pots under the bench
+    ctx.fillStyle = '#a65a38';
+    for (let k = 0; k < 3; k++) ctx.fillRect(benchX + tile * 0.5, benchY - tile * (0.1 + k * 0.06), tile * 0.22, tile * 0.07);
+    // the watering can by the door
+    const cx = door.x - tile * 0.45;
+    ctx.fillStyle = '#6f8a8e';
+    ctx.fillRect(cx - tile * 0.12, benchY - tile * 0.24, tile * 0.24, tile * 0.22);
+    ctx.strokeStyle = '#6f8a8e';
+    ctx.lineWidth = Math.max(1, tile * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(cx + tile * 0.1, benchY - tile * 0.16);
+    ctx.lineTo(cx + tile * 0.26, benchY - tile * 0.32);
+    ctx.moveTo(cx - tile * 0.06, benchY - tile * 0.24);
+    ctx.quadraticCurveTo(cx, benchY - tile * 0.36, cx + tile * 0.06, benchY - tile * 0.24);
+    ctx.stroke();
+
+    // A climbing rose up the right-hand corner post, flowering by day.
+    for (let k = 0; k < 9; k++) {
+      const yy = bottom - tile * 0.1 - k * (bottom - wallTop) / 9;
+      const xx = tl.x + w - tile * 0.12 + Math.sin(k * 1.3) * tile * 0.1;
+      ctx.fillStyle = k % 2 ? '#3f6e3a' : '#4f8044';
+      ctx.beginPath();
+      ctx.ellipse(xx, yy, tile * 0.09, tile * 0.06, k, 0, Math.PI * 2);
+      ctx.fill();
+      if (k % 3 === 1) {
+        ctx.fillStyle = night ? '#a8667a' : '#e48aa0';
+        ctx.beginPath();
+        ctx.arc(xx + tile * 0.04, yy - tile * 0.02, tile * 0.045, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if (weathervane) this.drawWeathervane(tl.x + w * 0.28, ridgeY - tile * 0.05, tile, now);
+
+    // Doors: the garden door in the front wall, a back door through the
+    // north glass and a side door in the west, each glazed in a timber frame.
     for (const d of GREENHOUSE_DOORS) {
       const s = camera.worldToScreen(d.outside.x * TILE_SIZE, d.outside.y * TILE_SIZE);
-      if (d.wall === 'south') ctx.fillRect(s.x, s.y - tile * 0.3, tile, tile * 0.5);
-      else if (d.wall === 'north') ctx.fillRect(s.x, s.y + tile * 0.8, tile, tile * 0.5);
-      else ctx.fillRect(s.x + tile * 0.8, s.y, tile * 0.5, tile);
+      if (d.wall === 'south') {
+        const dx = s.x + tile * 0.1;
+        const dw = tile * 0.8;
+        const dTop = gy + tile * 0.05;
+        ctx.fillStyle = '#4a3623';
+        ctx.fillRect(dx - tile * 0.06, dTop - tile * 0.06, dw + tile * 0.12, bottom - dTop + tile * 0.06);
+        ctx.fillStyle = night ? 'rgba(255,205,130,0.75)' : 'rgba(190,220,206,0.9)';
+        ctx.fillRect(dx, dTop, dw, (bottom - dTop) * 0.6);
+        ctx.strokeStyle = '#4a3623';
+        ctx.lineWidth = Math.max(1, tile * 0.04);
+        ctx.beginPath();
+        ctx.moveTo(dx + dw / 2, dTop);
+        ctx.lineTo(dx + dw / 2, dTop + (bottom - dTop) * 0.6);
+        ctx.moveTo(dx, dTop + (bottom - dTop) * 0.3);
+        ctx.lineTo(dx + dw, dTop + (bottom - dTop) * 0.3);
+        ctx.stroke();
+        ctx.fillStyle = '#5c4430';
+        ctx.fillRect(dx, dTop + (bottom - dTop) * 0.6, dw, (bottom - dTop) * 0.4);
+        ctx.fillStyle = '#d8b24a';
+        ctx.beginPath();
+        ctx.arc(dx + dw - tile * 0.1, dTop + (bottom - dTop) * 0.62, tile * 0.035, 0, Math.PI * 2);
+        ctx.fill();
+        // a worn step
+        ctx.fillStyle = '#8a8274';
+        ctx.fillRect(dx - tile * 0.12, bottom - tile * 0.02, dw + tile * 0.24, tile * 0.14);
+      } else if (d.wall === 'north') {
+        ctx.fillStyle = '#4a3623';
+        ctx.fillRect(s.x + tile * 0.08, s.y + tile * 0.82, tile * 0.84, tile * 0.42);
+        ctx.fillStyle = night ? 'rgba(255,205,130,0.6)' : 'rgba(160,196,182,0.9)';
+        ctx.fillRect(s.x + tile * 0.16, s.y + tile * 0.88, tile * 0.68, tile * 0.3);
+      } else {
+        ctx.fillStyle = '#4a3623';
+        ctx.fillRect(s.x + tile * 0.8, s.y + tile * 0.05, tile * 0.45, tile * 0.9);
+        ctx.fillStyle = night ? 'rgba(255,205,130,0.6)' : 'rgba(160,196,182,0.9)';
+        ctx.fillRect(s.x + tile * 0.88, s.y + tile * 0.12, tile * 0.29, tile * 0.5);
+        ctx.fillStyle = '#d8b24a';
+        ctx.beginPath();
+        ctx.arc(s.x + tile * 1.1, s.y + tile * 0.72, tile * 0.03, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
@@ -1525,6 +1865,11 @@ export class Renderer {
       ctx.fillRect(s.x - r * tile, s.y - r * tile, r * tile * 2, r * tile * 2);
     };
     for (const d of state.decor) if (d.decorId === 'gardenLantern') glow(d.x, d.y - 0.55, 2.2, [255, 190, 100], 0.45);
+    // The greenhouse lit from inside: a warm glow along its glass, and the garden door's light on the step.
+    const gf = GREENHOUSE_FOOTPRINT;
+    for (let i = 0; i < gf.w; i += 2) glow(gf.x + i + 1, gf.y + gf.h * 0.72, 1.8, [255, 196, 120], 0.32);
+    for (let i = 0; i < gf.w; i += 3) glow(gf.x + i + 1.5, gf.y + gf.h * 0.38, 1.6, [255, 210, 140], 0.16);
+    glow(GREENHOUSE_DOOR.x + 0.5, GREENHOUSE_DOOR.y + 0.1, 1.8, [255, 205, 130], 0.4);
     for (const p of Object.values(state.plants)) {
       if (p.location.kind !== 'wild') continue;
       const look = lookFor(p.defId, p.variantId);
@@ -1534,9 +1879,9 @@ export class Renderer {
       glow(p.location.x, p.location.y - 0.4, 1 + stageFloat(p.growth) * 0.35, c, 0.4 * pulse);
     }
     if (state.tools.lantern && !state.player.inGreenhouse) glow(state.player.x + 0.2, state.player.y - 0.3, 3, [255, 200, 120], 0.3);
-    // Scott's headlights, out on a drive after dark.
-    if (state.scott.activity === 'driving') {
-      const t = scottTruck(state.scott);
+    // Headlights, whoever's out driving after dark.
+    if (state.truck && (state.scott.activity === 'driving' || state.player.riding)) {
+      const t = state.truck;
       const f = Renderer.DIR[t.facing];
       glow(t.x + f[0] * 1.9, t.y - 0.25 + f[1] * 1.2, 1.6, [255, 236, 180], 0.4);
     }
@@ -1743,10 +2088,10 @@ export class Renderer {
     const s = camera.worldToScreen(t.x * TILE_SIZE, t.y * TILE_SIZE);
     const side = t.facing === 'left' || t.facing === 'right';
     const bob = moving ? Math.sin(now / 55) * tile * 0.015 : 0;
-    // Scott's is an old brick-red pickup, a few years and a lot of miles on hers.
+    // One truck between the two of them: whoever's driving shows in the cab.
     const scotts = who === 'scott';
-    const body = scotts ? '#a85a42' : '#8ea16e';
-    const bodyDark = scotts ? '#7a3e2e' : '#63784b';
+    const body = '#8ea16e';
+    const bodyDark = '#63784b';
     const cream = '#efe3c4';
     const glass = '#bcd8c8';
     const tyre = '#2a2c28';

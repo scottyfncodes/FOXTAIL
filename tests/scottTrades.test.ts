@@ -1,14 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { tickScott, companySpots, scottTruck, DRIVE_SPEED, LOAF_MINUTES } from '../src/game/systems/scott';
-import { DRIVE_ROUTE, SCOTT_SPOTS, SCOTT_TRUCK_PARK, findScottSpot } from '../src/game/data/scottSpots';
-import { createNewGame } from '../src/game/state';
+import { tickScott, companySpots, truckSpots, LOAF_MINUTES } from '../src/game/systems/scott';
+import { DRIVE_LOOP, SCOTT_SPOTS, findScottSpot } from '../src/game/data/scottSpots';
+import { createNewGame, type TruckState } from '../src/game/state';
 import { segmentHitsRect, isWater, zoneAt, GREENHOUSE_FOOTPRINT, HOUSE_FOOTPRINT, MARKET_STALL } from '../src/game/data/worldMap';
+import { TRUCK_PARK, truckHitsBuilding, boardTruck } from '../src/game/systems/truck';
 import { generateObstacles } from '../src/game/world/Obstacles';
 
 describe('Scott, jack of all trades', () => {
-  it('fishes the creek, splits wood, bakes, works on his truck and drives it', () => {
+  it('fishes the creek, splits wood and bakes, wherever the truck is', () => {
     const kinds = new Set(SCOTT_SPOTS.map((s) => s.kind));
-    for (const k of ['fish', 'chop', 'bake', 'wrench', 'drive'] as const) expect(kinds.has(k)).toBe(true);
+    for (const k of ['fish', 'chop', 'bake'] as const) expect(kinds.has(k)).toBe(true);
+    // The truck isn't his to keep: none of his fixed spots are about it.
+    expect(kinds.has('wrench')).toBe(false);
+    expect(kinds.has('drive')).toBe(false);
     const fishing = SCOTT_SPOTS.find((s) => s.kind === 'fish')!;
     expect(zoneAt(fishing.x, fishing.y)).toBe('creek');
     expect(isWater(fishing.x, fishing.y)).toBe(false);
@@ -17,47 +21,69 @@ describe('Scott, jack of all trades', () => {
     expect(isWater(fishing.x - 1.5, fishing.y)).toBe(true);
   });
 
-  it('drives a loop that keeps clear of the house, the stall and the rocks, and parks where he started', () => {
-    const route = [SCOTT_TRUCK_PARK, ...DRIVE_ROUTE];
-    expect(route[route.length - 1]).toEqual(SCOTT_TRUCK_PARK);
+  it('only has the truck to work on or drive once Ellen has bought it', () => {
+    expect(truckSpots(null)).toEqual([]);
+    const truck = { ...TRUCK_PARK, facing: 'left' as const };
+    expect(truckSpots(truck).map((s) => s.kind).sort()).toEqual(['drive', 'wrench']);
+    // Parked off in the woods, he'll tinker with it but not take it for a spin.
+    expect(truckSpots({ x: 20, y: 10, facing: 'left' }).map((s) => s.kind)).toEqual(['wrench']);
+  });
+
+  it('drives a loop that keeps clear of the house, the stall and the rocks', () => {
     const pad = (r: { x: number; y: number; w: number; h: number }) => ({ x: r.x - 1, y: r.y - 1, w: r.w + 2, h: r.h + 2 });
     const rocks = generateObstacles().filter((o) => o.kind === 'rock' || o.kind === 'tree');
-    for (let i = 1; i < route.length; i++) {
-      const a = route[i - 1];
-      const b = route[i];
+    for (let i = 1; i < DRIVE_LOOP.length; i++) {
+      const a = DRIVE_LOOP[i - 1];
+      const b = DRIVE_LOOP[i];
       for (const r of [GREENHOUSE_FOOTPRINT, HOUSE_FOOTPRINT, MARKET_STALL]) expect(segmentHitsRect(pad(r), a.x, a.y, b.x, b.y)).toBe(false);
       for (const o of rocks) expect(segmentHitsRect({ x: o.x, y: o.y, w: 1, h: 1 }, a.x, a.y, b.x, b.y)).toBe(false);
       expect(isWater(b.x, b.y)).toBe(false);
     }
   });
 
-  it('gets in his truck, drives the loop, and climbs out again back where it lives', () => {
+  for (const parked of [
+    { name: 'by the stall', x: TRUCK_PARK.x, y: TRUCK_PARK.y },
+    { name: 'west of the greenhouse', x: 55, y: 36 },
+    { name: 'right under the house', x: 72, y: 42.3 },
+  ]) {
+    it(`borrows Ellen's truck parked ${parked.name}, never drives it over the greenhouse, and puts it back`, () => {
+      const state = createNewGame();
+      const truck: TruckState = { x: parked.x, y: parked.y, facing: 'right', bed: [] };
+      state.truck = truck;
+      const s = state.scott;
+      const door = truckSpots(truck).find((t) => t.kind === 'drive')!;
+      Object.assign(s, { zone: 'meadow', x: door.x, y: door.y, activity: 'traveling', targetSpotId: door.id, currentSpotId: null });
+      const ctx = (now: number) => ({ dtSeconds: 0.05, now, rand: () => 0.5, extraSpots: truckSpots(truck), truck });
+      tickScott(s, ctx(100));
+      expect(s.activity).toBe('driving');
+      // Ellen can't hop in while he's out in it.
+      expect(boardTruck(state)).toBe(false);
+      let away = 0;
+      let guard = 0;
+      while (s.activity === 'driving' && guard < 20000) {
+        tickScott(s, ctx(100 + guard * 0.05));
+        expect(truckHitsBuilding(truck.x, truck.y, truck.facing)).toBe(false);
+        away = Math.max(away, Math.hypot(truck.x - parked.x, truck.y - parked.y));
+        guard++;
+      }
+      expect(s.activity).not.toBe('driving');
+      expect(away).toBeGreaterThan(15);
+      expect(truck).toMatchObject({ x: parked.x, y: parked.y, facing: 'right' });
+      expect(Math.hypot(s.x - door.x, s.y - door.y)).toBeLessThan(0.01);
+      expect(boardTruck(state)).toBe(true);
+    });
+  }
+
+  it('gives up on a drive if Ellen gets in first', () => {
     const state = createNewGame();
+    const truck: TruckState = { ...TRUCK_PARK, facing: 'left', bed: [] };
     const s = state.scott;
-    const door = findScottSpot('truck-drive')!;
-    Object.assign(s, { zone: door.zone, x: door.x, y: door.y, activity: 'traveling', targetSpotId: door.id, currentSpotId: null });
-    tickScott(s, { dtSeconds: 0.1, now: 100, rand: () => 0.5 });
-    expect(s.activity).toBe('driving');
-    expect(scottTruck(s)).toMatchObject({ x: s.x, y: s.y });
-    let away = 0;
-    let guard = 0;
-    while (s.activity === 'driving' && guard < 5000) {
-      tickScott(s, { dtSeconds: 0.1, now: 100 + guard * 0.1, rand: () => 0.5 });
-      away = Math.max(away, Math.hypot(s.x - SCOTT_TRUCK_PARK.x, s.y - SCOTT_TRUCK_PARK.y));
-      guard++;
-    }
+    const door = truckSpots(truck).find((t) => t.kind === 'drive')!;
+    Object.assign(s, { zone: 'meadow', x: door.x - 3, y: door.y, activity: 'traveling', targetSpotId: door.id, currentSpotId: null });
+    // She's in it: no truck on offer, so his spot is gone.
+    tickScott(s, { dtSeconds: 0.05, now: 100, rand: () => 0.5, extraSpots: [], truck: null });
+    expect(s.activity).not.toBe('traveling');
     expect(s.activity).not.toBe('driving');
-    expect(away).toBeGreaterThan(20);
-    // About as long as the loop takes at his speed.
-    let len = 0;
-    let p = SCOTT_TRUCK_PARK;
-    for (const q of DRIVE_ROUTE) {
-      len += Math.hypot(q.x - p.x, q.y - p.y);
-      p = q;
-    }
-    expect(guard * 0.1).toBeCloseTo(len / DRIVE_SPEED, 0);
-    expect(scottTruck(s)).toMatchObject(SCOTT_TRUCK_PARK);
-    expect(Math.hypot(s.x - door.x, s.y - door.y)).toBeLessThan(0.01);
   });
 
   it('bakes a loaf, which cools on the coffee table for a while', () => {

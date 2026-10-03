@@ -72,6 +72,13 @@ export function isInsideHomeFootprint(x: number, y: number): boolean {
 /** The building with a little clearance round it: nobody walks through, or over, the house. */
 const HOME_KEEPOUT: Rect = { x: GREENHOUSE_FOOTPRINT.x - 0.6, y: GREENHOUSE_FOOTPRINT.y - 0.6, w: GREENHOUSE_FOOTPRINT.w + HOUSE_FOOTPRINT.w + 1.2, h: GREENHOUSE_FOOTPRINT.h + 1.2 };
 
+/**
+ * The same, for the truck: it's long side-on and drawn standing up off the
+ * ground, so it keeps further off — well clear at the sides and along the
+ * front, where its cab would otherwise rise up over the glass.
+ */
+export const TRUCK_KEEPOUT: Rect = { x: HOME_KEEPOUT.x - 1.2, y: HOME_KEEPOUT.y - 0.4, w: HOME_KEEPOUT.w + 2.4, h: HOME_KEEPOUT.h + 1.7 };
+
 function inRect(r: Rect, x: number, y: number): boolean {
   return x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h;
 }
@@ -109,8 +116,8 @@ export function segmentHitsRect(r: Rect, ax: number, ay: number, bx: number, by:
  * of it to go round. Used by Scott and the fox, who otherwise walk in
  * straight lines and ended up on the roof.
  */
-export function outdoorWaypoint(fx: number, fy: number, tx: number, ty: number): { x: number; y: number } {
-  const r = HOME_KEEPOUT;
+export function outdoorWaypoint(fx: number, fy: number, tx: number, ty: number, keepout: Rect = HOME_KEEPOUT): { x: number; y: number } {
+  const r = keepout;
   if (!segmentHitsRect(r, fx, fy, tx, ty)) return { x: tx, y: ty };
   const m = 0.5;
   const corners = [

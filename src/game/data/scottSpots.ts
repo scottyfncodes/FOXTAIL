@@ -14,7 +14,8 @@ export type ScottSpotKind =
   | 'bake'
   | 'wrench'
   | 'drive'
-  // Not places but company: Ranger, Scout, or Ellen herself, wherever they are.
+  // Not fixed places: the truck, wherever Ellen left it, and company —
+  // Ranger, Scout, or Ellen herself, wherever they are.
   | 'pet'
   | 'scout'
   | 'ellen';
@@ -32,16 +33,13 @@ export interface ScottSpot {
   face?: Facing;
 }
 
-/** Where Scott keeps his own truck: the far side of the house from the stall, nose toward home. */
-export const SCOTT_TRUCK_PARK = { x: 80, y: 42 };
-export const SCOTT_TRUCK_FACING: Facing = 'left';
-
 /**
- * His drive: out across the meadow, along under the damp forest, round by
- * the creek and back the way he came. Open grass the whole way — no rocks,
- * no house, nobody's stall.
+ * His drive, in Ellen's truck: out across the meadow, along under the damp
+ * forest, round by the creek and back the way he came — then home to
+ * wherever she'd left it parked. Open grass the whole way: no rocks, no
+ * house, nobody's stall.
  */
-export const DRIVE_ROUTE: { x: number; y: number }[] = (() => {
+export const DRIVE_LOOP: { x: number; y: number }[] = (() => {
   const out = [
     { x: 85, y: 39 },
     { x: 85, y: 28 },
@@ -50,7 +48,7 @@ export const DRIVE_ROUTE: { x: number; y: number }[] = (() => {
     { x: 49, y: 33 },
     { x: 51, y: 42 },
   ];
-  return [...out, ...out.slice(0, -1).reverse(), SCOTT_TRUCK_PARK];
+  return [...out, ...out.slice(0, -1).reverse()];
 })();
 
 // Ellen's husband doesn't follow anyone — he potters between a handful of
@@ -58,7 +56,7 @@ export const DRIVE_ROUTE: { x: number; y: number }[] = (() => {
 // each tied to one of his moods — including a patch of meadow he's quietly
 // turned into a driving range, and a putting green by the greenhouse. He's a
 // jack of all trades, master of a few: he fishes the creek, splits firewood
-// in the woods, keeps his old truck running (and takes it out for a drive),
+// in the woods, keeps the truck running (and borrows it for a drive),
 // and every so often bakes a loaf of bread. Adding a new spot (or a new zone
 // for him to loaf around in) is just a data entry, same as everything else.
 export const SCOTT_SPOTS: ScottSpot[] = [
@@ -73,9 +71,6 @@ export const SCOTT_SPOTS: ScottSpot[] = [
   { id: 'creek-fishing', kind: 'fish', zone: 'creek', x: 45, y: 30, face: 'left' },
   // The chopping block and woodpile in the woods.
   { id: 'woodland-woodpile', kind: 'chop', zone: 'woodland', x: 29, y: 22 },
-  // His truck: under the bumper with a wrench, or behind the wheel.
-  { id: 'truck-fixing', kind: 'wrench', zone: 'meadow', x: SCOTT_TRUCK_PARK.x - 1.65, y: SCOTT_TRUCK_PARK.y + 0.1, face: 'right' },
-  { id: 'truck-drive', kind: 'drive', zone: 'meadow', x: SCOTT_TRUCK_PARK.x, y: SCOTT_TRUCK_PARK.y + 0.7 },
   { id: 'greenhouse-tinker', kind: 'tinker', zone: 'greenhouse', x: 8, y: 7 },
   { id: 'greenhouse-snack', kind: 'snack', zone: 'greenhouse', x: 9, y: 4 },
   // The living room: the ball game on the couch, a drink with his feet up,
@@ -99,7 +94,7 @@ export function isCouchNap(id: string | null): boolean {
   return id === 'living-couch-nap';
 }
 
-/** Spots that are someone's company rather than a place, offered fresh each moment (see `companySpots`). */
+/** Spots that are someone's company rather than a place, offered fresh each moment (see `companySpots`). The truck's own spots come from `truckSpots`. */
 export const VISIT_KINDS: ScottSpotKind[] = ['pet', 'scout', 'ellen'];
 
 export function findScottSpot(id: string): ScottSpot | undefined {

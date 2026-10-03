@@ -1,5 +1,6 @@
 import type { BasketItem, Facing, GameState, TruckState } from '../state';
 import { GREENHOUSE_DOORS } from '../data/interior';
+import { GREENHOUSE_FOOTPRINT, HOUSE_FOOTPRINT, type Rect } from '../data/worldMap';
 
 /**
  * The mini truck: bought at the stall, parked by the house. Drive it
@@ -27,10 +28,15 @@ export function riding(state: GameState): boolean {
   return !!state.truck && !!state.player.riding;
 }
 
+/** Scott's borrowed it and is out for a drive. */
+export function scottDriving(state: Pick<GameState, 'scott'>): boolean {
+  return state.scott.activity === 'driving';
+}
+
 /** Whether the truck's bed is within reach right now. */
 export function truckNear(state: GameState): boolean {
   const t = state.truck;
-  if (!t) return false;
+  if (!t || scottDriving(state)) return false;
   if (state.player.riding) return true;
   if (state.player.inGreenhouse) return GREENHOUSE_DOORS.some((d) => Math.hypot(t.x - (d.outside.x + 0.5), t.y - (d.outside.y + 0.5)) <= TRUCK_DOOR_REACH);
   return Math.hypot(t.x - state.player.x, t.y - state.player.y) <= TRUCK_REACH;
@@ -105,6 +111,22 @@ export function truckCovers(t: Pick<TruckState, 'x' | 'y' | 'facing'>, x: number
   return x >= t.x - hw && x <= t.x + hw && y >= t.y - top && y <= t.y + 0.15;
 }
 
+/** The ground the truck's body covers as drawn — long side-on, and rising up the screen from its wheels. */
+export function truckFootprint(x: number, y: number, facing: Facing): Rect {
+  const side = facing === 'left' || facing === 'right';
+  return side ? { x: x - 1.1, y: y - 1.1, w: 2.2, h: 1.3 } : { x: x - 0.65, y: y - 1.2, w: 1.3, h: 1.4 };
+}
+
+function overlaps(a: Rect, b: Rect): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/** Whether the truck here would be up over the greenhouse, the house, or anything else in `extra` (the stall). */
+export function truckHitsBuilding(x: number, y: number, facing: Facing, extra: Rect[] = []): boolean {
+  const fp = truckFootprint(x, y, facing);
+  return [GREENHOUSE_FOOTPRINT, HOUSE_FOOTPRINT, ...extra].some((r) => overlaps(fp, r));
+}
+
 /** Delivers the truck to the lane by the house, or the nearest open ground to it. */
 export function deliverTruck(state: GameState, open: (tx: number, ty: number) => boolean): TruckState {
   let best = { x: TRUCK_PARK.x, y: TRUCK_PARK.y };
@@ -129,7 +151,7 @@ export function deliverTruck(state: GameState, open: (tx: number, ty: number) =>
 /** Climbs in: the truck goes where she goes from here. */
 export function boardTruck(state: GameState): boolean {
   const t = state.truck;
-  if (!t || state.player.riding || state.player.inGreenhouse) return false;
+  if (!t || state.player.riding || state.player.inGreenhouse || scottDriving(state)) return false;
   state.player.x = t.x;
   state.player.y = t.y;
   state.player.facing = t.facing;
