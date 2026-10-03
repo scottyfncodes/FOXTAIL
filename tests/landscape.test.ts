@@ -531,6 +531,8 @@ describe('garden trellis', () => {
     const { placeOnDisplay, occupantOf, liftPlant } = await import('../src/game/systems/propagation');
     const state = createNewGame();
     state.coins = 500;
+    // The trellis comes after stepping stones and a fence in the market's garden line.
+    state.bought.push('steppingStones', 'picketFence');
     expect(buyItem(state, 'gardenTrellis')).toBe(true);
     const t = placeDecor(state, 'gardenTrellis', 60.5, 42.5)!;
     expect(gardenPlanter(state, t.id)).toBe(t);

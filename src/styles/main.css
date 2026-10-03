@@ -1836,3 +1836,14 @@ button {
 .stones-preview { display: block; margin-top: 6px; border-radius: 6px; background: #5f7f45; }
 .koi-portrait { flex-shrink: 0; border-radius: 6px; }
 .resell-row .row-note.warn { margin-top: 4px; }
+
+/* The market folds away what's already yours, and counts (rather than lists) what's still to come. */
+.shop-owned,
+.shop-later {
+  padding: 4px 12px 8px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.shop-later {
+  font-style: italic;
+}

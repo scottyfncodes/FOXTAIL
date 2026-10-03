@@ -54,6 +54,7 @@ describe('lily pads and cattails', () => {
     expect(checkPlanting(state, 'lilyPad', CREEK.x, CREEK.y, world, 0).block).toBeNull();
     expect(checkPlanting(state, 'lilyPad', BANK.x, BANK.y, world, 0).block).toBe('dry');
     state.coins = 1e5;
+    state.bought.push('gardenLantern', 'birdbath', 'gardenBench');
     buyItem(state, 'gardenPond', { pond: { w: 4, h: 3 } });
     placeDecor(state, 'gardenPond', 55.5, 25.5);
     expect(inPond(state, 55.5, 25.5)).toBe(true);

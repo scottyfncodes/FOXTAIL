@@ -203,11 +203,23 @@ export class MarketPanel {
     const body = this.panel.body;
     const cats: ShopCategory[] = ['greenhouse', 'pots', 'garden', 'equipment', 'stall'];
     for (const cat of cats) {
-      const items = SHOP_ITEMS.filter((s) => s.category === cat && shopItemVisible(state, s.id));
-      if (!items.length) continue;
+      const all = SHOP_ITEMS.filter((s) => s.category === cat);
+      const visible = all.filter((s) => shopItemVisible(state, s.id));
+      if (!visible.length) continue;
+      // One-offs already bought fold away into a single line, so the list is
+      // only what you can still buy; what's further along each line waits
+      // until you've bought the step before it.
+      const yours = visible.filter((s) => !s.repeatable && state.owned.includes(s.id));
+      const items = visible.filter((s) => !yours.includes(s));
+      const later = all.length - visible.length;
       body.appendChild(el('h4', 'section-head', CATEGORY_LABEL[cat]));
+      const footer = () => {
+        if (yours.length) body.appendChild(el('div', 'entry-sub dim shop-owned', `Yours: ${yours.map((s) => s.name).join(' · ')}`));
+        if (later) body.appendChild(el('div', 'entry-sub dim shop-later', `${later} more ${later === 1 ? 'thing comes' : 'things come'} in as you buy what’s here.`));
+      };
       if (cat !== 'greenhouse') {
-        body.appendChild(this.itemList(items));
+        if (items.length) body.appendChild(this.itemList(items));
+        footer();
         continue;
       }
       // The greenhouse sells two very different things: capacity to grow
@@ -221,6 +233,7 @@ export class MarketPanel {
         body.appendChild(sub);
         body.appendChild(this.itemList(group));
       }
+      footer();
     }
   }
 

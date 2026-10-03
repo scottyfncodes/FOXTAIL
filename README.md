@@ -54,7 +54,11 @@ grow in patches all over it.
 - **Sell and build.** The Plant Stand & Supply buys plants (rarer and bigger is
   worth more; there's a daily "wanted" bonus) and sells pots, shelves,
   hanging hooks, grow lights, a sun-room expansion, garden decor and stall
-  upgrades. Its sign says PLANT MARKET. Anything still in stock — decor,
+  upgrades. Its sign says PLANT MARKET. The market opens up a step at a
+  time: each line (the pot styles, the display furniture, the garden decor,
+  the tools) shows only its first item until you buy it, then the next
+  comes in, marked NEW. One-off upgrades you own fold into a single line,
+  and each section says how many more things are still to come. Anything still in stock — decor,
   furniture, koi not in a pond — can be sold back for half its list price,
   after a confirming second press.
 - **Fill a request.** The board by the stall has one request pinned up at a

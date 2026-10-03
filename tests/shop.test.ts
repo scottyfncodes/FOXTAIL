@@ -115,6 +115,9 @@ describe('purchase and unlock behaviour', () => {
   it('one-off items become owned once; repeatable ones can be bought again', () => {
     const state = createNewGame();
     state.coins = 10_000;
+    // The shelf comes after the hook rail.
+    expect(buyItem(state, 'plantShelf')).toBe(false);
+    expect(buyItem(state, 'hangingHooks')).toBe(true);
     expect(buyItem(state, 'plantShelf')).toBe(true);
     expect(buyBlockReason(state, 'plantShelf')).toBe('owned');
     expect(buyItem(state, 'plantShelf')).toBe(false);
@@ -209,5 +212,33 @@ describe('older saves', () => {
     const again = migrateSave(JSON.parse(JSON.stringify(state)))!;
     expect(again.purchases.nurseryBed).toBe(2);
     expect(again.seenShop).toEqual(state.seenShop);
+  });
+});
+
+describe('the market, one step at a time', () => {
+  it('starts with only the first of each line on offer', async () => {
+    const { shopItemVisible } = await import('../src/game/systems/market');
+    const { SHOP_ITEMS } = await import('../src/game/data/shop');
+    const state = createNewGame();
+    const visible = SHOP_ITEMS.filter((i) => shopItemVisible(state, i.id)).map((i) => i.id);
+    expect(visible).toContain('potGlazed');
+    expect(visible).not.toContain('potSpeckled');
+    expect(visible).toContain('gardenLantern');
+    expect(visible).not.toContain('koi');
+    // Well under half the market shows at first.
+    expect(visible.length).toBeLessThan(SHOP_ITEMS.length / 2);
+  });
+
+  it('keeps what an older save had already opened up: a stand placed or a lantern in stock counts as bought', async () => {
+    const { shopItemVisible, hasBought } = await import('../src/game/systems/market');
+    const state = createNewGame();
+    state.bought = [];
+    state.furniture.push({ id: 'furniture-old-1', kind: 'plantStand', x: 12, y: 8 });
+    state.decorStock.gardenLantern = 1;
+    expect(hasBought(state, 'plantStand')).toBe(true);
+    expect(shopItemVisible(state, 'ironPedestal')).toBe(true);
+    expect(shopItemVisible(state, 'birdbath')).toBe(true);
+    // The greenhouse's own built-in stands don't count: they weren't bought.
+    expect(hasBought(createNewGame(), 'plantStand')).toBe(false);
   });
 });
