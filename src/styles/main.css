@@ -1708,6 +1708,21 @@ button {
   gap: 10px;
 }
 
+/* ---------- The little games around the property ---------- */
+/* They share the putting mat's frame (score line, canvas, a line of
+   instructions, buttons). Nothing on the canvas is selectable or
+   long-pressable, so a held finger is always just a held finger. */
+.game-panel .putt-canvas {
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.game-panel .putt-actions .primary-btn,
+.game-panel .putt-actions .secondary-btn {
+  min-height: 44px;
+  min-width: 96px;
+}
+
 /* ---------- Music ---------- */
 /* A quiet corner of the HUD: one small button, and a popover that drops
    from it like the garden menu. */

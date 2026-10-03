@@ -232,21 +232,33 @@ export function drawMiniGameProp(ctx: Ctx, id: MiniGameId, x: number, y: number,
         ctx.lineWidth = 1;
         ctx.stroke();
       }
+      // The frog: sat up on the nearest pad, back legs tucked, throat going.
       const fx = x + 0.85 * t;
       const fy = y - 0.12 * t;
+      const f = t * 0.15;
+      ctx.fillStyle = '#4f8a30';
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(fx + side * f * 0.75, fy + f * 0.35, f * 0.45, f * 0.28, side * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.fillStyle = '#6aa040';
       ctx.beginPath();
-      ctx.ellipse(fx, fy, t * 0.09, t * 0.07, 0, 0, Math.PI * 2);
+      ctx.ellipse(fx, fy, f * 0.8, f * 0.62, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#f2f0d8';
       const puff = 0.5 + 0.5 * Math.sin(now / 300);
       ctx.beginPath();
-      ctx.ellipse(fx, fy + t * 0.04, t * 0.04 * (0.6 + puff * 0.5), t * 0.03 * (0.6 + puff * 0.5), 0, 0, Math.PI * 2);
+      ctx.ellipse(fx, fy + f * 0.42, f * 0.3 * (0.7 + puff * 0.5), f * 0.2 * (0.7 + puff * 0.5), 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#1a2a14';
-      for (const s of [-1, 1]) {
+      for (const side of [-1, 1]) {
+        ctx.fillStyle = '#6aa040';
         ctx.beginPath();
-        ctx.arc(fx + s * t * 0.045, fy - t * 0.05, t * 0.02, 0, Math.PI * 2);
+        ctx.arc(fx + side * f * 0.38, fy - f * 0.45, f * 0.24, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#1a2a14';
+        ctx.beginPath();
+        ctx.arc(fx + side * f * 0.38, fy - f * 0.48, f * 0.12, 0, Math.PI * 2);
         ctx.fill();
       }
       break;

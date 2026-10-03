@@ -103,6 +103,22 @@ grow in patches all over it.
   putt through a wall of books, and Ranger, asleep at the edge with his
   tail sweeping back and forth across the fairway. Drag back from the ball and let go; a faint line shows where it'll roll. The first hole in one on each hole
   is worth a few coins, and the house remembers your best round.
+- **Things to do around the place.** Scott doesn't only putt. Out on the
+  property there are eight more little games, each set up where it belongs —
+  walk up to one and press PLAY: lob acorns into a bucket and an upturned pot
+  under the oaks at the woodland's edge (🌰 Acorn Pitch); pick apart the
+  kindling heap by his woodpile without bringing it down (🪵 Twig Jenga);
+  skip flat stones across the creek from the cairn on its bank (🪨 Rock
+  Skip); walk the hedge maze in the meadow west of the greenhouse, whose
+  hedges flower the more of the garden you've grown (🌿 Garden Maze); play
+  laser pointer with Ranger, wherever he is indoors (🐈 Cat Laser); throw
+  sticks for Scout from the bucket out on the open meadow (🐕 Stick Fetch);
+  knock over the wooden targets in the rocky clearing with a slingshot and a
+  basket of pinecones (🎯 Slingshot Targets); and see the frog across the
+  lily pads in the creek's slack water (🐸 Frog Jump). Each is a minute or
+  two, played with one finger; each remembers your best, and the first time
+  you reach its goal it pays the same as a first hole in one. Nothing you do
+  in them touches Scout, Ranger or the garden.
 - **Shape the land.** Drag a plant to exactly where it should grow; move it
   while it's young. Compost plants in the wrong place: they're simply
   cleared away (take a cutting first if you want one). Dig garden beds (the 🌿 garden button) for coins —
@@ -256,6 +272,12 @@ furniture and garden pieces). Esc also closes whatever panel is open. Progress a
   transplanting), `furniture.ts` (free indoor placement), `fox.ts` +
   `foxFinds.ts` (trails and what's at the end), `spatial.ts` (spatial hash
   for plant queries).
+- `src/game/systems/putting.ts` and `src/game/systems/minigames/` — the
+  little games as pure, deterministic simulations; `minigames.ts` is their
+  registry (where each is set up, its goal) and record. They're all played in
+  one shared frame, `src/ui/CanvasGamePanel.ts` (the putting mat's panel
+  included); `src/ui/MiniGamePanel.ts` adds the record and the end-of-game
+  result, and `src/ui/minigames/` holds each game's panel.
 - `src/game/data/interior.ts` — the house + greenhouse interior layout.
 - `tests/` — vitest coverage of the systems above.
 
