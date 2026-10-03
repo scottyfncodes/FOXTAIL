@@ -1,6 +1,6 @@
 import type { GameState } from '../state';
 import { CURIOSITIES } from './curiosities';
-import { INTERIOR_W, IMPLIED_DOORWAYS, LIVING_WINDOWS } from './interior';
+import { INTERIOR_H, INTERIOR_W, IMPLIED_DOORWAYS, LIVING_WINDOWS, HOUSE_BACK_EXIT } from './interior';
 
 // Curiosities can't be brought home — most of them are alive — but once
 // one's been found it turns up in the house anyway: Ellen's sketch of it,
@@ -27,7 +27,7 @@ export interface Keepsake {
 export const KEEPSAKES: Keepsake[] = [
   { curiosityId: 'treeFrog', place: { kind: 'frame', wall: 'north', at: 19.8, span: 0.4 }, note: 'Ellen sketches it from memory that evening and hangs it in the living room.' },
   { curiosityId: 'hedgehog', place: { kind: 'frame', wall: 'north', at: 20.26, span: 0.4 }, note: 'A sketch of it goes up on the living room wall.' },
-  { curiosityId: 'foxDen', place: { kind: 'frame', wall: 'north', at: 22.12, span: 1.06 }, note: 'Ellen draws it, roots and all, and gives it the best spot on the living room wall.' },
+  { curiosityId: 'foxDen', place: { kind: 'frame', wall: 'east', at: 9.9, span: 1.0 }, note: 'Ellen draws it, roots and all, and gives it the best spot on the living room wall.' },
   { curiosityId: 'swallowtail', place: { kind: 'frame', wall: 'east', at: 1.15, span: 0.55 }, note: 'A sketch of it goes up on the living room wall.' },
   { curiosityId: 'emeraldDragonfly', place: { kind: 'frame', wall: 'east', at: 1.85, span: 0.55 }, note: 'A sketch of it goes up on the living room wall.' },
   { curiosityId: 'jewelBeetle', place: { kind: 'frame', wall: 'east', at: 2.55, span: 0.55 }, note: 'A sketch of it goes up on the living room wall.' },
@@ -71,6 +71,8 @@ export function keepsakeLayoutProblems(): string[] {
       if (d.wall === f.wall && overlaps(f.at, f.at + f.span, d0, d1)) problems.push(`${f.id} covers a doorway`);
     }
     if (f.wall === 'north' && (f.at < 18 || f.at + f.span > INTERIOR_W - 1)) problems.push(`${f.id} is off the living room wall`);
+    if (f.wall === 'east' && (f.at < 1 || f.at + f.span > INTERIOR_H - 1)) problems.push(`${f.id} is off the living room wall`);
+    if (f.wall === 'north' && overlaps(f.at, f.at + f.span, HOUSE_BACK_EXIT.x, HOUSE_BACK_EXIT.x + 1)) problems.push(`${f.id} covers the back door`);
   }
   return problems;
 }

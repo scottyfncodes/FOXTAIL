@@ -1,4 +1,4 @@
-import type { FrogAt, TurtleAt } from '../systems/wildlife';
+import type { FrogAt, GatorAt, TurtleAt } from '../systems/wildlife';
 
 // The creek's and ponds' small residents, drawn procedurally like
 // everything else: turtles seen from above (they're mostly shell), and
@@ -206,6 +206,125 @@ export function drawFrog(ctx: Ctx, f: FrogAt, x: number, y: number, size: number
   for (let i = 0; i < 3; i++) {
     ctx.beginPath();
     ctx.arc(-s * 0.12 + i * s * 0.08, -s * 0.2 + (i % 2) * s * 0.04, s * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+const GATOR = '#5f7a3c';
+const GATOR_DARK = '#3f5728';
+const GATOR_PALE = '#a9b878';
+
+/**
+ * The creek's alligator from above, `len` pixels nose to tail: in the
+ * water only its eyes, nostrils and the knobbly ridge of its back show;
+ * out on the bank it's all there, legs splayed and grinning.
+ */
+export function drawAlligator(ctx: Ctx, g: GatorAt, x: number, y: number, len: number, now: number, alpha = 1) {
+  const L = len / 2;
+  const W = len * 0.12;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(g.heading);
+  ctx.globalAlpha *= alpha;
+  if (g.wet > 0.05) {
+    // A long V of wake behind it as it cruises.
+    ctx.strokeStyle = `rgba(255,255,255,${0.28 * g.wet})`;
+    ctx.lineWidth = Math.max(0.5, len * 0.015);
+    const r = ((now * 0.001) % 1) * len * 0.12;
+    ctx.beginPath();
+    for (const sx of [-1, 1]) {
+      ctx.moveTo(sx * W * 0.5, L * 0.95);
+      ctx.quadraticCurveTo(sx * W * 1.4, L * 0.3, sx * (W * 2.4 + r), -L * 0.6 - r);
+    }
+    ctx.stroke();
+  }
+  const sway = Math.sin(now * (g.basking ? 0.0012 : 0.004)) * (g.basking ? 0.12 : 0.3);
+  const under = 1 - g.wet * 0.8;
+  ctx.globalAlpha *= under;
+  // Legs, splayed out flat.
+  ctx.fillStyle = GATOR_DARK;
+  for (const [sx, sy] of [
+    [-1, 0.28],
+    [1, 0.28],
+    [-1, -0.22],
+    [1, -0.22],
+  ] as const) {
+    ctx.beginPath();
+    ctx.ellipse(sx * W * 1.25, sy * L, W * 0.5, W * 0.28, sx * (sy > 0 ? 0.6 : -0.6), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Tail, swaying, tapering off behind.
+  ctx.fillStyle = GATOR;
+  ctx.beginPath();
+  ctx.moveTo(-W * 0.75, -L * 0.3);
+  ctx.quadraticCurveTo(sway * W * 3, -L * 0.75, sway * W * 5, -L * 1.05);
+  ctx.quadraticCurveTo(sway * W * 3 + W * 0.2, -L * 0.7, W * 0.75, -L * 0.3);
+  ctx.fill();
+  // Body and head.
+  ctx.beginPath();
+  ctx.ellipse(0, 0, W, L * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-W * 0.7, L * 0.35);
+  ctx.quadraticCurveTo(-W * 0.55, L * 0.92, 0, L * 0.98);
+  ctx.quadraticCurveTo(W * 0.55, L * 0.92, W * 0.7, L * 0.35);
+  ctx.fill();
+  // Pale flanks, and a big easy grin along the jaw.
+  ctx.fillStyle = GATOR_PALE;
+  ctx.globalAlpha *= 0.5;
+  for (const sx of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(sx * W * 0.72, 0, W * 0.18, L * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha /= 0.5;
+  ctx.strokeStyle = GATOR_DARK;
+  ctx.lineWidth = Math.max(0.5, len * 0.012);
+  ctx.beginPath();
+  ctx.moveTo(-W * 0.5, L * 0.55);
+  ctx.quadraticCurveTo(-W * 0.35, L * 0.9, 0, L * 0.93);
+  ctx.quadraticCurveTo(W * 0.35, L * 0.9, W * 0.5, L * 0.55);
+  ctx.stroke();
+  if (g.basking) {
+    // Little white teeth showing in the smile.
+    ctx.fillStyle = '#f4f1e2';
+    for (const k of [-0.4, -0.15, 0.15, 0.4]) {
+      ctx.beginPath();
+      ctx.arc(k * W, L * 0.86 + Math.abs(k) * -L * 0.12, Math.max(0.5, len * 0.008), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha /= under;
+  // What always shows: the ridge of its back, nostrils and eyes.
+  ctx.fillStyle = GATOR_DARK;
+  for (let i = 0; i < 6; i++) {
+    const yy = L * 0.3 - i * L * 0.14;
+    for (const sx of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(sx * W * 0.32, yy, Math.max(0.6, len * 0.014), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  for (const sx of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(sx * W * 0.14, L * 0.92, Math.max(0.5, len * 0.009), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Eyes: kind ones, with a lazy blink now and then.
+  const blink = (now % 5200) < 160 ? 0.2 : 1;
+  for (const sx of [-1, 1]) {
+    ctx.fillStyle = GATOR;
+    ctx.beginPath();
+    ctx.arc(sx * W * 0.5, L * 0.45, W * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e9e2a6';
+    ctx.beginPath();
+    ctx.ellipse(sx * W * 0.5, L * 0.47, W * 0.2, W * 0.2 * blink, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1b1a14';
+    ctx.beginPath();
+    ctx.ellipse(sx * W * 0.5, L * 0.49, W * 0.06, W * 0.12 * blink, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();

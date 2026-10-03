@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { tickScout } from '../src/game/systems/scout';
+import { tickScout, FROG_POUNCE } from '../src/game/systems/scout';
 import { createNewGame } from '../src/game/state';
 
 function baseCtx(overrides: Partial<Parameters<typeof tickScout>[1]> = {}) {
@@ -93,5 +93,34 @@ describe('Scout companion behavior', () => {
     tickScout(a, ctx);
     tickScout(b, ctx);
     expect(a).toEqual(b);
+  });
+});
+
+describe('Scout and the frogs', () => {
+  it('goes after a frog she can see once she’s settled, and pounces when she gets there', () => {
+    const state = createNewGame();
+    const sc = state.scout;
+    sc.x = 10;
+    sc.y = 10;
+    settleBehindEllen(sc);
+    sc.nextEventAt = 50;
+    tickScout(sc, baseCtx({ now: 200, rand: () => 0.1, nearbyFrog: { x: sc.x + 3, y: sc.y, seed: 7 } }));
+    expect(sc.frog).toBe(7);
+    expect(sc.behavior).toBe('chasingFrog');
+    const frog = { x: sc.x + 3, y: sc.y };
+    let pounced = false;
+    for (let i = 0; i < 40 && !pounced; i++) pounced = tickScout(sc, baseCtx({ now: 201, dtSeconds: 0.1, chasedFrog: frog })) === 'pounced';
+    expect(pounced).toBe(true);
+    expect(Math.hypot(sc.x - frog.x, sc.y - frog.y)).toBeLessThanOrEqual(FROG_POUNCE);
+    expect(sc.frog).toBeUndefined();
+  });
+
+  it('gives up once the frog has gone', () => {
+    const state = createNewGame();
+    const sc = state.scout;
+    sc.frog = 3;
+    expect(tickScout(sc, baseCtx({ chasedFrog: null }))).toBeNull();
+    expect(sc.frog).toBeUndefined();
+    expect(sc.behavior).toBe('following');
   });
 });

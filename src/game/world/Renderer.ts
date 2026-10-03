@@ -41,6 +41,7 @@ import {
   drawGardenPath,
   drawPlantPreview,
   drawBedPreview,
+  drawClearingPreview,
   drawPathPreview,
   drawFlourish,
   drawFox as drawFoxArt,
@@ -55,10 +56,10 @@ import { allFurniture, footprint } from '../systems/furniture';
 import { catLift } from '../systems/cat';
 import { foxFade } from '../systems/fox';
 import { isCouchNap, isCouchSpot } from '../data/scottSpots';
-import { PATH_WIDTH, bedCost } from '../systems/landscape';
+import { PATH_WIDTH, bedCost, clearingSpecOf } from '../systems/landscape';
 import { dipAmount, smiling, DIP_END, type ChaseReaction } from '../systems/scott';
-import { FIREFLY_AREAS, fireflies, fireflyStrength, pondFrogs, pondPads, pondTurtleAt, pondTurtleCount, riverFrogs, riverTurtles, TURTLE_STONES } from '../systems/wildlife';
-import { drawBaskingStone, drawFrog, drawTurtle } from './WildlifeArt';
+import { FIREFLY_AREAS, fireflies, fireflyStrength, riverAlligator, pondFrogs, pondPads, pondTurtleAt, pondTurtleCount, riverFrogs, riverTurtles, TURTLE_STONES } from '../systems/wildlife';
+import { drawAlligator, drawBaskingStone, drawFrog, drawTurtle } from './WildlifeArt';
 import type { OctoberView } from '../systems/october';
 import { lanternsLit } from '../systems/october';
 import { LANTERN_POSTS, OLD_THINGS, PORCH_LANTERN, BLACK_CAT_SPOT, STRING_LIGHTS, HALLOWEEN_DECOR } from '../data/october';
@@ -110,6 +111,10 @@ export interface SceneExtras {
   kiss?: { t: number; ellenLeft: boolean; reaction: ChaseReaction } | null;
   /** October's things, when that's the look; absent, the valley is drawn as it always is. */
   october?: OctoberView | null;
+  /** Creek frogs not to draw (seed → until): off in the water after Scout's fuss, or eaten. */
+  frogsGone?: Map<number, number>;
+  /** Where frogs have just plopped into the creek. */
+  frogSplashes?: { x: number; y: number; start: number }[];
 }
 
 const NO_EXTRAS: SceneExtras = { tools: { kind: 'play' }, flourishes: [], cleared: new Set(), fade: 0 };
@@ -377,10 +382,29 @@ export class Renderer {
       const p = camera.worldToScreen(t.x * TILE_SIZE, t.y * TILE_SIZE);
       drawTurtle(this.ctx, t, p.x, p.y, tilePx * 0.5, now, night ? 0.7 : 1);
     }
+    // And its one alligator, a friendly old thing.
+    const gator = riverAlligator(now);
+    if (inView(gator.x, gator.y, 2)) {
+      const p = camera.worldToScreen(gator.x * TILE_SIZE, gator.y * TILE_SIZE);
+      drawAlligator(this.ctx, gator, p.x, p.y, tilePx * 2.1, now, night ? 0.75 : 1);
+    }
     for (const f of riverFrogs(now, night)) {
-      if (!inView(f.x, f.y, 1)) continue;
+      if (!inView(f.x, f.y, 1) || extras.frogsGone?.has(f.seed)) continue;
       const p = camera.worldToScreen(f.x * TILE_SIZE, f.y * TILE_SIZE);
       drawFrog(this.ctx, f, p.x, p.y, tilePx * 0.42, tilePx, night ? 0.75 : 1);
+    }
+    // A frog that's just got away from Scout: rings spreading where it went in.
+    for (const sp of extras.frogSplashes ?? []) {
+      const u = (now - sp.start) / 1200;
+      if (u < 0 || u >= 1 || !inView(sp.x, sp.y, 1)) continue;
+      const p = camera.worldToScreen(sp.x * TILE_SIZE, sp.y * TILE_SIZE);
+      this.ctx.strokeStyle = `rgba(220,240,245,${0.7 * (1 - u)})`;
+      this.ctx.lineWidth = Math.max(1, tilePx * 0.03);
+      for (const k of [1, 0.55]) {
+        this.ctx.beginPath();
+        this.ctx.ellipse(p.x, p.y, tilePx * 0.45 * u * k + 1, tilePx * 0.2 * u * k + 0.5, 0, 0, Math.PI * 2);
+        this.ctx.stroke();
+      }
     }
     // Only in the water: something pale, and nothing standing over it.
     if (oct && oct.ghost.mode === 'reflect' && inView(oct.ghost.x, oct.ghost.y, 1)) {
@@ -586,6 +610,9 @@ export class Renderer {
       if (spec) drawBedPreview(this.ctx, camera, spec, tools.block, bedCost(state, spec.w, spec.h), state.coins);
     } else if (tools.kind === 'path') {
       if (tools.points.length >= 2) drawPathPreview(this.ctx, camera, tools.points, tools.preview, PATH_WIDTH);
+    } else if (tools.kind === 'clear' && tools.a && tools.b) {
+      const spec = clearingSpecOf(tools.a, tools.b, tools.shape);
+      if (spec.size > 0) drawClearingPreview(this.ctx, camera, spec, tools.preview, state.coins);
     }
     if (yard) {
       const pieces: YardPiece[] = [{ id: STALL_ID, kind: 'stall', x: stall.x, y: stall.y }, ...decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y, rot: d.rot ?? 0, size: d.w && d.h ? { w: d.w, h: d.h } : undefined }))];
@@ -1224,8 +1251,8 @@ export class Renderer {
 
     if (weathervane) this.drawWeathervane(tl.x + w * 0.28, ridgeY - tile * 0.05, tile, now);
 
-    // Doors: the garden door in the front wall, a back door through the
-    // north glass and a side door in the west, each glazed in a timber frame.
+    // Doors: the garden door in the front wall, and a back door through the
+    // north glass with its twin in the west, each glazed in a timber frame.
     for (const d of GREENHOUSE_DOORS) {
       const s = camera.worldToScreen(d.outside.x * TILE_SIZE, d.outside.y * TILE_SIZE);
       if (d.wall === 'south') {
@@ -1260,64 +1287,11 @@ export class Renderer {
         ctx.fillStyle = night ? 'rgba(255,205,130,0.6)' : 'rgba(160,196,182,0.9)';
         ctx.fillRect(s.x + tile * 0.16, s.y + tile * 0.88, tile * 0.68, tile * 0.3);
       } else {
-        // The side door, in a little glazed porch built out from the west
-        // glass: it stands on the ground beside the greenhouse, with its own
-        // pitched roof, a brick footing like the rest, and the door in its face.
-        const px = s.x + tile * 0.08;
-        const pw = tile * 0.92;
-        const base = s.y + tile * 1.0;
-        const eaves = base - tile * 1.3;
-        const ridge = eaves - tile * 0.32;
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        ctx.fillRect(px + tile * 0.06, base - tile * 0.02, pw, tile * 0.14);
-        // roof
-        ctx.fillStyle = night ? '#6e8a7c' : '#c4ddd2';
-        ctx.beginPath();
-        ctx.moveTo(px - tile * 0.06, eaves);
-        ctx.lineTo(px + pw / 2, ridge);
-        ctx.lineTo(px + pw + tile * 0.06, eaves);
-        ctx.closePath();
-        ctx.fill();
-        ctx.strokeStyle = '#eef0e6';
-        ctx.lineWidth = Math.max(1, tile * 0.04);
-        ctx.stroke();
-        // brick footing
-        ctx.fillStyle = '#9a5c44';
-        ctx.fillRect(px, base - tile * 0.22, pw, tile * 0.22);
-        ctx.strokeStyle = 'rgba(232,214,190,0.5)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(px, base - tile * 0.11);
-        ctx.lineTo(px + pw, base - tile * 0.11);
-        ctx.stroke();
-        // glazed sides either side of the door
-        ctx.fillStyle = night ? 'rgba(255,205,130,0.55)' : 'rgba(185,214,200,0.95)';
-        ctx.fillRect(px, eaves, pw, base - tile * 0.22 - eaves);
-        // the door: timber, glazed above, with a brass handle
-        const dx = px + pw * 0.2;
-        const dw = pw * 0.6;
-        const dTop = eaves + tile * 0.08;
+        // The side door: the back door's twin, turned to sit in the west glass.
         ctx.fillStyle = '#4a3623';
-        ctx.fillRect(dx - tile * 0.03, dTop - tile * 0.03, dw + tile * 0.06, base - dTop + tile * 0.03);
-        ctx.fillStyle = night ? 'rgba(255,205,130,0.8)' : 'rgba(190,220,206,0.95)';
-        ctx.fillRect(dx, dTop, dw, (base - dTop) * 0.5);
-        ctx.fillStyle = '#5c4430';
-        ctx.fillRect(dx, dTop + (base - dTop) * 0.5, dw, (base - dTop) * 0.5);
-        ctx.fillStyle = '#d8b24a';
-        ctx.beginPath();
-        ctx.arc(dx + dw - tile * 0.07, dTop + (base - dTop) * 0.55, tile * 0.03, 0, Math.PI * 2);
-        ctx.fill();
-        // frame and glazing bars
-        ctx.strokeStyle = '#eef0e6';
-        ctx.lineWidth = Math.max(1, tile * 0.035);
-        ctx.strokeRect(px, eaves, pw, base - eaves);
-        ctx.beginPath();
-        ctx.moveTo(dx + dw / 2, dTop);
-        ctx.lineTo(dx + dw / 2, dTop + (base - dTop) * 0.5);
-        ctx.stroke();
-        // a worn step
-        ctx.fillStyle = '#8a8274';
-        ctx.fillRect(px + pw * 0.12, base - tile * 0.02, pw * 0.76, tile * 0.12);
+        ctx.fillRect(s.x + tile * 0.82, s.y + tile * 0.08, tile * 0.42, tile * 0.84);
+        ctx.fillStyle = night ? 'rgba(255,205,130,0.6)' : 'rgba(160,196,182,0.9)';
+        ctx.fillRect(s.x + tile * 0.88, s.y + tile * 0.16, tile * 0.3, tile * 0.68);
       }
     }
   }
@@ -2173,7 +2147,13 @@ export class Renderer {
     if (state.truck && (state.scott.activity === 'driving' || state.player.riding)) {
       const t = state.truck;
       const f = Renderer.DIR[t.facing];
-      glow(t.x + f[0] * 1.9, t.y - 0.25 + f[1] * 1.2, 1.6, [255, 236, 180], 0.4);
+      // One beam per lamp: side by side head-on, near and far side-on.
+      const side = f[1] === 0;
+      for (const k of [-1, 1]) {
+        const ox = side ? 0 : k * 0.5;
+        const oy = side ? k * 0.32 : 0;
+        glow(t.x + f[0] * 1.9 + ox, t.y - 0.25 + f[1] * 1.2 + oy, 0.85, [255, 236, 180], 0.38);
+      }
     }
     // Lightning bugs, over the stretches of the valley they keep to.
     const bugs = fireflyStrength(darkness, state.weather.condition);
@@ -3182,7 +3162,7 @@ export class Renderer {
     const sitting = scout.behavior === 'idleSit';
     const sniffing = scout.behavior === 'idleSniff';
     const alert = scout.behavior === 'idleLook' || scout.behavior === 'noticing' || scout.behavior === 'pointing';
-    const moving = scout.behavior === 'following' || scout.behavior === 'leading';
+    const moving = scout.behavior === 'following' || scout.behavior === 'leading' || scout.behavior === 'chasingFrog';
 
     const bodyScaleY = sitting ? 0.62 : 1;
     const headDrop = sniffing ? tile * 0.09 : 0;

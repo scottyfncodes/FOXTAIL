@@ -41,6 +41,7 @@ export class ModeBar {
     else if (m.kind === 'yard') sig += `${m.selectedId}|${m.pending?.decorId}|${m.pending?.block}|${JSON.stringify(state.decorStock)}|${state.decor.length}`;
     else if (m.kind === 'bed') sig += `${m.shape}|${m.block}|${this.game.tools.bedCost()}|${state.coins}|${!!m.a}`;
     else if (m.kind === 'path') sig += `${m.preview?.block}|${m.preview?.plants.length}|${m.preview?.cost}|${m.points.length > 0}`;
+    else if (m.kind === 'clear') sig += `${m.shape}|${m.preview?.block}|${m.preview?.plants.length}|${m.preview?.trees.length}|${m.preview?.rocks.length}|${m.preview?.cost}|${state.coins}|${!!m.a}`;
     if (sig === this.sig) return;
     this.sig = sig;
     this.render();
@@ -90,6 +91,23 @@ export class ModeBar {
                 ? 'Water or the house is in the way'
                 : `Carve it? ${p.cost} coins${p.trees.length || p.rocks.length ? ` · clears ${[p.trees.length ? `${p.trees.length} tree${p.trees.length === 1 ? '' : 's'}` : '', p.rocks.length ? `${p.rocks.length} rock${p.rocks.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')}` : ''}${pathToolsNeeded(state, p).length ? ` (the crew brings ${toolList(pathToolsNeeded(state, p))} — cheaper with your own)` : ''}${p.plants.length ? ` · ${p.plants.length} of your plants dug up` : ''}`;
       row.append(cancel, bigButton('✓ Carve', 'confirm', () => this.game.confirmTool(), !this.game.tools.canConfirm()));
+    } else if (m.kind === 'clear') {
+      const p = m.preview;
+      const what = p ? [p.trees.length ? `${p.trees.length} tree${p.trees.length === 1 ? '' : 's'}` : '', p.rocks.length ? `${p.rocks.length} rock${p.rocks.length === 1 ? '' : 's'}` : '', p.plants.length ? `${p.plants.length} plant${p.plants.length === 1 ? '' : 's'}` : ''].filter(Boolean) : [];
+      status.textContent = !m.a || !p
+        ? `Drag out a ${m.shape} to clear back to bare ground · you have ${state.coins} coins`
+        : p.block === 'too-small'
+          ? 'Drag it a little bigger'
+          : p.block === 'too-big'
+            ? 'That’s too much to clear in one go'
+            : p.block === 'empty'
+              ? 'Nothing growing there to clear'
+              : p.block === 'coins'
+                ? `Costs ${p.cost} coins — you have ${state.coins}`
+                : `Clear it? ${p.cost} coins${what.length ? ` · takes out ${what.join(', ')}` : ''}${pathToolsNeeded(state, p).length ? ` (the crew brings ${toolList(pathToolsNeeded(state, p))} — cheaper with your own)` : ''}`;
+      const shape = bigButton(m.shape === 'square' ? '◻' : '○', 'shape', () => this.game.tools.setClearingShape(m.shape === 'square' ? 'circle' : 'square'));
+      shape.setAttribute('aria-label', 'Change shape');
+      row.append(cancel, shape, bigButton('✓ Clear', 'confirm', () => this.game.confirmTool(), !this.game.tools.canConfirm()));
     } else if (m.kind === 'arrange') {
       this.renderArrange(m, status, row);
       return;

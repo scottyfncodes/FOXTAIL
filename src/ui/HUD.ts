@@ -140,6 +140,8 @@ export class HUD {
       item('▭', 'Dig a bed', () => this.game.beginBed('rect')),
       item('◯', 'Round bed', () => this.game.beginBed('oval')),
       item('〰', 'Carve a path', () => this.game.beginPath()),
+      item('◻', 'Clear a square', () => this.game.beginClearing('square')),
+      item('○', 'Clear a circle', () => this.game.beginClearing('circle')),
       item('\u{1FA91}', 'Arrange the garden', () => this.game.beginArrange())
     );
     this.landMenu.addEventListener('pointerdown', (e) => e.stopPropagation());

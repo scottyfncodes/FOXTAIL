@@ -580,6 +580,108 @@ export function pathAt(state: GameState, x: number, y: number, slack = 0.2): Gar
   return state.paths.find((p) => distToRoute(p.points, x, y) < p.width / 2 + slack);
 }
 
+// ---------------------------------------------------------------- clearings
+
+// A clearing isn't a bed: nothing is dug and nothing is left behind. It's
+// the ground under a square or a circle taken right back to bare earth —
+// scrub, trees, rocks and whatever was growing there — for a fresh start.
+// What grows there next is up to you (and, in time, the wild).
+
+export type ClearingShape = 'square' | 'circle';
+
+export interface ClearingSpec {
+  x: number;
+  y: number;
+  /** Width and height: always the same, it's a square or a circle. */
+  size: number;
+  shape: ClearingShape;
+}
+
+/** The square (or the circle's bounding square) dragged out from a to b, kept to quarter tiles. */
+export function clearingSpecOf(a: { x: number; y: number }, b: { x: number; y: number }, shape: ClearingShape): ClearingSpec {
+  const q = (v: number) => Math.round(v * 4) / 4;
+  const size = q(Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)));
+  return { x: q(b.x < a.x ? a.x - size : a.x), y: q(b.y < a.y ? a.y - size : a.y), size, shape };
+}
+
+export const CLEARING_MIN = 1;
+export const CLEARING_MAX = 12;
+export const CLEARING_BASE_COST = 20;
+export const CLEARING_COST_PER_TILE = 3;
+
+export type ClearingBlock = 'too-small' | 'too-big' | 'empty' | 'coins';
+
+export interface ClearingPreview {
+  block: ClearingBlock | null;
+  /** Plants that would be composted (yours and the wild's alike; those in garden beds are left be). */
+  plants: OwnedPlant[];
+  /** Bushes, flowers and reeds that would be grubbed out ("x,y" tiles). */
+  scrub: string[];
+  trees: string[];
+  rocks: string[];
+  cost: number;
+}
+
+function clearingAsBed(spec: ClearingSpec): Pick<GardenBed, 'x' | 'y' | 'w' | 'h' | 'shape'> {
+  return { x: spec.x, y: spec.y, w: spec.size, h: spec.size, shape: spec.shape === 'circle' ? 'oval' : 'rect' };
+}
+
+export function inClearing(spec: ClearingSpec, x: number, y: number, inset = 0): boolean {
+  return bedContains(clearingAsBed(spec), x, y, inset);
+}
+
+export function clearingCost(size: number, shape: ClearingShape, trees: number, rocks: number, hire: { chainsaw?: boolean; rockHammer?: boolean } = {}): number {
+  const area = shape === 'circle' ? (Math.PI * size * size) / 4 : size * size;
+  const tree = hire.chainsaw ? PATH_COST_TREE_HIRED : PATH_COST_TREE;
+  const rock = hire.rockHammer ? PATH_COST_ROCK_HIRED : PATH_COST_ROCK;
+  return Math.round(CLEARING_BASE_COST + CLEARING_COST_PER_TILE * area + tree * trees + rock * rocks);
+}
+
+export function previewClearing(state: GameState, spec: ClearingSpec, world: LandscapeWorld): ClearingPreview {
+  const res: ClearingPreview = { block: null, plants: [], scrub: [], trees: [], rocks: [], cost: 0 };
+  if (spec.size < CLEARING_MIN) res.block = 'too-small';
+  else if (spec.size > CLEARING_MAX) res.block = 'too-big';
+  for (const [tx, ty] of tilesUnder({ x: spec.x, y: spec.y, w: spec.size, h: spec.size })) {
+    if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) continue;
+    if (!inClearing(spec, tx + 0.5, ty + 0.5, -0.2)) continue;
+    // The house, the water and the wild patches are left as they are.
+    if (world.isBuiltOrWater(tx, ty) || world.isSpot(tx, ty)) continue;
+    const kind = world.obstacleAt(tx, ty);
+    if (!kind) continue;
+    const key = `${tx},${ty}`;
+    if (kind === 'tree') res.trees.push(key);
+    else if (kind === 'rock') res.rocks.push(key);
+    else res.scrub.push(key);
+  }
+  for (const p of Object.values(state.plants)) {
+    if (p.location.kind !== 'wild' || p.location.bedId) continue;
+    if (inClearing(spec, p.location.x, p.location.y)) res.plants.push(p);
+  }
+  const hired = pathToolsNeeded(state, res);
+  res.cost = clearingCost(spec.size, spec.shape, res.trees.length, res.rocks.length, { chainsaw: hired.includes('chainsaw'), rockHammer: hired.includes('rockHammer') });
+  if (!res.block && !res.plants.length && !res.scrub.length && !res.trees.length && !res.rocks.length) res.block = 'empty';
+  if (!res.block && state.coins < res.cost) res.block = 'coins';
+  return res;
+}
+
+export interface ClearingResult {
+  composted: number;
+  scrub: number;
+  trees: number;
+  rocks: number;
+  cost: number;
+}
+
+/** Clears the ground under a square or circle back to bare earth, for a price. */
+export function createClearing(state: GameState, spec: ClearingSpec, world: LandscapeWorld): ClearingResult | null {
+  const preview = previewClearing(state, spec, world);
+  if (preview.block) return null;
+  for (const p of preview.plants) delete state.plants[p.id];
+  state.coins -= preview.cost;
+  for (const key of [...preview.scrub, ...preview.trees, ...preview.rocks]) if (!state.clearedObstacles.includes(key)) state.clearedObstacles.push(key);
+  return { composted: preview.plants.length, scrub: preview.scrub.length, trees: preview.trees.length, rocks: preview.rocks.length, cost: preview.cost };
+}
+
 // ---------------------------------------------------------------- compost
 
 export interface CompostResult {
@@ -600,7 +702,8 @@ export function compostPlant(state: GameState, plantId: string): CompostResult |
 
 // ---------------------------------------------------------------- planting & moving
 
-export type PlantingBlock = 'bounds' | 'water' | 'dry' | 'building' | 'obstacle' | 'spot' | 'path' | 'crowded' | 'decor';
+/** (Paths don't stop planting: you can set something right down on one, though nothing seeds itself there.) */
+export type PlantingBlock = 'bounds' | 'water' | 'dry' | 'building' | 'obstacle' | 'spot' | 'crowded' | 'decor';
 
 export interface PlantingCheck {
   block: PlantingBlock | null;
@@ -638,7 +741,6 @@ export function checkPlanting(
     if (world.isBuiltOrWater(tx, ty)) return { block: 'water', zone: oz };
     if (world.obstacleAt(tx, ty) && world.obstacleAt(tx, ty) !== 'flower') return { block: 'obstacle', zone: oz };
     if (world.isSpot(tx, ty)) return { block: 'spot', zone: oz };
-    if (onPath(state, x, y, now)) return { block: 'path', zone: oz };
     if (state.decor.some((d) => Math.hypot(d.x - x, d.y - y) < 0.55) || inPond(state, x, y)) return { block: 'decor', zone: oz };
   }
   const mine = matureRadius(defId) * 0.4;

@@ -6,6 +6,7 @@ import {
   FRONT_DOOR,
   GREENHOUSE_DOORS,
   greenhouseDoorAtInside,
+  HOUSE_BACK_EXIT,
   IMPLIED_DOORWAYS,
   INTERIOR_H,
   INTERIOR_W,
@@ -150,6 +151,24 @@ export function drawInteriorShell(ctx: Ctx, camera: Camera, state: GameState, no
     if (d.wall === 'west') ctx.fillRect(g.x, g.y - tile * 0.3, tile, tile * 1.6);
     else ctx.fillRect(g.x - tile * 0.3, g.y, tile * 1.6, tile);
   }
+  // The back door, in the north wall: painted like the front door, with a pane of the outside in it.
+  const bd = camera.worldToScreen(HOUSE_BACK_EXIT.x * TILE_SIZE, HOUSE_BACK_EXIT.y * TILE_SIZE);
+  ctx.fillStyle = '#efe6d2';
+  ctx.fillRect(bd.x + tile * 0.02, bd.y - tile * 0.02, tile * 0.96, tile * 1.02);
+  ctx.fillStyle = '#3f5a4c';
+  ctx.fillRect(bd.x + tile * 0.1, bd.y + tile * 0.05, tile * 0.8, tile * 0.95);
+  ctx.fillStyle = day > 0.3 ? 'rgba(190,225,200,0.7)' : 'rgba(80,100,130,0.6)';
+  ctx.fillRect(bd.x + tile * 0.28, bd.y + tile * 0.15, tile * 0.44, tile * 0.32);
+  ctx.strokeStyle = '#2f463b';
+  ctx.lineWidth = Math.max(1, tile * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(bd.x + tile * 0.5, bd.y + tile * 0.15);
+  ctx.lineTo(bd.x + tile * 0.5, bd.y + tile * 0.47);
+  ctx.stroke();
+  ctx.fillStyle = '#d8b24a';
+  ctx.beginPath();
+  ctx.arc(bd.x + tile * 0.78, bd.y + tile * 0.6, tile * 0.04, 0, Math.PI * 2);
+  ctx.fill();
   const f = camera.worldToScreen(FRONT_DOOR.x * TILE_SIZE, FRONT_DOOR.y * TILE_SIZE);
   ctx.fillStyle = '#3f5a4c';
   ctx.fillRect(f.x + tile * 0.08, f.y + tile * 0.05, tile * 0.84, tile * 0.9);

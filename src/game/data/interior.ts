@@ -1,5 +1,5 @@
 import { GREENHOUSE_EXIT, GREENHOUSE_BACK_EXIT, GREENHOUSE_SIDE_EXIT, GREENHOUSE_GRID_H, GREENHOUSE_GRID_W } from './stations';
-import { GREENHOUSE_DOOR, GREENHOUSE_BACK_DOOR, GREENHOUSE_SIDE_DOOR } from './worldMap';
+import { GREENHOUSE_DOOR, GREENHOUSE_BACK_DOOR, GREENHOUSE_SIDE_DOOR, HOUSE_BACK_DOOR } from './worldMap';
 
 // The inside of the building: one continuous interior, two rooms. The west
 // two-thirds is the greenhouse (its layout lives in stations.ts, unchanged);
@@ -19,6 +19,8 @@ export const PARTITION_X = GREENHOUSE_GRID_W - 1;
 export const PARTITION_DOOR_YS = [7, 8];
 /** The front door, in the living room's south wall. */
 export const FRONT_DOOR = { x: 22, y: INTERIOR_H - 1 };
+/** The back door, in the living room's north wall, between the TV and the bookshelf. */
+export const HOUSE_BACK_EXIT = { x: 22, y: 0 };
 export { GREENHOUSE_EXIT };
 
 export type DoorWall = 'north' | 'south' | 'west';
@@ -30,7 +32,7 @@ export type DoorWall = 'north' | 'south' | 'west';
  * stepping out through it.
  */
 export interface GreenhouseDoor {
-  id: 'garden' | 'back' | 'side';
+  id: 'garden' | 'back' | 'side' | 'house';
   inside: { x: number; y: number };
   outside: { x: number; y: number };
   wall: DoorWall;
@@ -43,6 +45,12 @@ export const GREENHOUSE_DOORS: GreenhouseDoor[] = [
   { id: 'side', inside: GREENHOUSE_SIDE_EXIT, outside: GREENHOUSE_SIDE_DOOR, wall: 'west', label: 'Out the side door' },
 ];
 
+/** The house's own back door, out of the living room: it works just like the greenhouse's. */
+export const HOUSE_BACK: GreenhouseDoor = { id: 'house', inside: HOUSE_BACK_EXIT, outside: HOUSE_BACK_DOOR, wall: 'north', label: 'Out the back door' };
+
+/** Every way in and out of the building bar the front door: the greenhouse's three and the house's back door. */
+export const BUILDING_DOORS: GreenhouseDoor[] = [...GREENHOUSE_DOORS, HOUSE_BACK];
+
 /** One step outward through a door's wall. */
 export const DOOR_OUTWARD: Record<DoorWall, { x: number; y: number }> = {
   north: { x: 0, y: -1 },
@@ -51,7 +59,7 @@ export const DOOR_OUTWARD: Record<DoorWall, { x: number; y: number }> = {
 };
 
 export function greenhouseDoorAtInside(tx: number, ty: number): GreenhouseDoor | undefined {
-  return GREENHOUSE_DOORS.find((d) => d.inside.x === tx && d.inside.y === ty);
+  return BUILDING_DOORS.find((d) => d.inside.x === tx && d.inside.y === ty);
 }
 
 export type InteriorRoom = 'greenhouse' | 'living';
@@ -161,8 +169,8 @@ export function interiorWaypoint(fx: number, fy: number, tx: number, ty: number)
 
 /** Tiles kept clear of furniture so nobody can wall off a way in or out. */
 export function isKeepClearTile(tx: number, ty: number): boolean {
-  // Every greenhouse door and the front door, plus the tile inside each.
-  for (const d of GREENHOUSE_DOORS) {
+  // Every door out, plus the tile inside each.
+  for (const d of BUILDING_DOORS) {
     const o = DOOR_OUTWARD[d.wall];
     if ((tx === d.inside.x && ty === d.inside.y) || (tx === d.inside.x - o.x && ty === d.inside.y - o.y)) return true;
   }

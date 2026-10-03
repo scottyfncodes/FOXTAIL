@@ -1,9 +1,9 @@
 import type { Camera } from '../engine/Camera';
 import type { FoxState, GardenBed, GardenPath, GameState, OwnedPlant } from '../state';
 import type { Rarity } from '../types';
-import { TILE_SIZE, HOUSE_FOOTPRINT, HOUSE_DOOR, zoneAt } from '../data/worldMap';
+import { TILE_SIZE, HOUSE_FOOTPRINT, HOUSE_DOOR, HOUSE_BACK_DOOR, zoneAt } from '../data/worldMap';
 import { isNight } from '../engine/Clock';
-import { encroachment, pathPairs, bedCost, matureRadius, currentRadius, type PathPreview, type PlantingCheck } from '../systems/landscape';
+import { encroachment, pathPairs, bedCost, matureRadius, currentRadius, type ClearingPreview, type ClearingSpec, type PathPreview, type PlantingCheck } from '../systems/landscape';
 import { findCuriosity } from '../data/curiosities';
 import { FLAGSTONE } from '../data/decor';
 import { drawFlagstone } from './GardenArt';
@@ -124,6 +124,16 @@ export function drawHouseExterior(ctx: Ctx, camera: Camera, gameMinutes: number)
       ctx.fill();
     }
   }
+  // The back door, in the far wall: seen over the roof, like the greenhouse's.
+  const back = camera.worldToScreen(HOUSE_BACK_DOOR.x * TILE_SIZE, HOUSE_BACK_DOOR.y * TILE_SIZE);
+  ctx.fillStyle = '#3f5a4c';
+  ctx.fillRect(back.x + tile * 0.08, back.y + tile * 0.82, tile * 0.84, tile * 0.42);
+  ctx.fillStyle = night ? 'rgba(255,214,140,0.7)' : 'rgba(255,230,170,0.5)';
+  ctx.fillRect(back.x + tile * 0.3, back.y + tile * 0.88, tile * 0.4, tile * 0.16);
+  ctx.fillStyle = '#d8b24a';
+  ctx.beginPath();
+  ctx.arc(back.x + tile * 0.8, back.y + tile * 1.1, tile * 0.035, 0, Math.PI * 2);
+  ctx.fill();
   // Front door with a porch light and a step.
   ctx.fillStyle = '#8a8274';
   ctx.fillRect(door.x - tile * 0.15, door.y - tile * 0.02, tile * 1.3, tile * 0.16);
@@ -456,6 +466,61 @@ export function drawBedPreview(ctx: Ctx, camera: Camera, spec: Pick<GardenBed, '
   ctx.setLineDash([]);
   const c = camera.worldToScreen((spec.x + spec.w / 2) * TILE_SIZE, (spec.y + spec.h / 2) * TILE_SIZE);
   label(ctx, c.x, c.y, ok ? `${cost ?? ''} coins` : block === 'coins' ? `${cost} coins (you have ${coins})` : BED_BLOCK_TEXT[block!] ?? 'Not here', !ok, tile);
+}
+
+const CLEARING_BLOCK_TEXT: Record<string, string> = {
+  'too-small': 'Drag it bigger',
+  'too-big': 'Too big to clear in one go',
+  empty: 'Nothing to clear here',
+};
+
+/** The square or circle about to be cleared, with what's coming out of it marked. */
+export function drawClearingPreview(ctx: Ctx, camera: Camera, spec: ClearingSpec, preview: ClearingPreview | null, coins: number) {
+  const tile = TILE_SIZE * camera.zoom;
+  const ok = !!preview && !preview.block;
+  bedOutline(ctx, camera, { x: spec.x, y: spec.y, w: spec.size, h: spec.size, shape: spec.shape === 'circle' ? 'oval' : 'rect' }, 0, 1);
+  ctx.fillStyle = ok ? 'rgba(170,140,96,0.32)' : 'rgba(160,50,40,0.22)';
+  ctx.fill();
+  ctx.setLineDash([tile * 0.14, tile * 0.1]);
+  ctx.lineWidth = Math.max(2, tile * 0.05);
+  ctx.strokeStyle = ok ? 'rgba(246,239,224,0.95)' : 'rgba(255,150,130,0.95)';
+  ctx.stroke();
+  ctx.setLineDash([]);
+  if (preview) {
+    // Plants coming out ringed; trees and rocks crossed.
+    for (const p of preview.plants) {
+      if (p.location.kind !== 'wild') continue;
+      const s = camera.worldToScreen(p.location.x * TILE_SIZE, p.location.y * TILE_SIZE);
+      const r = Math.max(0.3, currentRadius(p)) * tile;
+      ctx.strokeStyle = 'rgba(255,190,110,0.9)';
+      ctx.lineWidth = Math.max(1.5, tile * 0.04);
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y, r, r * 0.6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(255,235,200,0.9)';
+    ctx.lineWidth = Math.max(1.5, tile * 0.05);
+    for (const key of [...preview.trees, ...preview.rocks]) {
+      const [tx, ty] = key.split(',').map(Number);
+      const s = camera.worldToScreen((tx + 0.5) * TILE_SIZE, (ty + 0.5) * TILE_SIZE);
+      const k = tile * 0.16;
+      ctx.beginPath();
+      ctx.moveTo(s.x - k, s.y - k);
+      ctx.lineTo(s.x + k, s.y + k);
+      ctx.moveTo(s.x + k, s.y - k);
+      ctx.lineTo(s.x - k, s.y + k);
+      ctx.stroke();
+    }
+  }
+  const c = camera.worldToScreen((spec.x + spec.size / 2) * TILE_SIZE, (spec.y + spec.size / 2) * TILE_SIZE);
+  const text = !preview
+    ? ''
+    : preview.block === 'coins'
+      ? `${preview.cost} coins (you have ${coins})`
+      : preview.block
+        ? CLEARING_BLOCK_TEXT[preview.block] ?? 'Not here'
+        : `${preview.cost} coins`;
+  if (text) label(ctx, c.x, c.y, text, !ok, tile);
 }
 
 export function drawPathPreview(ctx: Ctx, camera: Camera, points: number[], preview: PathPreview | null, width: number) {

@@ -12,6 +12,10 @@ import {
   bedRefund,
   createBed,
   createPath,
+  createClearing,
+  clearingSpecOf,
+  previewClearing,
+  CLEARING_MAX,
   encroachment,
   ENCROACH_MINUTES,
   onPath,
@@ -70,7 +74,7 @@ describe('precise outdoor planting', () => {
     expect(checkPlanting(state, 'fittonia', 55.8, 28, world(), 0).block).toBe('crowded');
   });
 
-  it('refuses water, trees, wild patches, paths and garden decor — but not a wildflower', () => {
+  it('refuses water, trees, wild patches and garden decor — but not a wildflower, nor a path', () => {
     const state = createNewGame();
     expect(checkPlanting(state, 'pothos', 41.5, 30.5, world(), 0).block).toBe('water');
     expect(checkPlanting(state, 'pothos', 60.5, 30.5, world(), 0).block).toBe('obstacle');
@@ -79,7 +83,7 @@ describe('precise outdoor planting', () => {
     state.decor.push({ id: 'd', decorId: 'birdbath', x: 50, y: 30 });
     expect(checkPlanting(state, 'pothos', 50.2, 30.1, world(), 0).block).toBe('decor');
     state.paths.push({ id: 'p', points: [48, 34, 52, 34], width: 1.15, createdAt: 0 });
-    expect(checkPlanting(state, 'pothos', 50, 34.1, world(), 0).block).toBe('path');
+    expect(checkPlanting(state, 'pothos', 50, 34.1, world(), 0).block).toBeNull();
   });
 
   it('knows when the spot is inside one of your garden beds', () => {
@@ -562,5 +566,57 @@ describe('garden trellis', () => {
     expect(growthMultiplier(state, inMeadow)).toBeCloseTo(PLANTS.pothos.growthRate * 1.3);
     expect(growthMultiplier(state, onRocks)).toBeCloseTo(PLANTS.pothos.growthRate * 0.85);
     expect(growthMultiplier(state, indoors)).toBeCloseTo(PLANTS.pothos.growthRate * 1.5);
+  });
+});
+
+describe('clearing ground', () => {
+  it('drags out a true square (or circle) whichever way the finger goes', () => {
+    expect(clearingSpecOf({ x: 60, y: 30 }, { x: 63, y: 31 }, 'square')).toEqual({ x: 60, y: 30, size: 3, shape: 'square' });
+    expect(clearingSpecOf({ x: 60, y: 30 }, { x: 58, y: 27 }, 'circle')).toEqual({ x: 57, y: 27, size: 3, shape: 'circle' });
+  });
+
+  it('takes a square back to bare earth: trees, scrub and plants alike, for a price', () => {
+    const state = createNewGame();
+    state.coins = 1000;
+    state.owned.push('chainsaw');
+    wild(state, 'a', 61, 30.5, STAGE_AT.large);
+    wild(state, 'far', 70, 40, STAGE_AT.large);
+    const spec = { x: 59.5, y: 29.5, size: 4, shape: 'square' as const };
+    const p = previewClearing(state, spec, world());
+    expect(p.block).toBeNull();
+    expect(p.trees).toEqual(['60,30']);
+    expect(p.scrub).toEqual(expect.arrayContaining(['62,30', '63,31']));
+    expect(p.plants.map((x) => x.id)).toEqual(['a']);
+    const res = createClearing(state, spec, world())!;
+    expect(res.trees).toBe(1);
+    expect(res.composted).toBe(1);
+    expect(state.plants.a).toBeUndefined();
+    expect(state.plants.far).toBeDefined();
+    expect(state.clearedObstacles).toEqual(expect.arrayContaining(['60,30', '62,30', '63,31']));
+    expect(state.coins).toBe(1000 - res.cost);
+    // Nothing is left behind: no bed, no path.
+    expect(state.gardenBeds).toHaveLength(0);
+    expect(state.paths).toHaveLength(0);
+  });
+
+  it('leaves a circle’s corners, garden beds, and the water alone', () => {
+    const state = createNewGame();
+    state.coins = 1000;
+    // In the square's corner, but outside the circle.
+    wild(state, 'corner', 50.2, 30.2, STAGE_AT.young);
+    wild(state, 'middle', 52, 32, STAGE_AT.young);
+    state.gardenBeds.push({ id: 'bed', x: 51.5, y: 32.5, w: 1.5, h: 1.5, shape: 'rect', createdAt: 0 });
+    const inBed = wild(state, 'inBed', 52.2, 33.2, STAGE_AT.young);
+    inBed.location = { ...inBed.location, bedId: 'bed' } as OwnedPlant['location'];
+    const p = previewClearing(state, { x: 50, y: 30, size: 4, shape: 'circle' }, world());
+    expect(p.plants.map((x) => x.id)).toEqual(['middle']);
+  });
+
+  it('won’t clear nothing, too much, or more than you can pay for', () => {
+    const state = createNewGame();
+    expect(previewClearing(state, { x: 50, y: 34, size: 2, shape: 'square' }, world()).block).toBe('empty');
+    expect(previewClearing(state, { x: 50, y: 20, size: CLEARING_MAX + 1, shape: 'square' }, world()).block).toBe('too-big');
+    state.coins = 0;
+    expect(previewClearing(state, { x: 59.5, y: 29.5, size: 2, shape: 'square' }, world()).block).toBe('coins');
   });
 });

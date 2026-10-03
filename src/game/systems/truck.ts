@@ -1,5 +1,5 @@
 import type { BasketItem, Facing, GameState, TruckState } from '../state';
-import { GREENHOUSE_DOORS } from '../data/interior';
+import { BUILDING_DOORS } from '../data/interior';
 import { GREENHOUSE_FOOTPRINT, HOUSE_FOOTPRINT, type Rect } from '../data/worldMap';
 
 /**
@@ -38,7 +38,7 @@ export function truckNear(state: GameState): boolean {
   const t = state.truck;
   if (!t || scottDriving(state)) return false;
   if (state.player.riding) return true;
-  if (state.player.inGreenhouse) return GREENHOUSE_DOORS.some((d) => Math.hypot(t.x - (d.outside.x + 0.5), t.y - (d.outside.y + 0.5)) <= TRUCK_DOOR_REACH);
+  if (state.player.inGreenhouse) return BUILDING_DOORS.some((d) => Math.hypot(t.x - (d.outside.x + 0.5), t.y - (d.outside.y + 0.5)) <= TRUCK_DOOR_REACH);
   return Math.hypot(t.x - state.player.x, t.y - state.player.y) <= TRUCK_REACH;
 }
 

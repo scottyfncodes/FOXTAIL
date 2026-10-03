@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { riverTurtles, riverFrogs, pondTurtleAt, pondTurtleCount, pondFrogs, pondPads, pondFrogCount, fireflies, fireflyStrength, FIREFLY_AREAS, TURTLE_STONES } from '../src/game/systems/wildlife';
+import { riverAlligator, GATOR_BANK, riverTurtles, riverFrogs, pondTurtleAt, pondTurtleCount, pondFrogs, pondPads, pondFrogCount, fireflies, fireflyStrength, FIREFLY_AREAS, TURTLE_STONES } from '../src/game/systems/wildlife';
 import { CREEK_WATER, BRIDGES, rectContains } from '../src/game/data/worldMap';
 import { inPond } from '../src/game/systems/koi';
 import type { PlacedDecor } from '../src/game/state';
@@ -100,5 +100,24 @@ describe('lightning bugs', () => {
       expect(lit).toBeGreaterThan(0);
       expect(dark).toBeGreaterThan(lit);
     }
+  });
+});
+
+describe('the alligator', () => {
+  it('is only ever in the creek or on its own bank, never under a bridge, and spends time both basking and swimming', () => {
+    let basking = 0;
+    let swimming = 0;
+    for (let now = 0; now < 400000; now += 1000) {
+      const g = riverAlligator(now);
+      expect(g.x).toBeGreaterThanOrEqual(CREEK_WATER.x);
+      expect(g.x).toBeLessThanOrEqual(CREEK_WATER.x + CREEK_WATER.w + 0.5);
+      expect(BRIDGES.some((b) => g.y > b.y - 1.2 && g.y < b.y + b.h + 1.2)).toBe(false);
+      if (g.basking) {
+        basking++;
+        expect(g).toMatchObject({ x: GATOR_BANK.x, y: GATOR_BANK.y });
+      } else swimming++;
+    }
+    expect(basking).toBeGreaterThan(0);
+    expect(swimming).toBeGreaterThan(0);
   });
 });

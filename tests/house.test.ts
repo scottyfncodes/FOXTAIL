@@ -1,5 +1,5 @@
 import { GREENHOUSE_BACK_EXIT, GREENHOUSE_SIDE_EXIT } from '../src/game/data/stations';
-import { GREENHOUSE_DOORS, DOOR_OUTWARD, isKeepClearTile } from '../src/game/data/interior';
+import { GREENHOUSE_DOORS, BUILDING_DOORS, HOUSE_BACK_EXIT, DOOR_OUTWARD, isKeepClearTile } from '../src/game/data/interior';
 import { isInsideHomeFootprint } from '../src/game/data/worldMap';
 import { describe, it, expect } from 'vitest';
 import { createNewGame } from '../src/game/state';
@@ -51,8 +51,8 @@ describe('the house and the greenhouse', () => {
 
   it('has walls all round, a doorway between the rooms, and a way out of each', () => {
     for (let x = 0; x < INTERIOR_W; x++) {
-      // The top wall is solid, bar the greenhouse's back door.
-      expect(!isInteriorWallTile(x, 0)).toBe(x === GREENHOUSE_BACK_EXIT.x);
+      // The top wall is solid, bar the greenhouse's back door and the house's.
+      expect(!isInteriorWallTile(x, 0)).toBe(x === GREENHOUSE_BACK_EXIT.x || x === HOUSE_BACK_EXIT.x);
     }
     for (let y = 1; y < INTERIOR_H - 1; y++) expect(!isInteriorWallTile(0, y)).toBe(y === GREENHOUSE_SIDE_EXIT.y);
     expect(isInteriorWallTile(GREENHOUSE_EXIT.x, GREENHOUSE_EXIT.y)).toBe(false);
@@ -60,10 +60,13 @@ describe('the house and the greenhouse', () => {
     for (let y = 1; y < INTERIOR_H - 1; y++) expect(isInteriorWallTile(PARTITION_X, y)).toBe(!PARTITION_DOOR_YS.includes(y));
   });
 
-  it('gives the greenhouse three doors, each open to walk through and kept clear of furniture', () => {
+  it('gives the greenhouse three doors and the house a back door, each open to walk through and kept clear of furniture', () => {
     const obstacles = buildBlockingSet(generateObstacles());
     expect(GREENHOUSE_DOORS.map((d) => d.id)).toEqual(['garden', 'back', 'side']);
-    for (const d of GREENHOUSE_DOORS) {
+    expect(BUILDING_DOORS.map((d) => d.id)).toEqual(['garden', 'back', 'side', 'house']);
+    // The house's back door opens out of the living room.
+    expect(roomAt(HOUSE_BACK_EXIT.x + 0.5)).toBe('living');
+    for (const d of BUILDING_DOORS) {
       expect(isInteriorWallTile(d.inside.x, d.inside.y)).toBe(false);
       expect(isKeepClearTile(d.inside.x, d.inside.y)).toBe(true);
       const o = DOOR_OUTWARD[d.wall];
