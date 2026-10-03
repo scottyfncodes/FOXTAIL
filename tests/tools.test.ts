@@ -205,7 +205,7 @@ describe('arranging the garden by touch', () => {
     tools.pointerMove(75, 46.2);
     expect(tools.mode.kind === 'yard' && tools.mode.drag?.block).toBe('occupied');
     expect(tools.pointerUp(75, 46.2).kind).toBe('none');
-    expect(state.stall).toEqual({ x: 69, y: 42 });
+    expect(state.stall).toMatchObject({ x: 69, y: 42 });
   });
 
   it('places garden decor from stock, moves it, and puts it away again — but never the stall', () => {
@@ -229,10 +229,10 @@ describe('arranging the garden by touch', () => {
 
     tools.select(STALL_ID);
     expect(tools.storeSelected()).toBe(false);
-    expect(state.stall).toEqual({ x: 69, y: 42 });
+    expect(state.stall).toMatchObject({ x: 69, y: 42 });
   });
 
-  it('turns a bench in hand and again once it’s down — but not a birdbath, and not the stall', () => {
+  it('turns a bench in hand and again once it’s down, and a birdbath and the stall round to face the other way', () => {
     const { state, tools } = setup();
     state.decorStock = { gardenBench: 1, birdbath: 1 };
     tools.startYard('gardenBench', { x: 50, y: 20 });
@@ -240,18 +240,27 @@ describe('arranging the garden by touch', () => {
     expect(tools.mode.kind === 'yard' && tools.mode.pending?.rot).toBe(1);
     expect(tools.confirm().kind).toBe('placed');
     expect(state.decor[0]).toMatchObject({ decorId: 'gardenBench', rot: 1 });
-    // Placing leaves it selected, so a second turn puts it back the way it was.
+    // Placing leaves it selected; three more turns bring it all the way round.
+    for (const r of [2, 3]) {
+      expect(tools.rotateSelected()).toBe(true);
+      expect(state.decor[0].rot).toBe(r);
+    }
     expect(tools.rotateSelected()).toBe(true);
-    expect(state.decor[0].rot).toBe(0);
+    expect(state.decor[0].rot ?? 0).toBe(0);
 
     tools.startYard('birdbath', { x: 54, y: 20 });
-    expect(tools.rotateSelected()).toBe(false);
+    expect(tools.rotateSelected()).toBe(true);
+    expect(tools.mode.kind === 'yard' && tools.mode.pending?.rot).toBe(2);
     expect(tools.confirm().kind).toBe('placed');
-    expect(tools.rotateSelected()).toBe(false);
-    expect(state.decor[1].rot).toBeUndefined();
+    expect(state.decor[1].rot).toBe(2);
+    expect(tools.rotateSelected()).toBe(true);
+    expect(state.decor[1].rot ?? 0).toBe(0);
 
     tools.select(STALL_ID);
-    expect(tools.rotateSelected()).toBe(false);
+    expect(tools.rotateSelected()).toBe(true);
+    expect(state.stall.rot).toBe(2);
+    // Turning it round doesn't change the ground it stands on.
+    expect(stallRect(state)).toMatchObject({ x: 69, y: 42, w: 2, h: 1 });
   });
 
   it('sets a raised bed down end-on once it’s been turned in hand', () => {

@@ -1,4 +1,5 @@
 import { RAISED_BED, type DecorId } from './shop';
+import { swapsFootprint, type TurnMode } from './turn';
 
 // What each piece of garden decor is and how much ground it stands on, the
 // way furniture.ts does for the house. Pieces that are longer one way than
@@ -45,10 +46,16 @@ export const DECOR_DEFS: Record<DecorId, DecorDef> = {
 /** A piece's footprint size once turned `rot` quarter-turns. */
 export function decorSize(id: DecorId, rot = 0): { w: number; h: number } {
   const def = DECOR_DEFS[id];
-  const turned = !!def.rotatable && rot % 2 === 1;
+  const turned = swapsFootprint(decorTurn(id), rot);
   return turned ? { w: def.h, h: def.w } : { w: def.w, h: def.h };
 }
 
+/** How a piece of decor turns: on its own turned drawing, or (standing things: a lantern, the birdbath) flipped. */
+export function decorTurn(id: DecorId): TurnMode {
+  return DECOR_DEFS[id]?.rotatable ? 'art' : 'mirror';
+}
+
+/** Has its own drawing for being turned a quarter-turn. */
 export function decorRotatable(id: DecorId): boolean {
   return !!DECOR_DEFS[id].rotatable;
 }

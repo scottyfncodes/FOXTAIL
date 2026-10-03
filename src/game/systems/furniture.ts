@@ -2,7 +2,9 @@ import type { GameState, PlacedFurniture } from '../state';
 import { makeUid } from '../state';
 import type { FurnitureId } from '../data/shop';
 import { DISPLAY_SLOTS, GREENHOUSE_FURNITURE, NURSERY_BEDS, STORAGE_CRATES, type DisplayKind, type DisplaySlot } from '../data/stations';
-import { FURNITURE_DEFS, GROW_LAMP_RADIUS, type FurnitureDef } from '../data/furniture';
+import { FURNITURE_DEFS, GROW_LAMP_RADIUS, furnitureTurn, type FurnitureDef } from '../data/furniture';
+import { nextRot, normalRot, swapsFootprint } from '../data/turn';
+import { spotPosition, type AnchorShift } from '../data/catSpots';
 import { INTERIOR_H, INTERIOR_W, LIVING_FIXTURES, PARTITION_X, PUTTING_CUP_OFFSET, isKeepClearTile, type InteriorRect, type LivingFixture } from '../data/interior';
 import { occupantOf } from './propagation';
 
@@ -57,20 +59,22 @@ function fixtureHome(f: LivingFixture): PlacedFurniture {
 }
 
 /** How far a living-room fixture has been moved from its original place, in tiles. */
-export function fixtureOffset(state: Pick<GameState, 'owned' | 'seededFixtures' | 'furniture'>, fixtureId: string): { dx: number; dy: number } {
+export function fixtureOffset(state: Pick<GameState, 'owned' | 'seededFixtures' | 'furniture'>, fixtureId: string): AnchorShift {
   const f = LIVING_FIXTURES.find((l) => l.id === fixtureId);
   if (!f || !(state.seededFixtures ?? []).includes(fixtureId)) return { dx: 0, dy: 0 };
   const piece = state.furniture.find((p) => p.id === fixtureId);
   if (!piece) return { dx: 0, dy: 0 };
   const home = fixtureHome(f);
-  return { dx: piece.x - home.x, dy: piece.y - home.y };
+  const def = FURNITURE_DEFS[piece.kind];
+  // Turned, spots on it turn with it, about the piece's centre.
+  const rot = piece.rot ?? 0;
+  return rot ? { dx: piece.x - home.x, dy: piece.y - home.y, rot, turn: furnitureTurn(piece.kind), cx: f.x + def.w / 2, cy: f.y + def.h / 2 } : { dx: piece.x - home.x, dy: piece.y - home.y };
 }
 
 /** Where the putting mat's cup is right now, in interior tiles. */
 export function puttingCup(state: Pick<GameState, 'owned' | 'seededFixtures' | 'furniture'>): { x: number; y: number } {
   const mat = LIVING_FIXTURES.find((f) => f.kind === 'puttingMat')!;
-  const { dx, dy } = fixtureOffset(state, mat.id);
-  return { x: mat.x + PUTTING_CUP_OFFSET.x + dx, y: mat.y + PUTTING_CUP_OFFSET.y + dy };
+  return spotPosition({ x: mat.x + PUTTING_CUP_OFFSET.x, y: mat.y + PUTTING_CUP_OFFSET.y, anchor: mat.id }, (id) => fixtureOffset(state, id));
 }
 
 /** Every piece of furniture indoors right now. */
@@ -89,7 +93,7 @@ export function furnitureDef(kind: FurnitureId): FurnitureDef {
 /** The floor a piece covers, in interior tiles. */
 export function footprint(kind: FurnitureId, x: number, y: number, rot = 0): InteriorRect {
   const def = FURNITURE_DEFS[kind];
-  const turned = def.rotatable && rot % 2 === 1;
+  const turned = swapsFootprint(furnitureTurn(kind), rot);
   const w = turned ? def.h : def.w;
   const h = turned ? def.w : def.h;
   const cx = x + 0.5;
@@ -189,7 +193,8 @@ export function placeFurniture(state: GameState, kind: FurnitureId, x: number, y
   if (placeBlockReason(state, kind, x, y, opts)) return null;
   state.furnitureStock[kind] = (state.furnitureStock[kind] ?? 0) - 1;
   const piece: PlacedFurniture = { id: makeUid('furniture'), kind, x, y };
-  if (opts.rot) piece.rot = opts.rot % 2;
+  const rot = normalRot(furnitureTurn(kind), opts.rot ?? 0);
+  if (rot) piece.rot = rot;
   state.furniture.push(piece);
   return piece;
 }
@@ -214,15 +219,17 @@ export function moveFurniture(state: GameState, id: string, x: number, y: number
   const owned = takeOver(state, id)!;
   owned.x = x;
   owned.y = y;
-  if (FURNITURE_DEFS[owned.kind].rotatable) owned.rot = rot % 2;
+  const turn = normalRot(furnitureTurn(owned.kind), rot);
+  if (turn) owned.rot = turn;
+  else delete owned.rot;
   return true;
 }
 
-/** A quarter-turn in place, if there's room for it. */
+/** Turns a piece in place — a quarter-turn, or round to face the other way — if there's room for it. */
 export function rotateFurniture(state: GameState, id: string, avoid?: { x: number; y: number }[]): boolean {
   const piece = findFurniture(state, id);
-  if (!piece || !FURNITURE_DEFS[piece.kind].rotatable) return false;
-  return moveFurniture(state, id, piece.x, piece.y, { rot: ((piece.rot ?? 0) + 1) % 2, avoid });
+  if (!piece || !FURNITURE_DEFS[piece.kind]) return false;
+  return moveFurniture(state, id, piece.x, piece.y, { rot: nextRot(furnitureTurn(piece.kind), piece.rot ?? 0), avoid });
 }
 
 /** Picks an empty piece back up into stock, to set it down somewhere else. */

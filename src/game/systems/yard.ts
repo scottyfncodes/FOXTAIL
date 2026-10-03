@@ -2,7 +2,8 @@ import type { GameState } from '../state';
 import type { DecorId } from '../data/shop';
 import { MARKET_STALL, rectContains, type Rect } from '../data/worldMap';
 import { decorFits, moveDecor, placeDecor } from './decor';
-import { DECOR_DEFS, decorSize } from '../data/decor';
+import { DECOR_DEFS, decorSize, decorTurn } from '../data/decor';
+import { swapsFootprint } from '../data/turn';
 import type { LandscapeWorld } from './landscape';
 
 // Outdoor arranging: the garden's movable pieces — every bit of decor, and
@@ -20,7 +21,7 @@ export interface YardPiece {
   /** Decor: its base point. The stall: its top-left tile. */
   x: number;
   y: number;
-  /** Decor: quarter-turns (0 or 1). */
+  /** Quarter-turns, 0–3 (standing pieces and the stall use 0 and 2: facing either way). */
   rot?: number;
   /** A pond: its size as dug, at rotation 0. */
   size?: { w: number; h: number };
@@ -42,7 +43,7 @@ export function stallRect(state: Pick<GameState, 'stall'>): Rect {
 /** Every movable piece outdoors. */
 export function yardPieces(state: GameState): YardPiece[] {
   const s = stallPos(state);
-  return [{ id: STALL_ID, kind: 'stall', x: s.x, y: s.y }, ...state.decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y, rot: d.rot ?? 0, size: d.w && d.h ? { w: d.w, h: d.h } : undefined }))];
+  return [{ id: STALL_ID, kind: 'stall', x: s.x, y: s.y, rot: state.stall.rot ?? 0 }, ...state.decor.map((d) => ({ id: d.id, kind: d.decorId, x: d.x, y: d.y, rot: d.rot ?? 0, size: d.w && d.h ? { w: d.w, h: d.h } : undefined }))];
 }
 
 export function findYardPiece(state: GameState, id: string): YardPiece | undefined {
@@ -53,7 +54,7 @@ export function findYardPiece(state: GameState, id: string): YardPiece | undefin
 export function yardFootprint(kind: YardPiece['kind'], x: number, y: number, rot = 0, size?: { w: number; h: number }): Rect {
   if (kind === 'stall') return { x, y, w: MARKET_STALL.w, h: MARKET_STALL.h };
   // A pond is as big as it was dug.
-  const turned = rot % 2 === 1;
+  const turned = swapsFootprint(decorTurn(kind), rot);
   const { w, h } = size ? (turned ? { w: size.h, h: size.w } : size) : decorSize(kind, rot);
   const centred = DECOR_DEFS[kind].anchor === 'centre';
   return { x: x - w / 2, y: centred ? y - h / 2 : y - h * 0.6, w, h };
@@ -113,7 +114,7 @@ export function yardBlockReason(state: GameState, open: OpenGround, id: string, 
 export function moveYardPiece(state: GameState, open: OpenGround, id: string, x: number, y: number, avoid: { x: number; y: number }[] = []): boolean {
   if (yardBlockReason(state, open, id, x, y, avoid)) return false;
   if (id === STALL_ID) {
-    state.stall = { x, y };
+    state.stall = { ...state.stall, x, y };
     return true;
   }
   return moveDecor(state, id, x, y);

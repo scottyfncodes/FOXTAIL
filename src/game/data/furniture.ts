@@ -1,5 +1,6 @@
 import type { FurnitureId } from './shop';
 import type { DisplayKind } from './stations';
+import type { TurnMode } from './turn';
 
 // What each piece of indoor furniture is and how much floor it takes up.
 // Positions are free (any fraction of a tile); footprints are what collide,
@@ -19,8 +20,10 @@ export interface FurnitureDef {
   w: number;
   h: number;
   layer: FurnitureLayer;
-  /** Can be turned a quarter-turn (its footprint swaps). */
+  /** Has its own drawing for being turned a quarter-turn (its footprint swaps). */
   rotatable?: boolean;
+  /** How it turns when it has no turned drawing of its own: spun flat on the floor, or flipped (the default). */
+  turn?: TurnMode;
   /** Part of the house: it can be moved but never put away. */
   fixed?: boolean;
   /** Lies flat but keeps its floor to itself (the cat's bed, the putting mat). */
@@ -32,7 +35,7 @@ export const FURNITURE_DEFS: Record<FurnitureId, FurnitureDef> = {
   sunroomStand: { id: 'sunroomStand', name: 'Sun Room Stand', role: 'display', slotKind: 'sunroom', w: 0.56, h: 0.4, layer: 'floor' },
   ironPedestal: { id: 'ironPedestal', name: 'Iron Pedestal', role: 'display', slotKind: 'pedestal', w: 0.44, h: 0.32, layer: 'floor' },
   ceilingHook: { id: 'ceilingHook', name: 'Ceiling Hook', role: 'display', slotKind: 'hanging', w: 0.4, h: 0.4, layer: 'overhead' },
-  wallTrellis: { id: 'wallTrellis', name: 'Wall Trellis', role: 'display', slotKind: 'trellis', w: 0.9, h: 0.3, layer: 'floor' },
+  wallTrellis: { id: 'wallTrellis', name: 'Wall Trellis', role: 'display', slotKind: 'trellis', w: 0.9, h: 0.3, layer: 'floor', rotatable: true },
   wallShelf: { id: 'wallShelf', name: 'Wall Shelf', role: 'display', slotKind: 'shelf', w: 0.9, h: 0.3, layer: 'floor' },
   tieredStand: { id: 'tieredStand', name: 'Tiered Stand', role: 'display', slotKind: 'tiered', w: 0.62, h: 0.34, layer: 'floor' },
   floorPlanter: { id: 'floorPlanter', name: 'Floor Planter', role: 'display', slotKind: 'planter', w: 0.7, h: 0.5, layer: 'floor' },
@@ -43,21 +46,27 @@ export const FURNITURE_DEFS: Record<FurnitureId, FurnitureDef> = {
   houseRug: { id: 'houseRug', name: 'Woven Rug', role: 'decor', w: 1.8, h: 1.2, layer: 'flat', rotatable: true },
   // The living room. Sizes match the layout in interior.ts.
   tv: { id: 'tv', name: 'TV', role: 'decor', w: 1.3, h: 0.42, layer: 'floor', fixed: true },
-  couch: { id: 'couch', name: 'Couch', role: 'decor', w: 2.0, h: 0.8, layer: 'floor', fixed: true },
-  coffeeTable: { id: 'coffeeTable', name: 'Coffee Table', role: 'decor', w: 0.95, h: 0.42, layer: 'floor', fixed: true },
-  sideTable: { id: 'sideTable', name: 'Side Table', role: 'decor', w: 0.5, h: 0.5, layer: 'floor', fixed: true },
+  couch: { id: 'couch', name: 'Couch', role: 'decor', w: 2.0, h: 0.8, layer: 'floor', fixed: true, turn: 'spin' },
+  coffeeTable: { id: 'coffeeTable', name: 'Coffee Table', role: 'decor', w: 0.95, h: 0.42, layer: 'floor', fixed: true, turn: 'spin' },
+  sideTable: { id: 'sideTable', name: 'Side Table', role: 'decor', w: 0.5, h: 0.5, layer: 'floor', fixed: true, turn: 'spin' },
   catTree: { id: 'catTree', name: 'Cat Tree', role: 'decor', w: 0.6, h: 0.6, layer: 'floor', fixed: true },
-  catBed: { id: 'catBed', name: 'Cat Bed', role: 'decor', w: 0.75, h: 0.5, layer: 'flat', fixed: true, reserves: true },
-  puttingMat: { id: 'puttingMat', name: 'Putting Mat', role: 'decor', w: 3.8, h: 0.6, layer: 'flat', fixed: true, reserves: true },
-  rug: { id: 'rug', name: 'Living Room Rug', role: 'decor', w: 3.5, h: 2.5, layer: 'flat', fixed: true },
+  catBed: { id: 'catBed', name: 'Cat Bed', role: 'decor', w: 0.75, h: 0.5, layer: 'flat', fixed: true, reserves: true, turn: 'spin' },
+  puttingMat: { id: 'puttingMat', name: 'Putting Mat', role: 'decor', w: 3.8, h: 0.6, layer: 'flat', fixed: true, reserves: true, turn: 'spin' },
+  rug: { id: 'rug', name: 'Living Room Rug', role: 'decor', w: 3.5, h: 2.5, layer: 'flat', fixed: true, turn: 'spin' },
   bookshelf: { id: 'bookshelf', name: 'Bookshelf', role: 'decor', w: 1.0, h: 0.42, layer: 'floor', fixed: true },
-  doormat: { id: 'doormat', name: 'Doormat', role: 'decor', w: 1.5, h: 0.5, layer: 'flat', fixed: true, reserves: true },
+  doormat: { id: 'doormat', name: 'Doormat', role: 'decor', w: 1.5, h: 0.5, layer: 'flat', fixed: true, reserves: true, turn: 'spin' },
   coatRack: { id: 'coatRack', name: 'Coat Rack', role: 'decor', w: 0.5, h: 0.5, layer: 'floor', fixed: true },
   floorLamp: { id: 'floorLamp', name: 'Floor Lamp', role: 'decor', w: 0.35, h: 0.35, layer: 'floor', fixed: true },
   // The greenhouse's own.
-  scoutBed: { id: 'scoutBed', name: 'Scout’s Bed', role: 'decor', w: 0.7, h: 0.5, layer: 'flat', fixed: true, reserves: true },
-  ellenDesk: { id: 'ellenDesk', name: 'Ellen’s Desk', role: 'decor', w: 0.7, h: 0.6, layer: 'floor', fixed: true },
+  scoutBed: { id: 'scoutBed', name: 'Scout’s Bed', role: 'decor', w: 0.7, h: 0.5, layer: 'flat', fixed: true, reserves: true, turn: 'spin' },
+  ellenDesk: { id: 'ellenDesk', name: 'Ellen’s Desk', role: 'decor', w: 0.7, h: 0.6, layer: 'floor', fixed: true, turn: 'spin' },
 };
+
+/** How a piece of furniture turns: on its own turned drawing, spun flat, or flipped. */
+export function furnitureTurn(kind: FurnitureId): TurnMode {
+  const def = FURNITURE_DEFS[kind];
+  return def?.rotatable ? 'art' : def?.turn ?? 'mirror';
+}
 
 /** How far a grow lamp's light reaches, in tiles, and how much it speeds things up. */
 export const GROW_LAMP_RADIUS = 2.6;
