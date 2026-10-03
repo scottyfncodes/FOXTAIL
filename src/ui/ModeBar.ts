@@ -84,13 +84,11 @@ export class ModeBar {
           ? 'Keep tracing…'
           : p.block === 'bed'
             ? 'Paths go around garden beds, not through them'
-            : p.block === 'tool'
-              ? `Needs ${toolList(pathToolsNeeded(state, p))} from the stall to clear the way`
             : p.block === 'coins'
               ? `Costs ${p.cost} coins — you have ${state.coins}`
               : p.block
                 ? 'Water or the house is in the way'
-                : `Carve it? ${p.cost} coins${p.trees.length || p.rocks.length ? ` · clears ${[p.trees.length ? `${p.trees.length} tree${p.trees.length === 1 ? '' : 's'}` : '', p.rocks.length ? `${p.rocks.length} rock${p.rocks.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')}` : ''}${p.plants.length ? ` · ${p.plants.length} of your plants dug up` : ''}`;
+                : `Carve it? ${p.cost} coins${p.trees.length || p.rocks.length ? ` · clears ${[p.trees.length ? `${p.trees.length} tree${p.trees.length === 1 ? '' : 's'}` : '', p.rocks.length ? `${p.rocks.length} rock${p.rocks.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')}` : ''}${pathToolsNeeded(state, p).length ? ` (the crew brings ${toolList(pathToolsNeeded(state, p))} — cheaper with your own)` : ''}${p.plants.length ? ` · ${p.plants.length} of your plants dug up` : ''}`;
       row.append(cancel, bigButton('✓ Carve', 'confirm', () => this.game.confirmTool(), !this.game.tools.canConfirm()));
     } else if (m.kind === 'arrange') {
       this.renderArrange(m, status, row);

@@ -17,6 +17,10 @@ import {
   onPath,
   plantsInBed,
   previewPath,
+  PATH_COST_TREE,
+  PATH_COST_ROCK,
+  PATH_COST_TREE_HIRED,
+  PATH_COST_ROCK_HIRED,
   removeBed,
   removePath,
   rotateBed,
@@ -337,19 +341,25 @@ describe('carved paths', () => {
     expect(onPath(state, 62, 34.3, 100)).toBeDefined();
   });
 
-  it('need a chainsaw to go through trees and a rock hammer to go through rocks', () => {
+  it('go through trees and rocks without your own tools — the crew brings theirs, for more', () => {
     const state = createNewGame();
     state.coins = 5000;
     const route = simplifyRoute([{ x: 58, y: 36.5 }, { x: 62, y: 36.5 }]);
-    expect(previewPath(state, route, world({ '60,36': 'tree' })).block).toBe('tool');
-    expect(previewPath(state, route, world({ '60,36': 'rock' })).block).toBe('tool');
-    // Scrub is just trampled: no tools needed for a bush.
-    expect(previewPath(state, route, world({ '60,36': 'bush' })).block).toBeNull();
-    state.owned.push('chainsaw');
-    expect(previewPath(state, route, world({ '60,36': 'tree' })).block).toBeNull();
-    expect(previewPath(state, route, world({ '60,36': 'rock' })).block).toBe('tool');
-    state.owned.push('rockHammer');
-    expect(previewPath(state, route, world({ '60,36': 'rock' })).block).toBeNull();
+    const hiredTree = previewPath(state, route, world({ '60,36': 'tree' }));
+    const hiredRock = previewPath(state, route, world({ '60,36': 'rock' }));
+    // Nothing stops it: the clearing is simply paid for.
+    expect(hiredTree.block).toBeNull();
+    expect(hiredRock.block).toBeNull();
+    expect(hiredTree.trees).toHaveLength(1);
+    state.owned.push('chainsaw', 'rockHammer');
+    const ownTree = previewPath(state, route, world({ '60,36': 'tree' }));
+    const ownRock = previewPath(state, route, world({ '60,36': 'rock' }));
+    // Owning the tools makes it cheaper, by the difference per tree and rock.
+    expect(hiredTree.cost - ownTree.cost).toBe(PATH_COST_TREE_HIRED - PATH_COST_TREE);
+    expect(hiredRock.cost - ownRock.cost).toBe(PATH_COST_ROCK_HIRED - PATH_COST_ROCK);
+    // And it still can't be afforded with no coins.
+    state.coins = 0;
+    expect(previewPath(state, route, world({ '60,36': 'tree' })).block).toBe('coins');
   });
 
   it('go through trees and rocks for a higher price, but never water or a garden bed', () => {

@@ -437,13 +437,16 @@ export function onPath(state: GameState, x: number, y: number, now: number, forS
   return undefined;
 }
 
-export type PathBlock = 'too-short' | 'blocked' | 'bed' | 'tool' | 'coins';
+export type PathBlock = 'too-short' | 'blocked' | 'bed' | 'coins';
 
 /** What a path costs: the labour by the pace, and a lot more for every tree felled and rock dug out. */
 export const PATH_BASE_COST = 30;
 export const PATH_COST_PER_PACE = 12;
 export const PATH_COST_TREE = 50;
 export const PATH_COST_ROCK = 25;
+/** Without a chainsaw (or rock hammer) of your own, the crew brings theirs — and charges for it. */
+export const PATH_COST_TREE_HIRED = 110;
+export const PATH_COST_ROCK_HIRED = 55;
 
 export interface PathPreview {
   block: PathBlock | null;
@@ -460,8 +463,10 @@ export interface PathPreview {
   cost: number;
 }
 
-export function pathCost(length: number, trees: number, rocks: number): number {
-  return Math.round(PATH_BASE_COST + PATH_COST_PER_PACE * length + PATH_COST_TREE * trees + PATH_COST_ROCK * rocks);
+export function pathCost(length: number, trees: number, rocks: number, hire: { chainsaw?: boolean; rockHammer?: boolean } = {}): number {
+  const tree = hire.chainsaw ? PATH_COST_TREE_HIRED : PATH_COST_TREE;
+  const rock = hire.rockHammer ? PATH_COST_ROCK_HIRED : PATH_COST_ROCK;
+  return Math.round(PATH_BASE_COST + PATH_COST_PER_PACE * length + tree * trees + rock * rocks);
 }
 
 export function previewPath(state: GameState, points: number[], world: LandscapeWorld, width = PATH_WIDTH): PathPreview {
@@ -519,9 +524,10 @@ export function previewPath(state: GameState, points: number[], world: Landscape
     if (p.location.kind !== 'wild') continue;
     if (distToRoute(points, p.location.x, p.location.y) < half + currentRadius(p) * 0.35) res.plants.push(p);
   }
-  res.cost = pathCost(routeLength(points), res.trees.length, res.rocks.length);
-  // Felling trees and breaking rocks needs the tools for it; the scrub just gets trampled.
-  if (!res.block && pathToolsNeeded(state, res).length) res.block = 'tool';
+  // Felling trees and breaking rocks needs the tools for it. Without your own,
+  // the crew brings theirs: the path still goes ahead, those just cost more.
+  const hired = pathToolsNeeded(state, res);
+  res.cost = pathCost(routeLength(points), res.trees.length, res.rocks.length, { chainsaw: hired.includes('chainsaw'), rockHammer: hired.includes('rockHammer') });
   if (!res.block && state.coins < res.cost) res.block = 'coins';
   return res;
 }

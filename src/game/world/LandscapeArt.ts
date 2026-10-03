@@ -507,8 +507,6 @@ export function drawPathPreview(ctx: Ctx, camera: Camera, points: number[], prev
         ? 'Trees, rocks or water in the way'
         : preview.block === 'bed'
           ? 'Paths go around garden beds'
-        : preview.block === 'tool'
-          ? `Needs ${preview.trees.length && preview.rocks.length ? 'tools' : preview.trees.length ? 'a chainsaw' : 'a rock hammer'} to clear the way`
         : preview.plants.length
           ? `Composts ${preview.plants.length} of your plants`
           : preview.block === 'coins'
