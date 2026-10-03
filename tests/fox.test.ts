@@ -129,3 +129,24 @@ describe('the fox and a new player', () => {
     expect(state.fox.behavior).toBe('leading');
   });
 });
+
+describe('the fox and the creek', () => {
+  it('leads you round by a bridge to a patch across the creek, never through the water', async () => {
+    const { isWater } = await import('../src/game/data/worldMap');
+    const state = createNewGame();
+    const spot = { id: 'far-side', zone: 'woodland' as const, x: 30, y: 33 };
+    state.fox.behavior = 'leading';
+    state.fox.visible = true;
+    state.fox.targetDiscoveryId = spot.id;
+    state.fox.x = 50;
+    state.fox.y = 33;
+    let crossed = false;
+    for (let i = 0; i < 4000 && state.fox.behavior === 'leading'; i++) {
+      tickFox(state, { playerZone: 'meadow', playerX: 50, playerY: 33, inGreenhouse: false, dtSeconds: 0.05, now: 100, discoveryPoints: [spot], rand: () => 0.5 });
+      expect(isWater(Math.floor(state.fox.x), Math.floor(state.fox.y))).toBe(false);
+      if (state.fox.x < 40) crossed = true;
+    }
+    expect(crossed).toBe(true);
+    expect(state.fox.behavior).toBe('paused');
+  });
+});
