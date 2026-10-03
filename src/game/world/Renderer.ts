@@ -59,7 +59,7 @@ import { foxFade } from '../systems/fox';
 import { isCouchNap, isCouchSpot } from '../data/scottSpots';
 import { PATH_WIDTH, bedCost, clearingSpecOf } from '../systems/landscape';
 import { dipAmount, smiling, DIP_END, type ChaseReaction } from '../systems/scott';
-import { FIREFLY_AREAS, fireflies, fireflyStrength, riverAlligator, pondFrogs, pondPads, pondTurtleAt, pondTurtleCount, riverFrogs, riverTurtles, TURTLE_STONES } from '../systems/wildlife';
+import { FIREFLY_AREAS, fireflies, fireflyStrength, alligatorAt, pondFrogs, pondPads, pondTurtleAt, pondTurtleCount, riverFrogs, riverTurtles, TURTLE_STONES } from '../systems/wildlife';
 import { drawAlligator, drawBaskingStone, drawFrog, drawTurtle } from './WildlifeArt';
 import type { OctoberView } from '../systems/october';
 import { lanternsLit } from '../systems/october';
@@ -112,6 +112,8 @@ export interface SceneExtras {
   kiss?: { t: number; ellenLeft: boolean; reaction: ChaseReaction } | null;
   /** October's things, when that's the look; absent, the valley is drawn as it always is. */
   october?: OctoberView | null;
+  /** When the alligator set off round the creek with Scout on its back (performance.now() ms), while it's out. */
+  gatorRide?: number | null;
   /** Creek frogs not to draw (seed → until): off in the water after Scout's fuss, or eaten. */
   frogsGone?: Map<number, number>;
   /** Where frogs have just plopped into the creek. */
@@ -384,7 +386,7 @@ export class Renderer {
       drawTurtle(this.ctx, t, p.x, p.y, tilePx * 0.5, now, night ? 0.7 : 1);
     }
     // And its one alligator, a friendly old thing.
-    const gator = riverAlligator(now);
+    const gator = alligatorAt(now, extras.gatorRide ?? null);
     if (inView(gator.x, gator.y, 2)) {
       const p = camera.worldToScreen(gator.x * TILE_SIZE, gator.y * TILE_SIZE);
       drawAlligator(this.ctx, gator, p.x, p.y, tilePx * 2.1, now, night ? 0.75 : 1);
@@ -3170,10 +3172,10 @@ export class Renderer {
     const screen = camera.worldToScreen(scout.x * TILE_SIZE, scout.y * TILE_SIZE);
     const dir = Renderer.DIR[scout.facing];
 
-    const sitting = scout.behavior === 'idleSit';
+    const sitting = scout.behavior === 'idleSit' || scout.behavior === 'onGator';
     const sniffing = scout.behavior === 'idleSniff';
     const alert = scout.behavior === 'idleLook' || scout.behavior === 'noticing' || scout.behavior === 'pointing';
-    const moving = scout.behavior === 'following' || scout.behavior === 'leading' || scout.behavior === 'chasingFrog';
+    const moving = scout.behavior === 'following' || scout.behavior === 'leading' || scout.behavior === 'chasingFrog' || scout.behavior === 'toGator';
 
     const bodyScaleY = sitting ? 0.62 : 1;
     const headDrop = sniffing ? tile * 0.09 : 0;
