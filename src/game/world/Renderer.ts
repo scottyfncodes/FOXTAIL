@@ -3304,6 +3304,34 @@ export class Renderer {
     ctx.beginPath();
     ctx.arc(headX, headY + tile * 0.07, tile * 0.06, 0.1 * Math.PI, 0.9 * Math.PI);
     ctx.stroke();
+
+    // In October, a little witch's hat to match Ellen's, perched between her
+    // ears at a jaunty angle, its bent tip bobbing as she goes.
+    if (isOctober()) {
+      const side = dir[0] !== 0 ? dir[0] : 1;
+      const brimY = headY - tile * 0.075;
+      const bob = Math.sin(now * (moving ? 0.02 : 0.004)) * tile * 0.006;
+      const lean = side * tile * 0.03;
+      ctx.save();
+      ctx.translate(headX, brimY);
+      ctx.rotate(side * -0.18);
+      ctx.fillStyle = '#2c1d3a';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, tile * 0.085, tile * 0.024, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-tile * 0.042, 0);
+      ctx.quadraticCurveTo(-tile * 0.02, -tile * 0.08, lean * 0.4, -tile * 0.13 + bob);
+      ctx.quadraticCurveTo(lean * 1.4, -tile * 0.145 + bob, lean * 1.9, -tile * 0.105 + bob);
+      ctx.quadraticCurveTo(lean * 0.8, -tile * 0.1, tile * 0.042, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#e07a24';
+      ctx.fillRect(-tile * 0.04, -tile * 0.02, tile * 0.08, tile * 0.014);
+      ctx.fillStyle = '#f2c84a';
+      ctx.fillRect(-tile * 0.008, -tile * 0.022, tile * 0.016, tile * 0.017);
+      ctx.restore();
+    }
   }
 
   /**
