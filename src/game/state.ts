@@ -5,7 +5,7 @@ import { SHOP_ITEMS } from './data/shop';
 
 // Bump SAVE_VERSION when the state shape changes; SaveManager.migrateSave
 // fills new fields from createNewGame(). The storage key stays fixed.
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 // The storage key keeps the game's working title so existing saves carry over.
 export const SAVE_KEY = 'foxtrot-save-v4';
 
@@ -348,6 +348,27 @@ export interface MiniGameRecord {
   goal: boolean;
 }
 
+/**
+ * What October has left in the save. Nothing here is ever announced: the
+ * strange things are only counted, and the journal's October page shows
+ * what has been seen once it has been. Switching the look back to Classic
+ * leaves all of it as it is.
+ */
+export interface OctoberLog {
+  /** How many times each strange thing has been seen, by id. */
+  seen: Record<string, number>;
+  /** Pumpkins carved into jack-o'-lanterns: pumpkin id → face. */
+  carved: Record<string, string>;
+  /** Every face ever carved, in the order first carved. */
+  faces: string[];
+  /** Times the pale thing has left something behind. */
+  gifts: number;
+  /** The game day it last did (it only does once a night). */
+  giftDay: number | null;
+  /** A pumpkin that's turned up where nobody put it, until the morning. */
+  stray: { x: number; y: number; face: string; until: number } | null;
+}
+
 export interface GameState {
   version: number;
   createdAt: number;
@@ -417,6 +438,12 @@ export interface GameState {
   regions: Partial<Record<OutdoorZoneId, NamedRegion>>;
   /** The highest cover tier each region has reached, so each crossing is noticed once. */
   regionTier: Partial<Record<OutdoorZoneId, number>>;
+  /** October's pumpkins, and the strange things seen while it lasted. */
+  october: OctoberLog;
+}
+
+export function newOctoberLog(): OctoberLog {
+  return { seen: {}, carved: {}, faces: [], gifts: 0, giftDay: null, stray: null };
 }
 
 let uidCounter = 0;
@@ -495,6 +522,7 @@ export function createNewGame(): GameState {
     commissions: { filled: 0, notes: [] },
     regions: {},
     regionTier: {},
+    october: newOctoberLog(),
     cat: {
       x: 21.95,
       y: 3.5,

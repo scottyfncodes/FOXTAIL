@@ -248,7 +248,8 @@ describe('Cannabis indica and the hybrid', () => {
   it('none of the three appear in the field journal or its totals', () => {
     const state = createNewGame();
     const totals = collectionTotals(state);
-    expect(totals.totalSpecies).toBe(PLANT_LIST.length - 3);
+    // The three of them, and October's own (which keep a page of their own), are left out.
+    expect(totals.totalSpecies).toBe(PLANT_LIST.filter((p) => !p.season).length - 3);
     for (const id of ['cannabisSativa', 'cannabisIndica', 'cannabisHybrid']) expect(PLANTS[id].unlisted).toBe(true);
   });
 });

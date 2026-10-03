@@ -255,10 +255,16 @@ const MIX: Record<Exclude<ZoneId, 'greenhouse'>, Mix> = {
   rockyClearing: { blades: [3, 6, 8], tufts: [1, 2, 3], clover: [0, 0, 1], fronds: [0, 0, 0], docks: [0, 0, 0], moss: [0, 0, 1], ivy: [0, 0, 0], lichen: [1, 2, 2], flowers: [0, 0, 1], height: 0.7 },
 };
 
+/** Something laid over a verge tile once it's drawn (October's fallen leaves). */
+export type VergeExtra = (g: CanvasRenderingContext2D, px: number, pad: number, zone: Exclude<ZoneId, 'greenhouse'>, variant: number) => void;
+
 export class VergeTiles {
   private cache = new Map<string, HTMLCanvasElement>();
 
-  constructor(private dpr: () => number) {}
+  constructor(
+    private dpr: () => number,
+    private extra?: VergeExtra
+  ) {}
 
   clear() {
     this.cache.clear();
@@ -352,6 +358,7 @@ export class VergeTiles {
       const p = at();
       toadstool(g, p.x, p.y, px * 0.035, pal.accents[0]);
     }
+    this.extra?.(g, px, pad, zone, variant);
     return c;
   }
 }

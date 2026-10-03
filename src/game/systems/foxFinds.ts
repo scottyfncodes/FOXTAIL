@@ -27,7 +27,7 @@ export interface FindConditions {
 
 /** A plant worth being led to: the fox's own species, or an unusual form of something that grows here. */
 export function pickFoxPlant(state: GameState, zone: OutdoorZoneId, rand: () => number): { defId: string; variantId: string } | null {
-  const secrets = PLANT_LIST.filter((p) => p.secret && !p.parents && p.habitat.includes(zone));
+  const secrets = PLANT_LIST.filter((p) => p.secret && !p.parents && !p.season && p.habitat.includes(zone));
   const secret = secrets.length ? secrets[Math.floor(rand() * secrets.length) % secrets.length] : undefined;
   // The fox's own plants only once the field journal is complete: every listed plant, in every form, grown.
   if (secret && journalComplete(state) && rand() < SECRET_FIND_CHANCE) {
@@ -35,7 +35,7 @@ export function pickFoxPlant(state: GameState, zone: OutdoorZoneId, rand: () => 
   }
   const options: { def: PlantDef; variantId: string; w: number }[] = [];
   for (const def of PLANT_LIST) {
-    if (def.secret) continue;
+    if (def.secret || def.season) continue;
     const native = def.habitat.includes(zone);
     if (!native && !def.foxOnly) continue;
     for (const v of def.variants) {

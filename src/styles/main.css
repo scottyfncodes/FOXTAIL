@@ -1862,3 +1862,73 @@ button {
 .shop-later {
   font-style: italic;
 }
+
+/* The season's look, under the music: Classic or October. */
+.theme-head {
+  padding-top: 8px;
+  border-top: 1px solid var(--panel-border);
+}
+.theme-row {
+  display: flex;
+  gap: 6px;
+}
+.theme-choice {
+  flex: 1;
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.theme-choice.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The journal's October page: a few lines in Ellen's hand, only what she's seen. */
+.october-intro {
+  font-style: italic;
+}
+.october-note {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(244, 236, 216, 0.05);
+  border: 1px solid var(--panel-border);
+}
+.october-note + .october-note {
+  margin-top: 8px;
+}
+.october-note.strange {
+  background: rgba(60, 50, 90, 0.18);
+}
+.october-note-title {
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.october-note-line {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+.october-note-line + .october-note-line {
+  margin-top: 4px;
+}
+.october-faces,
+.october-plants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.october-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--ink-dim);
+}

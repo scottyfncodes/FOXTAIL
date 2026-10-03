@@ -13,7 +13,8 @@ import { zoneAt } from '../src/game/data/worldMap';
 import { migrateSave } from '../src/game/engine/SaveManager';
 import { mulberry32 } from '../src/game/engine/Random';
 
-const FUNGI = PLANT_LIST.filter((p) => p.form === 'mushroom' || p.form === 'coral');
+// The valley's own fungi; October's keep to their own season (see october.test.ts).
+const FUNGI = PLANT_LIST.filter((p) => (p.form === 'mushroom' || p.form === 'coral') && !p.season);
 
 function findEverything(state: GameState) {
   for (const p of listedSpecies()) state.collection[p.id] = { foundAt: 0, variants: p.variants.map((v) => v.id), grownVariants: p.variants.map((v) => v.id), grown: 0, propagated: 0, sold: 0, earned: 0, plantedOut: 0, displayed: 0 };

@@ -1541,6 +1541,144 @@ PLANTS.cannabisHybrid = {
   parents: ['cannabisSativa', 'cannabisIndica'],
 };
 
+// October's own. They only come up wild while the October look is on, and
+// keep to a page of the journal of their own rather than the collection. The
+// last of them is never listed anywhere: it grows only where something stood.
+PLANTS.blackRose = {
+  id: 'blackRose',
+  name: 'Black Rose',
+  latin: 'Rosa ‘Nocturne’',
+  form: 'bloom',
+  rarity: 'rare',
+  habitat: ['woodland', 'overgrownClearing'],
+  landscape: 'flower',
+  description: 'Dark leaves and blooms so deep a red they read as black, until the lantern catches them. It turns up where the paths have been forgotten.',
+  hint: 'Flowers the colour of the inside of a wardrobe.',
+  look: { hue: 140, sat: 28, light: 22, accentHue: 345, accentSat: 48, accentLight: 15, variegation: 'none', size: 0.95, flowers: true },
+  variants: [
+    { id: 'midnight', name: 'Midnight', rarity: 'rare', description: 'Black-red, velvet to look at.', look: {} },
+    { id: 'velvet', name: 'Velvet', rarity: 'veryRare', description: 'A wine-dark red that shows in daylight, and only then.', look: { accentHue: 338, accentSat: 62, accentLight: 26 } },
+    { id: 'ash', name: 'Ash', rarity: 'extremelyRare', description: 'Grey petals over grey-green leaves, as if it had grown in a photograph.', look: { hue: 120, sat: 8, light: 40, accentHue: 0, accentSat: 0, accentLight: 42 } },
+    { id: 'nightlight', name: 'Nightlight', rarity: 'unheardOf', sportOnly: true, description: 'Black petals with a red ember at the heart that doesn’t go out.', look: { variegation: 'glow', variegationColor: [350, 90, 58] } },
+  ],
+  growthRate: 0.85,
+  spread: 0.3,
+  unlisted: true,
+  season: 'october',
+};
+
+PLANTS.moonflower = {
+  id: 'moonflower',
+  name: 'Moonflower',
+  latin: 'Ipomoea alba',
+  form: 'bloom',
+  rarity: 'uncommon',
+  habitat: ['meadow', 'creek'],
+  landscape: 'flower',
+  description: 'Big white trumpets that only open after dark, and close again before anyone’s up. In the moonlight they seem to hold their own.',
+  hint: 'Something white, open only at night.',
+  look: { hue: 120, sat: 30, light: 32, accentHue: 60, accentSat: 25, accentLight: 96, variegation: 'glow', variegationColor: [200, 55, 90], size: 0.95, flowers: true },
+  variants: [
+    { id: 'white', name: 'White', rarity: 'uncommon', description: 'Moon-white, and faintly lit.', look: {} },
+    { id: 'silverEdge', name: 'Silver Edge', rarity: 'rare', description: 'Every leaf rimmed in a thin line of silver.', look: { variegation: 'glow', variegationColor: [190, 40, 88], light: 36 } },
+    { id: 'paleVisitor', name: 'Pale Visitor', rarity: 'extremelyRare', sportOnly: true, description: 'Nobody planted the first one. It was just there, where something had been standing.', look: { hue: 190, sat: 14, light: 72, accentHue: 190, accentSat: 30, accentLight: 94, variegationColor: [185, 80, 86] } },
+  ],
+  growthRate: 1.1,
+  spread: 0.45,
+  appearsWhen: 'night',
+  unlisted: true,
+  season: 'october',
+};
+
+PLANTS.witchsHerb = {
+  id: 'witchsHerb',
+  name: 'Witch’s Herb',
+  latin: 'Artemisia nocturna',
+  form: 'fern',
+  rarity: 'common',
+  habitat: ['dampForest', 'overgrownClearing', 'woodland'],
+  landscape: 'strange',
+  description: 'Feathery silver-grey foliage that smells of bonfires and old books when you brush past it.',
+  hint: 'Silver feathers that smell like a bonfire.',
+  look: { hue: 150, sat: 16, light: 44, accentHue: 140, variegation: 'none', size: 0.85 },
+  variants: [
+    { id: 'grey', name: 'Grey', rarity: 'common', description: 'Soft silver-grey.', look: {} },
+    { id: 'wormwood', name: 'Wormwood', rarity: 'uncommon', description: 'A paler, yellower silver, bitter to the touch.', look: { hue: 80, sat: 22, light: 58 } },
+    { id: 'hexleaf', name: 'Hexleaf', rarity: 'rare', description: 'Plum-dark fronds that seem to curl away from your hand.', look: { hue: 285, sat: 26, light: 30 } },
+    { id: 'hearthsmoke', name: 'Hearthsmoke', rarity: 'unheardOf', sportOnly: true, description: 'Grey as smoke, and after dark it glows like the last of a fire.', look: { variegation: 'glow', variegationColor: [28, 90, 60] } },
+  ],
+  growthRate: 1.25,
+  spread: 0.6,
+  unlisted: true,
+  season: 'october',
+};
+
+PLANTS.mooncap = {
+  id: 'mooncap',
+  name: 'Mooncap',
+  latin: 'Mycena selene',
+  form: 'mushroom',
+  rarity: 'uncommon',
+  habitat: ['woodland', 'dampForest', 'creek'],
+  landscape: 'strange',
+  description: 'Little pale domes that come up in the leaf litter on clear October nights, each with a cold blue light under it.',
+  hint: 'Small pale lights low in the leaves.',
+  look: { hue: 210, sat: 22, light: 86, accentHue: 200, accentSat: 30, accentLight: 80, variegation: 'glow', variegationColor: [205, 90, 78], size: 0.8, cap: 'dome' },
+  variants: [
+    { id: 'pale', name: 'Pale', rarity: 'uncommon', description: 'Moon-white, blue underneath.', look: {} },
+    { id: 'harvest', name: 'Harvest', rarity: 'rare', description: 'Amber caps with an amber glow, like a low orange moon.', look: { hue: 36, sat: 70, light: 62, accentHue: 34, variegationColor: [36, 100, 64] } },
+    { id: 'eclipse', name: 'Eclipse', rarity: 'veryRare', description: 'A cap gone almost black, lit only round its rim.', look: { hue: 230, sat: 25, light: 22, variegationColor: [215, 100, 80] } },
+  ],
+  growthRate: 1.1,
+  spread: 0.5,
+  appearsWhen: 'night',
+  unlisted: true,
+  season: 'october',
+};
+
+PLANTS.witchlight = {
+  id: 'witchlight',
+  name: 'Witchlight',
+  latin: 'Mycena veneficae',
+  form: 'mushroom',
+  rarity: 'rare',
+  habitat: ['dampForest', 'overgrownClearing'],
+  landscape: 'strange',
+  description: 'Thin-stemmed bells that nod in a ring, glowing violet. Step closer and they seem a little further off than they were.',
+  hint: 'A ring of violet, nodding in the dark.',
+  look: { hue: 270, sat: 30, light: 42, accentHue: 280, accentSat: 40, accentLight: 60, variegation: 'glow', variegationColor: [280, 90, 72], size: 0.85, cap: 'nodding', ring: true },
+  variants: [
+    { id: 'violet', name: 'Violet', rarity: 'rare', description: 'Violet bells, violet light.', look: {} },
+    { id: 'verdigris', name: 'Verdigris', rarity: 'veryRare', description: 'Green as old copper, with a green light to match.', look: { hue: 165, sat: 35, light: 40, variegationColor: [160, 90, 66] } },
+    { id: 'hush', name: 'Hush', rarity: 'unheardOf', sportOnly: true, description: 'Pale as breath. When it glows, everything around it goes a little quieter.', look: { hue: 220, sat: 10, light: 88, variegationColor: [230, 70, 88] } },
+  ],
+  growthRate: 0.95,
+  spread: 0.4,
+  appearsWhen: 'night',
+  unlisted: true,
+  season: 'october',
+};
+
+PLANTS.foxfireBonnet = {
+  id: 'foxfireBonnet',
+  name: 'Foxfire Bonnet',
+  latin: '',
+  form: 'mushroom',
+  rarity: 'extremelyRare',
+  habitat: ['meadow', 'woodland', 'creek', 'dampForest', 'rockyClearing', 'overgrownClearing'],
+  landscape: 'strange',
+  description: 'A little cluster of ember-coloured bonnets, warm to the touch. They came up where it stood.',
+  hint: '',
+  look: { hue: 18, sat: 72, light: 44, accentHue: 30, accentSat: 85, accentLight: 62, variegation: 'glow', variegationColor: [26, 100, 60], size: 0.75, cap: 'nodding' },
+  variants: [{ id: 'ember', name: 'Ember', rarity: 'extremelyRare', description: 'Still warm.', look: {} }],
+  growthRate: 0.8,
+  spread: 0.2,
+  secret: true,
+  keepsake: true,
+  unlisted: true,
+  season: 'october',
+};
+
 export const PLANT_LIST: PlantDef[] = Object.values(PLANTS);
 
 export const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'veryRare', 'extremelyRare', 'unheardOf', 'mythic'];

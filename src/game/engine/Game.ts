@@ -54,7 +54,7 @@ import { findShopItem, type DecorId, type FurnitureId } from '../data/shop';
 import { ZONES } from '../data/zones';
 import type { OutdoorZoneId, ZoneId } from '../types';
 import { tickFox } from '../systems/fox';
-import { tickScout, SNIFF_MIN, SNIFF_MAX, SNIFF_GAP } from '../systems/scout';
+import { tickScout, facingToward, SNIFF_MIN, SNIFF_MAX, SNIFF_GAP } from '../systems/scout';
 import { tickScott, tickChase, newChase, companySpots, truckSpots, CANNABIS } from '../systems/scott';
 import type { ScottSpot } from '../data/scottSpots';
 import { tickCat } from '../systems/cat';
@@ -88,6 +88,29 @@ import { pickUpDecor, nearestDecor, moveDecor, decorFits, isGardenPlanter } from
 import { stallRect } from '../systems/yard';
 import { boardTruck, parkTruck, deliverTruck, truckCovers, truckHitsBuilding, scottDriving, loadTruck, unloadTruck, takeOut, TRUCK_SPEED, TRUCK_BED_CAP } from '../systems/truck';
 import { basketCapacity } from '../systems/basket';
+import { daylightFactor } from './Clock';
+import { initTheme, isOctober, onThemeChange } from '../season';
+import { PUMPKINS, LANTERN_POSTS, PORCH_LANTERN, OWL_PERCH, BLACK_CAT_SPOT, findFace } from '../data/october';
+import {
+  newDirector,
+  tickDirector,
+  newGhost,
+  tickGhost,
+  ghostApproachable,
+  meetGhost,
+  carvePumpkin,
+  lanternsLit,
+  nextDawn,
+  strayPumpkin,
+  noteSeen,
+  leaveFind,
+  pickLanternFind,
+  gameDay,
+  type OctoberDirector,
+  type GhostState,
+  type OctoberView,
+  type OctoberEventKind,
+} from '../systems/october';
 
 export type InteractableKind =
   | 'plaque'
@@ -108,7 +131,9 @@ export type InteractableKind =
   | 'decor'
   | 'pond'
   | 'setDown'
-  | 'truck';
+  | 'truck'
+  | 'pumpkin'
+  | 'ghost';
 
 export interface Interactable {
   kind: InteractableKind;
@@ -155,6 +180,8 @@ export const INTERACT_PRIORITY: Record<InteractableKind, number> = {
   rock: 5,
   wildPlant: 6,
   truck: 1,
+  ghost: 2,
+  pumpkin: 4,
 };
 
 /** Picks what a press of the button should act on: the highest priority within reach, nearest among equals. */
@@ -307,6 +334,24 @@ export class Game {
   private rafId = 0;
   /** Game-minute timestamp until which Ellen renders in her brief collect/crouch pose. */
   actionAnimUntil = 0;
+  /** October's strange things: what's happening, and when the next might. */
+  private octDirector: OctoberDirector = newDirector();
+  /** The pale thing. */
+  private ghost: GhostState = newGhost();
+  /** What the renderer draws of October this frame (null in Classic). */
+  private octView: OctoberView | null = null;
+  /** Trees and bushes by their centres, for strange things to stand behind. */
+  private octTrees: { x: number; y: number }[] = [];
+  private octBushes: { x: number; y: number }[] = [];
+  /** The owl's tree: the one nearest its perch. */
+  private owlPerch: { x: number; y: number } = { x: OWL_PERCH.x, y: OWL_PERCH.y - 0.75 };
+  private owlAlpha = 0;
+  private blackCat = 0;
+  /** The game day the black cat was last made to go: it doesn't come back till the next night. */
+  private blackCatGoneDay = -1;
+  /** October's creatures already noticed this visit, so each is only counted once a visit. */
+  private octNoticed = new Set<string>();
+  private strayNoticed = -1;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -314,11 +359,25 @@ export class Game {
     if (!ctx) throw new Error('Canvas 2D context unavailable');
     this.ctx = ctx;
     this.renderer = new Renderer(ctx);
+    initTheme();
     const { state, isNew } = loadOrCreate();
     this.state = state;
     this.isNew = isNew;
     this.obstacles = generateObstacles();
     for (const o of this.obstacles) this.obstacleMap.set(`${o.x},${o.y}`, o);
+    for (const o of this.obstacles) {
+      if (o.kind === 'tree') this.octTrees.push({ x: o.x + 0.5, y: o.y + 0.5 });
+      else if (o.kind === 'bush') this.octBushes.push({ x: o.x + 0.5, y: o.y + 0.5 });
+    }
+    const perch = this.octTrees.reduce<{ x: number; y: number } | null>((best, t) => (!best || Math.hypot(t.x - OWL_PERCH.x, t.y - OWL_PERCH.y) < Math.hypot(best.x - OWL_PERCH.x, best.y - OWL_PERCH.y) ? t : best), null);
+    if (perch) this.owlPerch = { x: perch.x, y: perch.y - 0.62 };
+    // Switching the look changes nothing that's kept: only what's drawn, and what may happen next.
+    onThemeChange(() => {
+      this.octDirector = newDirector();
+      this.ghost = newGhost();
+      this.octView = null;
+      this.onStateTouched?.();
+    });
     this.cleared = new Set(this.state.clearedObstacles);
     this.blockingSet = buildBlockingSet(this.obstacles, this.cleared);
     this.indoorSolid = indoorSolids(this.state);
@@ -825,6 +884,8 @@ export class Game {
       this.catInterests = this.computeCatInterests();
     }
     if (!playing) tickCat(this.state.cat, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, interests: this.catInterests, offset: this.fixtureOffset });
+    if (isOctober()) this.tickOctober(dtSeconds);
+    else this.octView = null;
     const nowMs = performance.now();
     this.flourishes = this.flourishes.filter((f) => nowMs - f.start < 2600);
 
@@ -1125,6 +1186,16 @@ export class Game {
           consider({ kind: 'rock', id: `${tx},${ty}`, x: tx, y: ty, label, available: tooled && afford }, tx + 0.5, ty + 0.5, kind === 'tree' ? 1.6 : INTERACT_RANGE);
         }
       }
+      if (isOctober()) {
+        for (const pk of PUMPKINS) {
+          const face = this.state.october.carved[pk.id];
+          const name = face ? findFace(face)?.name.toLowerCase() : null;
+          consider({ kind: 'pumpkin', id: pk.id, x: pk.x, y: pk.y, label: face ? `A ${name} jack-o’-lantern · carve another` : 'A pumpkin · carve it a face', available: true }, pk.x, pk.y, 1.0);
+        }
+        if (ghostApproachable(this.ghost, p.x, p.y)) {
+          consider({ kind: 'ghost', id: 'ghost', x: this.ghost.x, y: this.ghost.y, label: 'Something small and pale, sitting by the jack-o’-lantern', available: true }, this.ghost.x, this.ghost.y, 1.8);
+        }
+      }
       // The little games around the property, each where it's set up.
       for (const g of MINI_GAMES) {
         if (g.where === 'ranger') continue;
@@ -1245,6 +1316,10 @@ export class Game {
       this.onOpenPutting?.();
     } else if (n.kind === 'miniGame') {
       this.onOpenMiniGame?.(n.id as MiniGameId);
+    } else if (n.kind === 'pumpkin') {
+      this.carve(n.id);
+    } else if (n.kind === 'ghost') {
+      this.meetTheGhost();
     }
     this.onStateTouched?.();
   }
@@ -1737,6 +1812,169 @@ export class Game {
     return 1 - Math.min(MAX_THICKET_SLOW, Math.max(0, lush - 0.25) * 0.35);
   }
 
+  // ---- October ----
+
+  private carve(id: string) {
+    const res = carvePumpkin(this.state, id, Math.random);
+    if (!res) return;
+    this.actionAnimUntil = this.state.clock.totalMinutes + 0.5;
+    const face = findFace(res.face)!;
+    const lead = res.recarved ? 'A fresh pumpkin from the patch, and a new face:' : 'You carve it a face:';
+    if (res.rare && res.newFace) {
+      this.audio.playDiscoveryChime();
+      this.pushToast(`${lead} ${face.name.toLowerCase()}. You’re not sure where that one came from.`, 'discovery');
+    } else this.pushToast(`${lead} ${face.name.toLowerCase()}.${lanternsLit(1 - daylightFactor(this.state.clock.totalMinutes)) ? '' : ' It’ll light up after dark.'}`, 'info');
+  }
+
+  private meetTheGhost() {
+    const g = this.ghost;
+    const outcome = meetGhost(this.state, g);
+    if (outcome === 'gift') {
+      const zone = zoneAt(Math.floor(g.x), Math.floor(g.y));
+      if (zone !== 'greenhouse') leaveFind(this.state, g.x - 0.2, g.y + 0.35, zone, 'moonflower', 'paleVisitor', Math.random);
+      this.pushToast('It looks at you a long moment. Then it waves, and then it isn’t there. Where it sat, something small and pale is coming up.', 'discovery');
+      this.audio.playSoftChime();
+    } else {
+      this.pushToast('It tilts its head at you, and waves.', 'info');
+    }
+  }
+
+  /** The animals see it first: they turn and look, and hold still. */
+  private animalsLook(x: number, y: number, long: boolean) {
+    const s = this.state;
+    const now = s.clock.totalMinutes;
+    const sc = s.scout;
+    const sameSpace = !s.player.inGreenhouse || roomAt(sc.x) === roomAt(s.player.x);
+    if (!sc.leadTo && sc.behavior !== 'leading' && sc.behavior !== 'pointing' && !this.riding() && sameSpace) {
+      sc.behavior = 'idleLook';
+      sc.facing = facingToward(x - sc.x, y - sc.y);
+      sc.nextEventAt = now + (long ? 14 : 7);
+    }
+    if (!s.player.inGreenhouse && s.fox.visible && (s.fox.behavior === 'idle' || s.fox.behavior === 'wandering')) {
+      s.fox.facing = x < s.fox.x ? 'left' : 'right';
+    }
+    if (s.player.inGreenhouse && s.cat.activity !== 'sleeping' && s.cat.activity !== 'hiding') {
+      s.cat.facing = facingToward(x - s.cat.x, y - s.cat.y);
+    }
+  }
+
+  /** Counts a creature as seen, once a visit. */
+  private noticeCreature(id: string) {
+    if (this.octNoticed.has(id)) return;
+    this.octNoticed.add(id);
+    noteSeen(this.state, id);
+  }
+
+  private tickOctober(dt: number) {
+    const s = this.state;
+    const p = s.player;
+    const darkness = 1 - daylightFactor(s.clock.totalMinutes);
+    const where: 'out' | 'greenhouse' | 'living' = p.inGreenhouse ? (roomAt(p.x) === 'living' ? 'living' : 'greenhouse') : 'out';
+    const view = where === 'out' ? this.camera.getViewportTileBounds(0) : { minX: 0, maxX: 27, minY: 0, maxY: 12 };
+    const inView = (x: number, y: number) => x > view.minX && x < view.maxX && y > view.minY && y < view.maxY;
+    const near = (x: number, y: number, r: number) => Math.hypot(x - p.x, y - p.y) < r;
+    const outdoors = where === 'out';
+    const res = tickDirector(this.octDirector, {
+      dt,
+      darkness,
+      where,
+      px: p.x,
+      py: p.y,
+      view,
+      rand: Math.random,
+      trees: this.octTrees,
+      bushes: this.octBushes,
+      lanternsInView: outdoors && (LANTERN_POSTS.some((l) => inView(l.x, l.y)) || inView(PORCH_LANTERN.x, PORCH_LANTERN.y)),
+      houseWindowInView: outdoors && inView(72.5, 37.5) && near(72.5, 37.5, 13),
+      strayOut: !!strayPumpkin(s),
+      isOpen: (x, y) => this.isOpenGround(Math.floor(x), Math.floor(y)) && !isBlockedOutdoor(x, y, this.blockingSet, stallRect(s)),
+    });
+    for (const kind of res.seen) noteSeen(s, kind);
+    for (const e of res.begun) {
+      if (e.kind === 'visitor') e.visits = s.october.seen.visitor ?? 0;
+      this.octoberSound(e.kind);
+    }
+    if (res.react) this.animalsLook(res.react.x, res.react.y, res.react.long);
+    if (res.stray) {
+      s.october.stray = { x: res.stray.x, y: res.stray.y, face: Math.random() < 0.6 ? 'spooky' : 'verySpooky', until: nextDawn(s.clock.totalMinutes) };
+    }
+    if (res.lanternFind && outdoors) {
+      const zone = zoneAt(Math.floor(res.lanternFind.x), Math.floor(res.lanternFind.y));
+      const pick = zone !== 'greenhouse' ? pickLanternFind(s, zone, Math.random) : null;
+      if (pick && zone !== 'greenhouse') leaveFind(s, res.lanternFind.x, res.lanternFind.y + 0.6, zone, pick.defId, pick.variantId, Math.random);
+      this.audio.playSoftChime();
+    }
+    if (res.visitorLeft) {
+      // Where it stood, the ground is warm, and something has come up.
+      const { x, y } = res.visitorLeft;
+      const zone = zoneAt(Math.floor(x), Math.floor(y));
+      if (zone !== 'greenhouse' && !s.foxFinds.some((f) => f.defId === 'foxfireBonnet')) leaveFind(s, x, y + 0.2, zone, 'foxfireBonnet', 'ember', Math.random);
+    }
+    const lit = s.october.carved;
+    const ghostRes = tickGhost(this.ghost, {
+      dt,
+      darkness,
+      where,
+      px: p.x,
+      py: p.y,
+      facing: p.facing,
+      view,
+      rand: Math.random,
+      lit: lanternsLit(darkness) ? PUMPKINS.filter((pk) => lit[pk.id]).map((pk) => ({ id: pk.id, x: pk.x, y: pk.y })) : [],
+    });
+    if (ghostRes.seen) noteSeen(s, 'ghost');
+
+    // October's creatures, each counted once a visit when properly seen.
+    this.owlAlpha += ((darkness > 0.35 ? 1 : 0) - this.owlAlpha) * Math.min(1, dt * 0.8);
+    const day = gameDay(s.clock.totalMinutes);
+    const catOut = darkness > 0.5 && this.blackCatGoneDay !== day;
+    this.blackCat += ((catOut ? 1 : 0) - this.blackCat) * Math.min(1, dt * (catOut ? 0.6 : 2.5));
+    if (outdoors) {
+      if (darkness > 0.4 && near(72.5, 33, 11)) this.noticeCreature('bats');
+      if (this.owlAlpha > 0.6 && near(this.owlPerch.x, this.owlPerch.y, 7)) this.noticeCreature('owl');
+      if (this.blackCat > 0.6 && near(BLACK_CAT_SPOT.x, BLACK_CAT_SPOT.y, 8)) this.noticeCreature('blackCat');
+      if (this.blackCat > 0.3 && near(BLACK_CAT_SPOT.x, BLACK_CAT_SPOT.y, 3)) this.blackCatGoneDay = day;
+      if (darkness > 0.45 && (near(PORCH_LANTERN.x, PORCH_LANTERN.y, 3.5) || near(LANTERN_POSTS[0].x, LANTERN_POSTS[0].y, 3) || near(LANTERN_POSTS[2].x, LANTERN_POSTS[2].y, 3))) this.noticeCreature('moth');
+      if (near(PORCH_LANTERN.x, PORCH_LANTERN.y + 1, 2.4)) this.noticeCreature('spider');
+      // Each stray pumpkin counts once, the first time it's seen.
+      const stray = strayPumpkin(s);
+      if (stray && stray.until !== this.strayNoticed && inView(stray.x, stray.y) && near(stray.x, stray.y, 9)) {
+        this.strayNoticed = stray.until;
+        noteSeen(s, 'stray');
+      }
+    }
+
+    // The lanterns gutter when something's flickering them, or when the pale thing is close by one.
+    let level = 1;
+    const flicker = this.octDirector.events.find((e) => e.kind === 'flicker' && e.age >= 0);
+    const g = this.ghost;
+    const ghostByLantern = g.mode === 'haunt' && LANTERN_POSTS.some((l) => Math.hypot(l.x - g.x, l.y - g.y) < 3);
+    if (flicker || ghostByLantern) {
+      const t = performance.now();
+      level = 0.25 + 0.75 * Math.abs(Math.sin(t * 0.021) * Math.sin(t * 0.0137 + 1.3));
+    }
+    const stray = strayPumpkin(s);
+    const pumpkins = PUMPKINS.map((pk, i) => ({ id: pk.id, x: pk.x, y: pk.y, size: pk.size, face: s.october.carved[pk.id] ?? null, seed: i * 17 + 3 }));
+    if (stray) pumpkins.push({ id: 'stray', x: stray.x, y: stray.y, size: 0.9, face: stray.face, seed: 99 });
+    this.octView = {
+      events: this.octDirector.events,
+      ghost: this.ghost,
+      pumpkins,
+      owl: this.owlAlpha > 0.01 ? { ...this.owlPerch, alpha: this.owlAlpha } : null,
+      blackCat: this.blackCat,
+      webGrowth: ((day % 9) + 1) / 9,
+      lanternLevel: level,
+      darkness,
+    };
+    this.audio.octoberAmbience(dt, darkness, outdoors);
+  }
+
+  private octoberSound(kind: OctoberEventKind) {
+    if (kind === 'rustle') this.audio.playRustle();
+    else if (kind === 'nothing' && Math.random() < 0.4) this.audio.playDistantCall();
+    else if (kind === 'visitor') this.audio.playHush();
+  }
+
   // ---- Pointer: the finger as gardening tool ----
 
   /** The camera the current scene is drawn with. */
@@ -2137,7 +2375,7 @@ export class Game {
     const focus = this.tools.mode.kind === 'yard' && this.outdoorFocus ? this.outdoorFocus : this.state.player;
     this.camera.follow(focus.x, focus.y);
     const crouching = this.state.clock.totalMinutes < this.actionAnimUntil;
-    const scene = { tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss };
+    const scene = { tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss, october: isOctober() ? this.octView : null };
     if (this.state.player.inGreenhouse) {
       this.renderer.renderIndoor(this.sceneCamera(), this.state, now, crouching, scene);
     } else {
