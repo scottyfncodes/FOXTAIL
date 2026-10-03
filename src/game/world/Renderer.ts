@@ -999,7 +999,8 @@ export class Renderer {
       if (d.wall === 'south') {
         const dx = s.x + tile * 0.1;
         const dw = tile * 0.8;
-        const dTop = gy + tile * 0.05;
+        // Door-sized, like the house's: a little taller than Scott, not the whole wall.
+        const dTop = bottom - tile * 1.3;
         ctx.fillStyle = '#4a3623';
         ctx.fillRect(dx - tile * 0.06, dTop - tile * 0.06, dw + tile * 0.12, bottom - dTop + tile * 0.06);
         ctx.fillStyle = night ? 'rgba(255,205,130,0.75)' : 'rgba(190,220,206,0.9)';
