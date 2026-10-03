@@ -214,11 +214,11 @@ export const FIREFLY_AREAS: FireflyArea[] = [
   { id: 'overgrown-hollow', rect: { x: 4, y: 42, w: 20, h: 14 } },
 ];
 
-/** About one bug to every three square tiles, and no more than this many to an area. */
-export const FIREFLIES_PER_AREA_MAX = 90;
+/** About one bug to every six square tiles, and no more than this many to an area. */
+export const FIREFLIES_PER_AREA_MAX = 45;
 
 export function fireflyCount(r: Rect): number {
-  return Math.min(FIREFLIES_PER_AREA_MAX, Math.round((r.w * r.h) / 3));
+  return Math.min(FIREFLIES_PER_AREA_MAX, Math.round((r.w * r.h) / 6));
 }
 
 /** How strongly they're out: none by day or in the rain, rising with the dark. */
