@@ -1183,7 +1183,7 @@ export const PLANTS: Record<string, PlantDef> = {
 
   // ---------------------------------------------------------------- Water's edge
   // The creek's own plants: pads that float out on the open water, and the
-  // cattails standing in the shallows and along the bank.
+  // cattails standing up out of the shallows. Both keep to the water.
 
   lilyPad: {
     id: 'lilyPad',
@@ -1216,7 +1216,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'common',
     habitat: ['creek', 'dampForest'],
     landscape: 'jungle',
-    description: 'Tall blue-green blades in a dense stand, and above them the brown velvet "cat’s tails" on stiff stalks. It grows in the shallows as happily as on the bank.',
+    description: 'Tall blue-green blades in a dense stand, and above them the brown velvet "cat’s tails" on stiff stalks. It stands in the shallows, its feet always wet.',
     hint: 'Brown velvet tails standing up out of the reeds.',
     look: { hue: 100, sat: 30, light: 38, accentHue: 25, accentSat: 45, accentLight: 28, variegation: 'none', size: 1.1 },
     variants: [
@@ -1228,7 +1228,7 @@ export const PLANTS: Record<string, PlantDef> = {
     ],
     growthRate: 1.25,
     spread: 0.7,
-    water: 'also',
+    water: 'only',
   },
 
   // ---------------------------------------------------------------- Fungi

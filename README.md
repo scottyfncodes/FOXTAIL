@@ -23,7 +23,8 @@ grow in patches all over it.
   spread, and in a garden bed they count as ground cover.
 - **The water's edge.** Lily pads float on the creek and in your ponds —
   they can only be planted out on open water, and only spread across it —
-  and cattails stand in the shallows and along the bank alike.
+  and cattails stand up out of the shallows. Both keep to the water: they
+  can only be planted on it, and only spread across it.
 - **Mushrooms.** A whole family of fungi grows wild alongside the plants and
   is gathered, grown on, propagated and planted out the same way:
   chanterelles, shaggy ink caps, fly agarics, porcini, morels, fairy rings
@@ -95,13 +96,16 @@ grow in patches all over it.
   birdbath, the stall) turn round to face the other way. A turn needs room
   to swing. A bed already dug or set down can be turned from its card,
   plants and all.
-- **Putt-putt.** Walk up to the putting mat in the living room for nine holes
-  laid out with whatever was lying around — mugs, a slipper, books, and the
-  cat. Drag back from the ball and let go; a faint line shows where it'll roll. The first hole in one on each hole
+- **Putt-putt.** Walk up to the putting mat in the living room for twelve
+  holes laid out with whatever was lying around — mugs, a slipper, books, a
+  bath mat that drags the ball, a glossy magazine it runs on across, a
+  paperback slid under the mat to lean it sideways, a paper-towel tube to
+  putt through a wall of books, and Ranger, asleep at the edge with his
+  tail sweeping back and forth across the fairway. Drag back from the ball and let go; a faint line shows where it'll roll. The first hole in one on each hole
   is worth a few coins, and the house remembers your best round.
 - **Shape the land.** Drag a plant to exactly where it should grow; move it
-  while it's young. Compost plants in the wrong place (maybe for a cutting —
-  maybe not quite the same). Dig garden beds (the 🌿 garden button) for coins —
+  while it's young. Compost plants in the wrong place: they're simply
+  cleared away (take a cutting first if you want one). Dig garden beds (the 🌿 garden button) for coins —
   each one costs a little more than the last, and bigger beds cost more —
   or set down a raised bed bought from the stall,
   whose plants spread only within them — a bed's card says how lively it

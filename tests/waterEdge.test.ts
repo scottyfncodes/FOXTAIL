@@ -30,7 +30,7 @@ describe('lily pads and cattails', () => {
       expect(def.variants.length).toBeGreaterThanOrEqual(4);
     }
     expect(PLANTS.lilyPad.water).toBe('only');
-    expect(PLANTS.cattail.water).toBe('also');
+    expect(PLANTS.cattail.water).toBe('only');
   });
 
   it('turn up in the wild patches', () => {
@@ -61,15 +61,15 @@ describe('lily pads and cattails', () => {
     expect(checkPlanting(state, 'lilyPad', 55.5, 25.5, world, 0).block).toBeNull();
   });
 
-  it('a cattail grows on the bank or in the shallows; a land plant still can’t go in the water', () => {
+  it('a cattail stays in the water, never up on the bank; a land plant still can’t go in the water', () => {
     const state = createNewGame();
     expect(checkPlanting(state, 'cattail', CREEK.x, CREEK.y, world, 0).block).toBeNull();
-    expect(checkPlanting(state, 'cattail', BANK.x, BANK.y, world, 0).block).toBeNull();
+    expect(checkPlanting(state, 'cattail', BANK.x, BANK.y, world, 0).block).toBe('dry');
     expect(checkPlanting(state, 'pothos', CREEK.x, CREEK.y, world, 0).block).toBe('water');
     expect(checkPlanting(state, 'pothos', BANK.x, BANK.y, world, 0).block).toBeNull();
   });
 
-  it('lily pads spread only across the water; cattails spread into the water and onto the bank', () => {
+  it('lily pads and cattails spread only across the water', () => {
     const grow = (defId: string) => {
       const state = createNewGame();
       state.plants.p = { id: 'p', defId, variantId: PLANTS[defId].variants[0].id, seed: 1, growth: STAGE_AT.specimen, location: { kind: 'wild', x: 42, y: 30, zone: 'creek' }, plantedAt: 0, lastCuttingAt: null, generation: 0, bornWild: false } as OwnedPlant;
@@ -88,8 +88,8 @@ describe('lily pads and cattails', () => {
     expect(pads.length).toBeGreaterThan(5);
     expect(pads.every(Boolean)).toBe(true);
     const tails = grow('cattail');
-    expect(tails.some(Boolean)).toBe(true);
-    expect(tails.some((w) => !w)).toBe(true);
+    expect(tails.length).toBeGreaterThan(5);
+    expect(tails.every(Boolean)).toBe(true);
     // An ordinary plant by the creek never seeds into it.
     const land = grow('spiderPlant');
     expect(land.length).toBeGreaterThan(0);
