@@ -130,7 +130,7 @@ grow in patches all over it.
   lightning bugs blink over the long grass under the damp forest's edge,
   the creek banks, a glade in the woods and the overgrown hollow.
 - **Drive.** The stall's dearest item is a mini truck, delivered to the lane
-  by the house. Walk up and get in: it goes twice as fast as walking, thickets
+  by the house. Walk up and get in (Scout jumps in the back and rides along, and hops out when you park): it goes twice as fast as walking, thickets
   don't slow it, and a dozen more plants ride in the back once your basket is
   full. Its whole body keeps off the greenhouse, the house and the stall. Park beside the stall to sell the whole load, or by the greenhouse
   door to pot straight from the bed. Press E with nothing else in reach, or
