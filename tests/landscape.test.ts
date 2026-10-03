@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { SHOP_ITEMS } from '../src/game/data/shop';
 import { createNewGame, type GameState, type OwnedPlant } from '../src/game/state';
 import {
   bedBlockReason,
@@ -347,9 +348,25 @@ describe('carved paths', () => {
     expect(onPath(state, 62, 34.3, 100)).toBeDefined();
   });
 
+  it('need a chainsaw to go through trees and a rock hammer to go through rocks', () => {
+    const state = createNewGame();
+    state.coins = 5000;
+    const route = simplifyRoute([{ x: 58, y: 36.5 }, { x: 62, y: 36.5 }]);
+    expect(previewPath(state, route, world({ '60,36': 'tree' })).block).toBe('tool');
+    expect(previewPath(state, route, world({ '60,36': 'rock' })).block).toBe('tool');
+    // Scrub is just trampled: no tools needed for a bush.
+    expect(previewPath(state, route, world({ '60,36': 'bush' })).block).toBeNull();
+    state.owned.push('chainsaw');
+    expect(previewPath(state, route, world({ '60,36': 'tree' })).block).toBeNull();
+    expect(previewPath(state, route, world({ '60,36': 'rock' })).block).toBe('tool');
+    state.owned.push('rockHammer');
+    expect(previewPath(state, route, world({ '60,36': 'rock' })).block).toBeNull();
+  });
+
   it('go through trees and rocks for a higher price, but never water or a garden bed', () => {
     const state = createNewGame();
     state.coins = 5000;
+    state.owned.push('chainsaw', 'rockHammer');
     const plain = previewPath(state, simplifyRoute([{ x: 58, y: 36.5 }, { x: 62, y: 36.5 }]), world({}));
     const treed = previewPath(state, simplifyRoute([{ x: 58, y: 36.5 }, { x: 62, y: 36.5 }]), world({ '60,36': 'tree' }));
     const rocky = previewPath(state, simplifyRoute([{ x: 58, y: 36.5 }, { x: 62, y: 36.5 }]), world({ '60,36': 'rock' }));
@@ -415,8 +432,18 @@ describe('hauling rocks away', () => {
     isSpot: () => false,
   });
 
+  it('needs a rock hammer from the stall first', () => {
+    const state = createNewGame();
+    state.coins = 1000;
+    expect(rockRemovalBlock(state, worldFor([]), rock.x, rock.y)).toBe('tool');
+    expect(removeRock(state, worldFor([]), rock.x, rock.y)).toBe(false);
+    expect(state.coins).toBe(1000);
+    expect(SHOP_ITEMS.find((i) => i.id === 'rockHammer')?.category).toBe('equipment');
+  });
+
   it('costs coins and leaves open ground behind', () => {
     const state = createNewGame();
+    state.owned.push('rockHammer');
     state.coins = ROCK_REMOVAL_COST - 1;
     expect(rockRemovalBlock(state, worldFor(state.clearedObstacles), rock.x, rock.y)).toBe('coins');
     expect(removeRock(state, worldFor(state.clearedObstacles), rock.x, rock.y)).toBe(false);
@@ -450,10 +477,26 @@ describe('clearing trees and bushes', () => {
     isSpot: () => false,
   });
 
+  it('needs a chainsaw from the stall first, for trees and bushes alike', () => {
+    const state = createNewGame();
+    state.coins = 1000;
+    const w = worldFor([]);
+    expect(clearBlock(state, w, tree.x, tree.y)).toBe('tool');
+    expect(clearBlock(state, w, bush.x, bush.y)).toBe('tool');
+    expect(clearObstacle(state, w, bush.x, bush.y)).toBeNull();
+    // A rock hammer is no use on a tree.
+    state.owned.push('rockHammer');
+    expect(clearBlock(state, w, tree.x, tree.y)).toBe('tool');
+    state.owned.push('chainsaw');
+    expect(clearBlock(state, w, tree.x, tree.y)).toBeNull();
+    expect(SHOP_ITEMS.find((i) => i.id === 'chainsaw')?.category).toBe('equipment');
+  });
+
   it('costs by kind: a bush is cheap, a tree is dear, and the ground is open for good after', () => {
     expect(CLEAR_COST.tree).toBeGreaterThan(CLEAR_COST.rock);
     expect(CLEAR_COST.rock).toBeGreaterThan(CLEAR_COST.bush);
     const state = createNewGame();
+    state.owned.push('chainsaw');
     const w = worldFor(state.clearedObstacles);
     expect(clearCost(w, tree.x, tree.y)).toBe(CLEAR_COST.tree);
     expect(clearCost(w, bush.x, bush.y)).toBe(CLEAR_COST.bush);

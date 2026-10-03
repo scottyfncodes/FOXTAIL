@@ -2,7 +2,7 @@ import type { DiscoverySpot, ZoneId } from '../types';
 import type { FoxFindKind, GameState } from '../state';
 import { hunchTargets, spotContent, spotEpoch } from './spots';
 import { hasFound } from './collection';
-import { BRIDGES, outdoorWaypoint } from '../data/worldMap';
+import { BRIDGES, outdoorWaypoint, overlandWaypoint } from '../data/worldMap';
 import { weightedPick } from '../engine/Random';
 
 // The fox. It turns up now and then, never for long, and it always seems to
@@ -138,15 +138,7 @@ export interface FoxTickResult {
 }
 
 /** Where to run next: straight for the destination, or over a bridge if the creek is in the way. */
-export function nextLeg(fx: number, fy: number, dx: number, dy: number): { x: number; y: number } {
-  const side = (x: number) => (x < 42 ? -1 : 1);
-  if (side(fx) === side(dx)) return outdoorWaypoint(fx, fy, dx, dy);
-  const bridge = [...BRIDGES].sort((a, b) => Math.abs(a.y + a.h / 2 - fy) - Math.abs(b.y + b.h / 2 - fy))[0];
-  const by = bridge.y + bridge.h / 2;
-  const onBridge = fx >= bridge.x - 0.5 && fx <= bridge.x + bridge.w + 0.5 && Math.abs(fy - by) < 1.3;
-  if (onBridge) return { x: side(fx) < 0 ? bridge.x + bridge.w + 0.8 : bridge.x - 0.8, y: by };
-  return { x: side(fx) < 0 ? bridge.x - 0.3 : bridge.x + bridge.w + 0.3, y: by };
-}
+export const nextLeg = overlandWaypoint;
 
 function goAway(state: GameState, now: number, rand: () => number, long: boolean) {
   const fox = state.fox;

@@ -32,6 +32,9 @@ import {
   clearCost,
   clearBlock,
   clearObstacle,
+  hasClearTool,
+  CLEAR_TOOL,
+  TOOL_NAME,
   CLEAR_VERB,
   bedTurnBlock,
   rotateBed,
@@ -1004,9 +1007,14 @@ export class Game {
           if (cost === null) continue;
           const kind = this.world.obstacleAt(tx, ty)!;
           const words = CLEAR_VERB[kind];
+          const tooled = hasClearTool(this.state, kind);
           const afford = this.state.coins >= cost;
-          const label = afford ? `${words.label} · ${cost} coins` : `${words.name} · ${cost} coins to have it cleared`;
-          consider({ kind: 'rock', id: `${tx},${ty}`, x: tx, y: ty, label, available: afford }, tx + 0.5, ty + 0.5, kind === 'tree' ? 1.6 : INTERACT_RANGE);
+          const label = !tooled
+            ? `${words.name} · needs a ${TOOL_NAME[CLEAR_TOOL[kind]]} from the stall`
+            : afford
+              ? `${words.label} · ${cost} coins`
+              : `${words.name} · ${cost} coins to have it cleared`;
+          consider({ kind: 'rock', id: `${tx},${ty}`, x: tx, y: ty, label, available: tooled && afford }, tx + 0.5, ty + 0.5, kind === 'tree' ? 1.6 : INTERACT_RANGE);
         }
       }
       const stall = stallRect(this.state);
@@ -1181,6 +1189,10 @@ export class Game {
   haulRock(key: string) {
     const [tx, ty] = key.split(',').map(Number);
     const block = clearBlock(this.state, this.world, tx, ty);
+    if (block === 'tool') {
+      const kind = this.world.obstacleAt(tx, ty)!;
+      return this.pushToast(`You’ll need a ${TOOL_NAME[CLEAR_TOOL[kind]]} for that. The Plant Stand & Supply sells them.`, 'info');
+    }
     if (block === 'coins') {
       const kind = this.world.obstacleAt(tx, ty)!;
       return this.pushToast(`${CLEAR_VERB[kind].name.replace(/^A /, 'Clearing a ')} costs ${clearCost(this.world, tx, ty)} coins.`, 'info');

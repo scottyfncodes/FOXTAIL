@@ -100,10 +100,12 @@ grow in patches all over it.
   more often, let odd seeds in with their visitors, have butterflies by day
   and glow-worms by night, and the liveliest turn up curiosities of their
   own — and pay a crew to carve paths through the
-  growth: they'll clear anything in the way, trees and rocks included, for a
-  price, and you can walk quickly along the result while its verges creep back in.
-  Any single rock, tree or bush in your way can be cleared too: walk up to it
-  and pay the crew (a bush is cheap, a tree is not).
+  growth: they'll clear anything in the way for a price — trees too once
+  you have a chainsaw, rocks once you have a rock hammer — and you can walk quickly along the result while its verges creep back in.
+  Any single rock, tree or bush in your way can be cleared too, once you've
+  bought the tool for it from the stall — a rock hammer for rocks, a
+  chainsaw for trees and bushes: walk up to it and pay the crew (a bush is
+  cheap, a tree is not).
   Where your plants have grown thick, the ground is drawn as a carpet of
   their own foliage; large plants, specimens and sports still stand out of it.
   Everywhere else, nature fills the gaps: meadow grass, clover and
