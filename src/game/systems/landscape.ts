@@ -111,7 +111,6 @@ const FORM_RADIUS: Record<string, number> = {
   pitcher: 0.45,
   cups: 0.62,
   mushroom: 0.4,
-  bracket: 0.42,
   coral: 0.38,
   moss: 0.45,
   mat: 0.42,

@@ -71,7 +71,6 @@ const FORM_ROLE: Record<PlantForm, BedRole> = {
   pitcher: 'carnivore',
   cups: 'carnivore',
   mushroom: 'fungus',
-  bracket: 'fungus',
   coral: 'fungus',
   moss: 'groundcover',
   mat: 'groundcover',

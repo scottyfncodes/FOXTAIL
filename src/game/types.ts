@@ -52,7 +52,6 @@ export type PlantForm =
   | 'palm' // a clump of slender ringed canes, each crowned with arching pinnate fronds (parlour palm)
   | 'cane' // a bare stem or trunk topped with a tuft of ribbon leaves (dragon tree, ponytail palm)
   | 'mushroom' // a little cluster of capped fruiting bodies on stems (fly agaric, chanterelle, morel)
-  | 'bracket' // shelves stacked up a mossy stump (oyster mushroom, turkey tail)
   | 'coral' // branching fingers, or a shaggy mass of hanging spines (coral fungus, lion's mane)
   | 'moss' // low, springy cushions hugging the ground (moss)
   | 'mat' // a dense, flat mat of tiny leaves on wiry stems (creeping thyme)
@@ -115,8 +114,6 @@ export interface PlantLook {
   stipe?: [number, number, number];
   /** Mushrooms: come up in a ring rather than a clump. */
   ring?: boolean;
-  /** Brackets: concentric bands of colour across each shelf (turkey tail). */
-  zoned?: boolean;
   /** Coral form: a rounded mass hung with soft spines instead of branching fingers (lion's mane). */
   icicles?: boolean;
   /** Moss: upright stems each tipped with a little star of leaves (haircap). */
