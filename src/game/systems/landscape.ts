@@ -27,9 +27,9 @@ export interface LandscapeWorld {
 }
 
 /** What it costs to have one rock dug out and carted away. */
-export const ROCK_REMOVAL_COST = 30;
+export const ROCK_REMOVAL_COST = 20;
 /** What the crew charges to clear each kind of thing standing in the way, for good. */
-export const CLEAR_COST: Record<string, number> = { rock: ROCK_REMOVAL_COST, tree: 120, bush: 15 };
+export const CLEAR_COST: Record<string, number> = { rock: ROCK_REMOVAL_COST, tree: 60, bush: 15 };
 /** The word for having each kind of thing cleared. */
 export const CLEAR_VERB: Record<string, { label: string; done: string; name: string }> = {
   rock: { label: 'Have this rock hauled away', done: 'Rock hauled away', name: 'A rock' },
@@ -442,8 +442,8 @@ export type PathBlock = 'too-short' | 'blocked' | 'bed' | 'tool' | 'coins';
 /** What a path costs: the labour by the pace, and a lot more for every tree felled and rock dug out. */
 export const PATH_BASE_COST = 30;
 export const PATH_COST_PER_PACE = 12;
-export const PATH_COST_TREE = 120;
-export const PATH_COST_ROCK = 70;
+export const PATH_COST_TREE = 50;
+export const PATH_COST_ROCK = 25;
 
 export interface PathPreview {
   block: PathBlock | null;
