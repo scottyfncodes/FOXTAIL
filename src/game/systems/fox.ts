@@ -2,7 +2,7 @@ import type { DiscoverySpot, ZoneId } from '../types';
 import type { FoxFindKind, GameState } from '../state';
 import { hunchTargets, spotContent, spotEpoch } from './spots';
 import { hasFound } from './collection';
-import { BRIDGES, outdoorWaypoint, overlandWaypoint } from '../data/worldMap';
+import { BRIDGES, overlandWaypoint } from '../data/worldMap';
 import { weightedPick } from '../engine/Random';
 
 // The fox. It turns up now and then, never for long, and it always seems to
@@ -122,7 +122,13 @@ function placeNear(ctx: FoxTickContext, x: number, y: number, dist: number, angl
     const py = y + Math.sin(a) * r;
     if (!ctx.isOpen || ctx.isOpen(px, py)) return { x: px, y: py };
   }
-  return { x: x + (ctx.rand() - 0.5) * 3, y: y + (ctx.rand() - 0.5) * 3 };
+  // Nowhere clear at that distance: closer in, and never out in the creek.
+  for (let i = 0; i < 12; i++) {
+    const px = x + (ctx.rand() - 0.5) * 3;
+    const py = y + (ctx.rand() - 0.5) * 3;
+    if (!ctx.isOpen || ctx.isOpen(px, py)) return { x: px, y: py };
+  }
+  return { x, y };
 }
 
 export interface FoxTickResult {
@@ -230,8 +236,8 @@ export function tickFox(state: GameState, ctx: FoxTickContext): FoxTickResult {
       }
       const d = dist(fox.x, fox.y, tx, ty);
       if (d > ARRIVE_DIST) {
-        // Round the house, not over it.
-        const wp = outdoorWaypoint(fox.x, fox.y, tx, ty);
+        // Round the house, not over it, and over a bridge, never through the creek.
+        const wp = overlandWaypoint(fox.x, fox.y, tx, ty);
         const wd = Math.max(0.0001, dist(fox.x, fox.y, wp.x, wp.y));
         const step = Math.min(FOX_SPEED * ctx.dtSeconds, wd);
         fox.x += ((wp.x - fox.x) / wd) * step;
