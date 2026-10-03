@@ -34,7 +34,7 @@ function dist(ax: number, ay: number, bx: number, by: number): number {
   return Math.hypot(ax - bx, ay - by);
 }
 
-function facingToward(dx: number, dy: number): Facing {
+export function facingToward(dx: number, dy: number): Facing {
   return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
 }
 

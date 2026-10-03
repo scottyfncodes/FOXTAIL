@@ -1,5 +1,6 @@
 import type { MusicManager } from '../game/engine/MusicManager';
 import { el } from './dom';
+import { THEMES, getTheme, setTheme, onThemeChange } from '../game/season';
 
 /**
  * A small music button in the HUD and the popover it opens: music on or off,
@@ -12,6 +13,7 @@ export class MusicControl {
   private toggle = el('button', 'music-toggle');
   private slider = el('input', 'music-volume');
   private nowPlaying = el('div', 'music-now');
+  private themeRow = el('div', 'theme-row');
   private open = false;
 
   constructor(private music: MusicManager) {
@@ -38,7 +40,20 @@ export class MusicControl {
       if (this.music.isMuted() && Number(this.slider.value) > 0) this.music.unmuteMusic();
     });
 
-    this.menu.append(head, this.slider, this.nowPlaying);
+    // The season's look: Classic, or October. It only changes what the valley looks like.
+    const themeHead = el('div', 'music-head theme-head');
+    themeHead.append(el('span', 'music-title', 'Season'));
+    for (const t of THEMES) {
+      const b = el('button', 'theme-choice', `${t.icon} ${t.label}`);
+      b.dataset.theme = t.id;
+      b.setAttribute('role', 'radio');
+      b.addEventListener('click', () => setTheme(t.id));
+      this.themeRow.appendChild(b);
+    }
+    this.themeRow.setAttribute('role', 'radiogroup');
+    this.themeRow.setAttribute('aria-label', 'Season');
+    onThemeChange(() => this.refresh());
+    this.menu.append(head, this.slider, this.nowPlaying, themeHead, this.themeRow);
     // Taps inside the popover mustn't reach the game world beneath it.
     this.menu.addEventListener('pointerdown', (e) => e.stopPropagation());
     window.addEventListener('pointerdown', (e) => {
@@ -70,5 +85,11 @@ export class MusicControl {
     this.menu.classList.toggle('is-muted', muted);
     const track = this.music.getWantedTrack();
     this.nowPlaying.textContent = muted ? 'Music is off' : `♪ ${track.title}`;
+    const theme = getTheme();
+    for (const b of Array.from(this.themeRow.children) as HTMLElement[]) {
+      const on = b.dataset.theme === theme;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+    }
   }
 }

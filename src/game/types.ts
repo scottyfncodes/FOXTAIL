@@ -179,6 +179,12 @@ export interface PlantDef {
   vine?: boolean;
   /** Only comes from crossing these two species; never found anywhere. */
   parents?: [string, string];
+  /**
+   * Belongs to a season: it only comes up wild while that seasonal look is
+   * on, never in an ordinary patch otherwise, and keeps out of the journal's
+   * collection (and its count) — it has a page of its own once found.
+   */
+  season?: 'october';
 }
 
 export type ToolId = 'basket' | 'lantern';

@@ -7,6 +7,7 @@ import { isNight } from '../engine/Clock';
 import { addToBasket, basketFull } from './basket';
 import { hasFound, recordFound } from './collection';
 import { variantAllowed } from './lineage';
+import { isOctober } from '../season';
 
 /** Relative odds of each species rarity turning up in a patch. */
 export const SPECIES_WEIGHT: Record<Rarity, number> = { common: 100, uncommon: 36, rare: 10, veryRare: 2.5, extremelyRare: 0.7, unheardOf: 0, mythic: 0 };
@@ -32,7 +33,7 @@ function conditionMet(state: GameState, def: PlantDef): boolean {
 
 export function spotPool(spot: DiscoverySpot): PlantDef[] {
   if (spot.pool) return spot.pool.map((id) => PLANTS[id]).filter(Boolean);
-  return PLANT_LIST.filter((p) => !p.foxOnly && !p.secret && p.habitat.includes(spot.zone));
+  return PLANT_LIST.filter((p) => !p.foxOnly && !p.secret && !p.season && p.habitat.includes(spot.zone));
 }
 
 /**
@@ -56,6 +57,8 @@ export function spotContent(state: GameState, spot: DiscoverySpot): SpotContent 
   if (spot.foxLed && ss?.collectedEpoch !== undefined) return null;
   const wanderer = wanderingRareAt(state, spot, epoch);
   if (wanderer) return wanderer;
+  const seasonal = seasonalAt(state, spot, epoch);
+  if (seasonal) return seasonal;
 
   const rand = mulberry32(hashString(`${spot.id}:${epoch}`));
   const pool = spotPool(spot);
@@ -67,6 +70,31 @@ export function spotContent(state: GameState, spot: DiscoverySpot): SpotContent 
   if (!def) return null;
   // Only the forms already found, and the next one along the line, ever grow in a patch.
   const variant = weightedPick(def.variants, (v) => (v.sportOnly || !variantAllowed(state, def!.id, v.id) ? 0 : v === def!.variants[0] ? 100 : VARIANT_WEIGHT[v.rarity]), rand) ?? def.variants[0];
+  return { defId: def.id, variantId: variant.id, seed: Math.floor(rand() * 1e9) };
+}
+
+/** While the October look is on: the chance, each patch season, that a patch comes up as something of the season instead. */
+export const SEASONAL_CHANCE = 0.14;
+
+/** The season's plants that could come up in this patch now (none outside October). */
+export function seasonalPool(state: GameState, spot: DiscoverySpot): PlantDef[] {
+  if (!isOctober() || spot.foxLed || spot.pool) return [];
+  return PLANT_LIST.filter((p) => p.season === 'october' && !p.secret && p.habitat.includes(spot.zone) && conditionMet(state, p));
+}
+
+/**
+ * October's own plants, now and then, in place of the usual. Rolled on its
+ * own stream so the ordinary patches come up exactly as they always would
+ * whenever this doesn't.
+ */
+function seasonalAt(state: GameState, spot: DiscoverySpot, epoch: number): SpotContent | null {
+  const pool = seasonalPool(state, spot);
+  if (!pool.length) return null;
+  const rand = mulberry32(hashString(`${spot.id}:${epoch}:october`));
+  if (rand() >= SEASONAL_CHANCE) return null;
+  const def = weightedPick(pool, (p) => SPECIES_WEIGHT[p.rarity], rand);
+  if (!def) return null;
+  const variant = weightedPick(def.variants, (v) => (v.sportOnly || !variantAllowed(state, def.id, v.id) ? 0 : v === def.variants[0] ? 100 : VARIANT_WEIGHT[v.rarity]), rand) ?? def.variants[0];
   return { defId: def.id, variantId: variant.id, seed: Math.floor(rand() * 1e9) };
 }
 
@@ -129,7 +157,7 @@ export interface HunchTarget {
 export function hunchTargets(state: GameState, zone: OutdoorZoneId): HunchTarget[] {
   const out: HunchTarget[] = [];
   for (const def of PLANT_LIST) {
-    if (def.secret || def.foxOnly || !def.habitat.includes(zone) || !conditionMet(state, def)) continue;
+    if (def.secret || def.foxOnly || def.season || !def.habitat.includes(zone) || !conditionMet(state, def)) continue;
     for (const v of def.variants) {
       if (v.sportOnly || !variantAllowed(state, def.id, v.id) || hasFound(state, def.id, v.id)) continue;
       const rank = Math.max(rarityRank(v.rarity), rarityRank(def.rarity));

@@ -59,6 +59,42 @@ import { PATH_WIDTH, bedCost } from '../systems/landscape';
 import { dipAmount, smiling, DIP_END, type ChaseReaction } from '../systems/scott';
 import { FIREFLY_AREAS, fireflies, fireflyStrength, pondFrogs, pondPads, pondTurtleAt, pondTurtleCount, riverFrogs, riverTurtles, TURTLE_STONES } from '../systems/wildlife';
 import { drawBaskingStone, drawFrog, drawTurtle } from './WildlifeArt';
+import type { OctoberView } from '../systems/october';
+import { lanternsLit } from '../systems/october';
+import { LANTERN_POSTS, OLD_THINGS, PORCH_LANTERN, BLACK_CAT_SPOT } from '../data/october';
+import { LIVING_WINDOWS, INTERIOR_W } from '../data/interior';
+import {
+  LeafLitter,
+  scatterLeaves,
+  drawAutumnTree,
+  drawAutumnBush,
+  drawPumpkin,
+  drawPumpkinPatch,
+  drawLanternPost,
+  drawHangingLantern,
+  drawOldThing,
+  drawOctoberHouse,
+  drawOctoberGreenhouseOutside,
+  drawBats,
+  drawOwl,
+  drawBlackCat,
+  drawMoth,
+  drawGhostFigure,
+  drawGhostReflection,
+  drawBehindTrees,
+  drawStandingEvent,
+  drawEventLights,
+  drawDriftingLeaves,
+  drawNightAir,
+  Grade,
+  drawRustle,
+  drawOctoberGreenhouseShell,
+  drawMushroomCrock,
+  drawOctoberLivingRoom,
+  drawCandles,
+  DISTANT_LIGHTS,
+  distantLightLevel,
+} from './OctoberArt';
 
 /** Everything the scene needs beyond the game state: what the player is doing with their hands, and passing effects. */
 export interface SceneExtras {
@@ -69,6 +105,8 @@ export interface SceneExtras {
   fade: number;
   /** The cute thing Scott's doing, if Ellen's caught him. */
   kiss?: { t: number; ellenLeft: boolean; reaction: ChaseReaction } | null;
+  /** October's things, when that's the look; absent, the valley is drawn as it always is. */
+  october?: OctoberView | null;
 }
 
 const NO_EXTRAS: SceneExtras = { tools: { kind: 'play' }, flourishes: [], cleared: new Set(), fade: 0 };
@@ -209,6 +247,13 @@ export class Renderer {
   private carpets = new Map<string, HTMLCanvasElement>();
   /** What nature grows in every gap: undergrowth tiles by zone and thickness. */
   private verges = new VergeTiles(() => this.dpr);
+  /** October's mist, and the warm wash over the ground. */
+  private litter = new LeafLitter();
+  /** The same undergrowth, with October's leaves fallen into it. */
+  private autumnVerges = new VergeTiles(() => this.dpr, scatterLeaves);
+  private grade = new Grade();
+  /** Drawing October this frame (trees turn, and the rest). */
+  private october: OctoberView | null = null;
 
   /** A tile's worth of foliage in the colour of what's growing there. Four patterns per look, so it never tiles visibly. */
   private carpetTile(ch: string, hue: number, sat: number, light: number, pale: number, dense: boolean, variant: number, tile: number): HTMLCanvasElement | null {
@@ -301,7 +346,13 @@ export class Renderer {
     const bounds = camera.getViewportTileBounds();
     const inView = (x: number, y: number, pad = 2) => x > bounds.minX - pad && x < bounds.maxX + pad && y > bounds.minY - pad && y < bounds.maxY + pad;
 
+    const oct = extras.october ?? null;
+    this.october = oct;
     this.drawGround(camera, bounds, now, lush);
+    if (oct) {
+      this.litter.drawWash(this.ctx, camera);
+      drawPumpkinPatch(this.ctx, camera);
+    }
     const gm = state.clock.totalMinutes;
     // The creek's koi, under the surface: dimmer after dark.
     const koiAlpha = isNight(gm) ? 0.35 : 0.8;
@@ -328,6 +379,12 @@ export class Renderer {
       const p = camera.worldToScreen(f.x * TILE_SIZE, f.y * TILE_SIZE);
       drawFrog(this.ctx, f, p.x, p.y, tilePx * 0.42, tilePx, night ? 0.75 : 1);
     }
+    // Only in the water: something pale, and nothing standing over it.
+    if (oct && oct.ghost.mode === 'reflect' && inView(oct.ghost.x, oct.ghost.y, 1)) {
+      const g = oct.ghost;
+      const p = camera.worldToScreen(g.x * TILE_SIZE, g.y * TILE_SIZE);
+      drawGhostReflection(this.ctx, p.x, p.y, tilePx, g.shown, now, g.seed);
+    }
     // Ground the player has worked: beds first, paths over them.
     for (const bed of state.gardenBeds) {
       if (!inView(bed.x, bed.y, bed.w + bed.h + 2)) continue;
@@ -341,6 +398,12 @@ export class Renderer {
     }
     this.drawGreenhouseExterior(camera, state.clock.totalMinutes, state.owned.includes('weathervane'), now);
     drawHouseExterior(this.ctx, camera, state.clock.totalMinutes);
+    if (oct) {
+      const win = oct.events.find((e) => e.kind === 'window' && e.age >= 0) ?? null;
+      drawOctoberHouse(this.ctx, camera, oct.darkness, now, oct.webGrowth, win);
+      drawOctoberGreenhouseOutside(this.ctx, camera);
+      drawBehindTrees(this.ctx, camera, oct.events);
+    }
 
     for (const o of obstacles) {
       if (!inView(o.x, o.y) || extras.cleared.has(`${o.x},${o.y}`)) continue;
@@ -486,8 +549,15 @@ export class Renderer {
       const scottAtWheel = state.scott.activity === 'driving';
       drawables.push({ y: t.y + 0.05, draw: () => this.drawTruck(camera, t, now, scottAtWheel, scottAtWheel, scottAtWheel ? 'scott' : 'ellen') });
     }
+    if (oct) this.octoberDrawables(camera, state, oct, drawables, inView, now);
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
+    if (oct) {
+      for (const e of oct.events) {
+        if (e.kind === 'rustle') drawRustle(this.ctx, camera, e);
+        else if (e.kind === 'fogPuff') this.litter.drawFogPuff(this.ctx, camera, e, now);
+      }
+    }
 
     // Low foreground vegetation drawn last, so tall grass/reeds partially
     // overlap the characters' feet instead of characters always reading on
@@ -515,9 +585,100 @@ export class Renderer {
 
     this.drawPollinators(camera, state, bounds, now);
     this.drawAmbientParticles(camera, zoneHere, state.weather.condition, now);
+    if (oct) drawDriftingLeaves(this.ctx, camera, zoneHere, now, state.weather.condition === 'clear' ? 1 : 2);
     this.drawWeatherOverlay(camera, state, now);
+    if (oct) {
+      this.litter.drawFog(this.ctx, camera, bounds, oct.darkness, now);
+      this.grade.draw(this.ctx, camera, oct.darkness);
+    }
     this.drawNightLights(camera, state, bounds, now);
+    if (oct) {
+      drawNightAir(this.ctx, camera, bounds, oct.darkness, now);
+      drawBats(this.ctx, camera, [{ x: 72.5, y: 32.5 }, { x: 22, y: 14 }, { x: 60, y: 12 }], oct.darkness, now);
+      if (oct.darkness > 0.45) {
+        const tile = TILE_SIZE * camera.zoom;
+        for (const at of [PORCH_LANTERN, LANTERN_POSTS[0], LANTERN_POSTS[2]]) {
+          if (!inView(at.x, at.y, 2)) continue;
+          const lx = at === PORCH_LANTERN ? at.x : at.x + 0.16;
+          const ly = at === PORCH_LANTERN ? at.y + 0.05 : at.y - 1.0;
+          const p = camera.worldToScreen(lx * TILE_SIZE, ly * TILE_SIZE);
+          drawMoth(this.ctx, p.x, p.y, tile, now, at.x);
+        }
+      }
+    }
     this.drawFade(extras.fade);
+  }
+
+  /** October's things that stand in the scene, sorted in with everything else. */
+  private octoberDrawables(camera: Camera, state: GameState, oct: OctoberView, drawables: { y: number; draw: () => void }[], inView: (x: number, y: number, pad?: number) => boolean, now: number) {
+    const ctx = this.ctx;
+    const tile = TILE_SIZE * camera.zoom;
+    const lit = lanternsLit(oct.darkness);
+    for (const p of oct.pumpkins) {
+      if (!inView(p.x, p.y, 1)) continue;
+      drawables.push({
+        y: p.y,
+        draw: () => {
+          const s = camera.worldToScreen(p.x * TILE_SIZE, p.y * TILE_SIZE);
+          drawPumpkin(ctx, s.x, s.y, tile, p.size, p.face, p.face && lit ? oct.darkness * oct.lanternLevel : 0, now, p.seed);
+        },
+      });
+    }
+    LANTERN_POSTS.forEach((lp, i) => {
+      if (!inView(lp.x, lp.y, 2)) return;
+      drawables.push({
+        y: lp.y,
+        draw: () => {
+          const s = camera.worldToScreen(lp.x * TILE_SIZE, lp.y * TILE_SIZE);
+          drawLanternPost(ctx, s.x, s.y, tile, lit ? oct.lanternLevel : 0, now, i);
+        },
+      });
+    });
+    for (const o of OLD_THINGS) {
+      if (!inView(o.x, o.y, 2)) continue;
+      drawables.push({ y: o.y, draw: () => {
+        const s = camera.worldToScreen(o.x * TILE_SIZE, o.y * TILE_SIZE);
+        drawOldThing(ctx, o.kind, s.x, s.y, tile, now);
+      } });
+    }
+    if (oct.blackCat > 0.01 && inView(BLACK_CAT_SPOT.x, BLACK_CAT_SPOT.y, 1)) {
+      drawables.push({ y: BLACK_CAT_SPOT.y, draw: () => {
+        const s = camera.worldToScreen(BLACK_CAT_SPOT.x * TILE_SIZE, BLACK_CAT_SPOT.y * TILE_SIZE);
+        drawBlackCat(ctx, s.x, s.y, tile, oct.blackCat, now, state.player.x < BLACK_CAT_SPOT.x);
+      } });
+    }
+    const owl = oct.owl;
+    if (owl && inView(owl.x, owl.y, 2)) {
+      drawables.push({ y: owl.y + 0.9, draw: () => {
+        const s = camera.worldToScreen(owl.x * TILE_SIZE, owl.y * TILE_SIZE);
+        drawOwl(ctx, s.x, s.y, tile, (state.player.x - owl.x) / 4, owl.alpha, now);
+      } });
+    }
+    const g = oct.ghost;
+    if (g.mode !== 'away' && g.mode !== 'reflect' && g.mode !== 'greenhouse' && inView(g.x, g.y, 2)) {
+      drawables.push({ y: g.y, draw: () => {
+        const s = camera.worldToScreen(g.x * TILE_SIZE, g.y * TILE_SIZE);
+        drawGhostFigure(ctx, s.x, s.y, tile, g.shown, now, { looking: g.looking, waving: g.waving, seed: g.seed });
+      } });
+    }
+    for (const e of oct.events) {
+      if (e.kind !== 'watcher' && e.kind !== 'visitor' && e.kind !== 'shadowFox' && e.kind !== 'lantern' && e.kind !== 'silhouette') continue;
+      drawables.push({ y: e.kind === 'silhouette' ? -1 : e.y, draw: () => drawStandingEvent(ctx, camera, e, now) });
+    }
+  }
+
+  /** October's lights in the dark: lantern posts, the porch, the jack-o'-lanterns, and what else is out there. */
+  private octoberLights(camera: Camera, oct: OctoberView, now: number, glow: (wx: number, wy: number, r: number, color: [number, number, number], a: number) => void) {
+    const level = oct.lanternLevel;
+    for (const lp of LANTERN_POSTS) glow(lp.x + 0.16, lp.y - 1.0, 2.4, [255, 186, 96], 0.5 * level);
+    glow(PORCH_LANTERN.x, PORCH_LANTERN.y + 0.1, 2.2, [255, 190, 100], 0.55 * level);
+    for (const p of oct.pumpkins) if (p.face) glow(p.x, p.y - 0.05, 1.5 * p.size, [255, 150, 50], 0.5 * level);
+    DISTANT_LIGHTS.forEach((d, i) => {
+      const l = distantLightLevel(i, now);
+      if (l > 0.01) glow(d.x, d.y, 0.8, [200, 230, 170], 0.5 * l);
+    });
+    if (oct.ghost.mode !== 'away' && oct.ghost.mode !== 'greenhouse') glow(oct.ghost.x, oct.ghost.y - 0.45, 1.4, [190, 210, 255], 0.25 * oct.ghost.shown);
+    drawEventLights(this.ctx, camera, oct.events, now, glow);
   }
 
   private bedSpecOf(tools: Extract<ToolMode, { kind: 'bed' }>) {
@@ -656,7 +817,7 @@ export class Renderer {
       const pad = VergeTiles.pad(tile);
       const w = Math.round(tile) + pad * 2;
       for (const t of vergeTiles) {
-        const c = this.verges.get(t.zone, t.level, t.variant, t.shore, tile);
+        const c = (this.october ? this.autumnVerges : this.verges).get(t.zone, t.level, t.variant, t.shore, tile);
         if (!c) continue;
         ctx.globalAlpha = t.alpha;
         ctx.drawImage(c, t.sx - pad, t.sy - pad, w, w);
@@ -1187,6 +1348,12 @@ export class Renderer {
     const tile = TILE_SIZE * camera.zoom;
     const screen = camera.worldToScreen((o.x + 0.5) * TILE_SIZE, (o.y + 0.5) * TILE_SIZE);
     const jitter = hash2(o.x, o.y) - 0.5;
+    if (this.october && (o.kind === 'tree' || o.kind === 'bush')) {
+      if (o.kind === 'tree') drawAutumnTree(ctx, screen.x, screen.y, tile, o.x, o.y, performance.now());
+      else drawAutumnBush(ctx, screen.x, screen.y, tile, o.x, o.y);
+      if (lushHere > 0.5) this.drawOvergrowth(screen.x, screen.y, tile, o, Math.min(1, (lushHere - 0.5) / 0.5));
+      return;
+    }
     switch (o.kind) {
       case 'tree': {
         ctx.fillStyle = 'rgba(0,0,0,0.18)';
@@ -1970,6 +2137,7 @@ export class Renderer {
       glow(p.location.x, p.location.y - 0.4, 1 + stageFloat(p.growth) * 0.35, c, 0.4 * pulse);
     }
     if (state.tools.lantern && !state.player.inGreenhouse) glow(state.player.x + 0.2, state.player.y - 0.3, 3, [255, 200, 120], 0.3);
+    if (this.october) this.octoberLights(camera, this.october, now, glow);
     // Headlights, whoever's out driving after dark.
     if (state.truck && (state.scott.activity === 'driving' || state.player.riding)) {
       const t = state.truck;
@@ -4264,6 +4432,12 @@ export class Renderer {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     drawInteriorShell(ctx, camera, state, now);
+    const oct = extras.october ?? null;
+    this.october = null;
+    if (oct) {
+      drawOctoberGreenhouseShell(ctx, camera, GREENHOUSE_GRID_W, GREENHOUSE_GRID_H, oct.darkness, now, oct.events);
+      drawOctoberLivingRoom(ctx, camera, PARTITION_X, INTERIOR_W, LIVING_WINDOWS, oct.darkness, now);
+    }
 
     const scottHome = state.scott.zone === 'greenhouse';
     const fc: FixtureContext = {
@@ -4352,12 +4526,25 @@ export class Renderer {
       const kiss = extras.kiss!;
       drawables.push({ y: state.player.y, draw: () => this.drawKiss(camera, state, kiss, now) });
     } else drawables.push({ y: state.player.y, draw: () => this.atScale(camera, state.player.x, state.player.y, CHARACTER_SCALE.ellen, () => this.drawEllen(camera, state.player.x, state.player.y, state.player.facing, now, moving, crouching)) });
+    if (oct) {
+      const at = (x: number, y: number) => camera.worldToScreen(x * TILE_SIZE, y * TILE_SIZE);
+      drawables.push({ y: 10.1, draw: () => { const s = at(1.45, 10.1); drawMushroomCrock(ctx, s.x, s.y, tile, now, 190); } });
+      drawables.push({ y: 9.9, draw: () => { const s = at(15.7, 9.9); drawMushroomCrock(ctx, s.x, s.y, tile, now, 280); } });
+      drawables.push({ y: 1.7, draw: () => { const s = at(16.2, 1.7); drawMushroomCrock(ctx, s.x, s.y, tile, now, 30); } });
+      const lit = lanternsLit(oct.darkness) ? oct.darkness : 0;
+      drawables.push({ y: 10.6, draw: () => { const s = at(2.3, 10.6); drawPumpkin(ctx, s.x, s.y, tile, 0.75, 'goofy', lit, now, 3); } });
+      drawables.push({ y: 10.5, draw: () => { const s = at(20.9, 10.5); drawPumpkin(ctx, s.x, s.y, tile, 0.9, 'happy', lit, now, 5); } });
+      drawables.push({ y: 10.55, draw: () => { const s = at(23.2, 10.55); drawPumpkin(ctx, s.x, s.y, tile, 0.7, null, 0, now, 6); } });
+      const g = oct.ghost;
+      if (g.mode === 'greenhouse') drawables.push({ y: g.y, draw: () => { const s = at(g.x, g.y); drawGhostFigure(ctx, s.x, s.y, tile, g.shown, now, { seed: g.seed, looking: true }); } });
+    }
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
     // Hanging pots are overhead, so they draw over everyone.
     for (const h of hanging) this.turnFurniture(camera, h.piece, () => this.drawDisplaySlot(camera, h.slot, plantIn('display', h.piece.id), now));
 
     if (state.owned.includes('growLights')) this.drawGrowLights(camera, now);
+    if (oct) this.octoberIndoorLights(camera, oct, now);
 
     // The living room is lamplit and warm; the greenhouse is bright and green.
     ctx.fillStyle = 'rgba(255,200,130,0.05)';
@@ -4370,6 +4557,45 @@ export class Renderer {
 
     if (arranging) this.drawArrangeOverlay(camera, state, arranging, pieces);
     this.drawFade(extras.fade);
+  }
+
+  /** Lanterns hung in the greenhouse, candles in the living room, and the glow of the odd crock of mushrooms. */
+  private octoberIndoorLights(camera: Camera, oct: OctoberView, now: number) {
+    const ctx = this.ctx;
+    const tile = TILE_SIZE * camera.zoom;
+    const at = (x: number, y: number) => camera.worldToScreen(x * TILE_SIZE, y * TILE_SIZE);
+    const lit = lanternsLit(oct.darkness);
+    for (const [x, i] of [[4.5, 1], [13.5, 2]] as const) {
+      const s = at(x, 1.05);
+      drawHangingLantern(ctx, s.x, s.y, tile, lit ? oct.lanternLevel : 0, now, i);
+    }
+    const c = at(PARTITION_X + 1.6, 1.25);
+    drawCandles(ctx, c.x, c.y, tile, now);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const glow = (x: number, y: number, r: number, col: [number, number, number], a: number) => {
+      const s = at(x, y);
+      const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, r * tile);
+      g.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${a})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(s.x - r * tile, s.y - r * tile, r * tile * 2, r * tile * 2);
+    };
+    const dark = Math.max(0.25, oct.darkness);
+    if (lit) for (const x of [4.5, 13.5]) glow(x, 1.3, 2.2, [255, 190, 100], 0.32 * oct.lanternLevel);
+    glow(1.45, 9.8, 1.0, [120, 200, 255], 0.3 * dark);
+    glow(15.7, 9.6, 1.0, [200, 120, 255], 0.3 * dark);
+    glow(16.2, 1.4, 0.9, [255, 160, 80], 0.3 * dark);
+    const flick = 0.85 + 0.15 * Math.sin(now * 0.013);
+    glow(PARTITION_X + 1.6, 1.0, 2.2, [255, 180, 90], 0.22 * flick);
+    if (oct.ghost.mode === 'greenhouse') glow(oct.ghost.x, oct.ghost.y - 0.45, 1.3, [190, 210, 255], 0.25 * oct.ghost.shown);
+    ctx.restore();
+    // Under glass after dark, the moon is in it: a cool cast over the greenhouse.
+    if (oct.darkness > 0.2) {
+      const edge = at(PARTITION_X + 0.5, 0);
+      ctx.fillStyle = `rgba(24,34,80,${0.2 * oct.darkness})`;
+      ctx.fillRect(0, 0, Math.max(0, Math.min(camera.viewW, edge.x)), camera.viewH);
+    }
   }
 
   /** While arranging: every movable piece is outlined; the one in hand shows whether it fits. */

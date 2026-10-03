@@ -204,6 +204,35 @@ grow in patches all over it.
   keeps an eye out for it. When a new seedling shows, he drops what he's
   doing, walks out to it and waves you over.
 
+## October
+
+The 🎵 button's popover also has a **Season** switch: **Classic**, or
+**October**. It follows the calendar until you choose, then remembers your
+choice on the device. It only changes how the valley looks and what may
+happen in it: the save, the plants, the coins and everything else carry
+straight across, both ways.
+
+October is the same valley after sunset on Halloween night. The trees turn
+(some go bare and crooked), leaves lie in the undergrowth and drift down,
+mist sits in the low places, and the light is warmer and lower; at night
+the middle of the screen stays clear while the edges go to dark, with
+moonlit pockets in the clearings. There are lantern posts by home and at
+the bridges, a lantern and a wreath on the front door, candles and curtains
+in the windows, cobwebs, a few old things left out in the valley, and
+pumpkins on the steps, by the stall and in a patch in the east meadow:
+walk up to one to carve it a face (and carve another, if you like — some
+faces turn up far less often than others). They're lit after dark. The
+greenhouse fogs up and lets the moon in; the living room gets a garland.
+
+A few plants and fungi of the season come up in the ordinary patches now
+and then, and keep a page of the journal of their own rather than counting
+toward the collection. Bats, an owl, a black cat, a pale moth and an odd
+spider are about. And now and then — not often — something happens that
+you may not be sure you saw. Nothing in it is dangerous: nothing chases,
+nothing is lost, and there's never a jump scare. The journal's **October**
+tab appears once there's something to write down, and says no more than
+Ellen knows.
+
 Sunny daytime is the garden's resting state: the day lingers and the night
 passes quickly (a full cycle is still about twelve real minutes), and cloud
 and rain arrive as occasional spells that always clear back to sun. Time
@@ -290,6 +319,13 @@ furniture and garden pieces). Esc also closes whatever panel is open. Progress a
   included); `src/ui/MiniGamePanel.ts` adds the record and the end-of-game
   result, and `src/ui/minigames/` holds each game's panel.
 - `src/game/data/interior.ts` — the house + greenhouse interior layout.
+- `src/game/season.ts` — the seasonal look (Classic / October), a device
+  preference outside the save. `src/game/systems/october.ts` is October's
+  rules as pure state (what strange thing may happen, where and how rarely,
+  the pale thing, pumpkins, the journal's notes), `src/game/data/october.ts`
+  where its things stand, and `src/game/world/OctoberArt.ts` how they're
+  drawn. With the look on Classic the renderer is given nothing of it and
+  draws exactly what it always has.
 - `tests/` — vitest coverage of the systems above.
 
 Every owned plant is one record with a location (nursery bed, display spot,

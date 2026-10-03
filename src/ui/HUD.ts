@@ -194,6 +194,8 @@ export class HUD {
       puttingMat: 'PUTT',
       miniGame: 'PLAY',
       plaque: 'LOOK',
+      pumpkin: 'CARVE',
+      ghost: 'WAVE',
     };
     setText(this.actionBtn, verbs[n.kind] ?? 'GO');
   }

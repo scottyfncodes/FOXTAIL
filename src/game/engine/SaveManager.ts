@@ -1,4 +1,4 @@
-import { createNewGame, SAVE_KEY, SAVE_VERSION, type GameState } from '../state';
+import { createNewGame, newOctoberLog, SAVE_KEY, SAVE_VERSION, type GameState } from '../state';
 import { findScottSpot } from '../data/scottSpots';
 import { findCatSpot, spotPosition } from '../data/catSpots';
 import { fixtureOffset } from '../systems/furniture';
@@ -67,6 +67,8 @@ export function migrateSave(raw: unknown): GameState | null {
   for (const key of RECORD_FIELDS) {
     if (!isRecord(merged[key])) merged[key] = defaults[key];
   }
+  // October's log: anything malformed is put back to fresh; what's sound is kept.
+  merged.october = migrateOctober(raw.october);
   // Anything malformed in the little games' records is dropped: it's only a best score.
   const minigames = merged.minigames as Loose;
   for (const [id, r] of Object.entries(minigames)) {
@@ -215,6 +217,21 @@ export function migrateSave(raw: unknown): GameState | null {
     state.cat.y = at.y;
   }
   return state;
+}
+
+function migrateOctober(raw: unknown): GameState['october'] {
+  const log = newOctoberLog();
+  if (!isRecord(raw)) return log;
+  if (isRecord(raw.seen)) for (const [k, v] of Object.entries(raw.seen)) if (typeof v === 'number' && Number.isFinite(v) && v > 0) log.seen[k] = Math.floor(v);
+  if (isRecord(raw.carved)) for (const [k, v] of Object.entries(raw.carved)) if (typeof v === 'string') log.carved[k] = v;
+  if (Array.isArray(raw.faces)) log.faces = raw.faces.filter((f): f is string => typeof f === 'string');
+  if (typeof raw.gifts === 'number' && Number.isFinite(raw.gifts)) log.gifts = Math.max(0, Math.floor(raw.gifts));
+  if (typeof raw.giftDay === 'number' && Number.isFinite(raw.giftDay)) log.giftDay = raw.giftDay;
+  const s = raw.stray;
+  if (isRecord(s) && [s.x, s.y, s.until].every((n) => typeof n === 'number' && Number.isFinite(n)) && typeof s.face === 'string') {
+    log.stray = { x: s.x as number, y: s.y as number, face: s.face, until: s.until as number };
+  }
+  return log;
 }
 
 export function loadGame(): GameState | null {

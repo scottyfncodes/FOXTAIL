@@ -51,7 +51,7 @@ export function dayOf(totalMinutes: number): number {
 function askable(state: GameState) {
   const known = PLANT_LIST.filter((p) => state.collection[p.id] && !p.secret && !p.keepsake && !p.unlisted && !p.foxOnly);
   if (known.length) return known;
-  return PLANT_LIST.filter((p) => p.rarity === 'common' && p.habitat.includes('meadow') && !p.secret);
+  return PLANT_LIST.filter((p) => p.rarity === 'common' && p.habitat.includes('meadow') && !p.secret && !p.season);
 }
 
 const STAGE_WEIGHT: Partial<Record<GrowthStage, number>> = { established: 25, large: 55, specimen: 20 };
@@ -70,7 +70,7 @@ export function postCommission(state: GameState, now: number, rand: () => number
 
   // Something big from a part of the valley, once the player has a few things growing.
   if (filled >= 2 && rand() < 0.15) {
-    const zones = (Object.keys(ZONES) as OutdoorZoneId[]).filter((z) => z !== ('greenhouse' as string) && PLANT_LIST.filter((p) => p.habitat.includes(z) && state.collection[p.id]).length >= 2);
+    const zones = (Object.keys(ZONES) as OutdoorZoneId[]).filter((z) => z !== ('greenhouse' as string) && PLANT_LIST.filter((p) => p.habitat.includes(z) && !p.season && state.collection[p.id]).length >= 2);
     if (zones.length) {
       c.zone = zones[Math.floor(rand() * zones.length) % zones.length];
       c.defId = undefined;

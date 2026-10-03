@@ -74,8 +74,8 @@ export function glutFactor(state: GameState, defId: string, ahead = 0, rarity: R
 export function demandSpecies(state: GameState): string {
   const day = Math.floor(state.clock.totalMinutes / MINUTES_PER_DAY);
   // Prefer something the player has actually found, so the tip is usable.
-  const found = PLANT_LIST.filter((p) => state.collection[p.id] && !p.foxOnly && !p.secret && !p.keepsake);
-  const pool = found.length >= 2 ? found : PLANT_LIST.filter((p) => (p.rarity === 'common' || p.rarity === 'uncommon') && !p.secret);
+  const found = PLANT_LIST.filter((p) => state.collection[p.id] && !p.foxOnly && !p.secret && !p.keepsake && !p.season);
+  const pool = found.length >= 2 ? found : PLANT_LIST.filter((p) => (p.rarity === 'common' || p.rarity === 'uncommon') && !p.secret && !p.season);
   return pool[hashString(`demand:${day}`) % pool.length].id;
 }
 

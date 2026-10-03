@@ -10,8 +10,11 @@ import { collectionTotals, speciesCounts, isEstablished, ESTABLISH_THRESHOLD } f
 import { describeRegion } from '../game/systems/wild';
 import { canName, NAME_MAX, regionLabel } from '../game/systems/regions';
 import { note, portrait, rarityBadge } from './common';
+import { octoberNotes } from '../game/systems/october';
+import { findFace } from '../game/data/october';
+import { drawPumpkin } from '../game/world/OctoberArt';
 
-type Tab = 'plants' | 'regions' | 'curiosities';
+type Tab = 'plants' | 'regions' | 'curiosities' | 'october';
 
 const REGIONS: OutdoorZoneId[] = ['meadow', 'woodland', 'creek', 'dampForest', 'rockyClearing', 'overgrownClearing'];
 
@@ -31,6 +34,7 @@ export class JournalPanel {
       ['plants', 'Collection'],
       ['regions', 'Regions'],
       ['curiosities', 'Curiosities'],
+      ['october', 'October'],
     ] as [Tab, string][]) {
       const btn = el('button', 'panel-tab', label);
       btn.dataset.tab = id;
@@ -58,13 +62,18 @@ export class JournalPanel {
     // Curiosities only get a page once there's something on it.
     const anyCurio = Object.keys(this.game.state.curiosities).length > 0;
     if (!anyCurio && this.tab === 'curiosities') this.tab = 'plants';
+    // October gets a page once there's something on it, and keeps it whatever the look.
+    const anyOctober = this.octoberPlants().length > 0 || this.game.state.october.faces.length > 0 || octoberNotes(this.game.state).length > 0;
+    if (!anyOctober && this.tab === 'october') this.tab = 'plants';
     for (const c of Array.from(this.panel.tabsEl.children) as HTMLElement[]) {
       c.classList.toggle('active', c.dataset.tab === this.tab);
       if (c.dataset.tab === 'curiosities') c.style.display = anyCurio ? '' : 'none';
+      if (c.dataset.tab === 'october') c.style.display = anyOctober ? '' : 'none';
     }
     this.panel.clearBody();
     if (this.tab === 'regions') return this.renderRegions();
     if (this.tab === 'curiosities') return this.renderCuriosities();
+    if (this.tab === 'october') return this.renderOctober();
     if (this.detail) return this.renderDetail(this.detail);
     this.renderCollection();
   }
@@ -198,6 +207,56 @@ export class JournalPanel {
     body.appendChild(list);
   }
 
+  /** October's plants found so far: never a silhouette, only what's been seen. */
+  private octoberPlants() {
+    return PLANT_LIST.filter((p) => p.season === 'october' && this.game.state.collection[p.id]);
+  }
+
+  private renderOctober() {
+    const state = this.game.state;
+    const body = this.panel.body;
+    body.appendChild(note('October, written down. Not all of it makes sense.'));
+    const plants = this.octoberPlants();
+    if (plants.length) {
+      const sec = el('div', 'october-note');
+      sec.appendChild(el('div', 'october-note-title', 'Of the season'));
+      const row = el('div', 'october-plants');
+      for (const def of plants) {
+        const rec = state.collection[def.id];
+        const seen = rec.variants.length ? rec.variants : [def.variants[0].id];
+        const best = [...seen].sort((a, b) => rarityRank(findVariant(def.id, b)?.rarity ?? 'common') - rarityRank(findVariant(def.id, a)?.rarity ?? 'common'))[0];
+        const cell = el('div', 'october-face');
+        cell.append(portrait(def.id, best, 3, 4, 64), el('span', undefined, def.name));
+        row.appendChild(cell);
+      }
+      sec.appendChild(row);
+      body.appendChild(sec);
+    }
+    if (state.october.faces.length) {
+      const sec = el('div', 'october-note');
+      sec.appendChild(el('div', 'october-note-title', 'Jack-o’-lanterns'));
+      const row = el('div', 'october-faces');
+      for (const id of state.october.faces) {
+        const c = el('canvas', 'portrait') as HTMLCanvasElement;
+        c.width = 56;
+        c.height = 56;
+        const g = c.getContext('2d');
+        if (g) drawPumpkin(g, 28, 34, 100, 1, id, 1, 0, 1);
+        const cell = el('div', 'october-face');
+        cell.append(c, el('span', undefined, findFace(id)?.name ?? id));
+        row.appendChild(cell);
+      }
+      sec.appendChild(row);
+      body.appendChild(sec);
+    }
+    for (const n of octoberNotes(state)) {
+      const card = el('div', `october-note${n.note.creature ? '' : ' strange'}`);
+      card.appendChild(el('div', 'october-note-title', n.note.title));
+      for (const line of n.lines) card.appendChild(el('div', 'october-note-line', line));
+      body.appendChild(card);
+    }
+  }
+
   /** A small field for what to call a region, prefilled with what it's turning into. */
   private nameField(z: OutdoorZoneId, current?: string): HTMLElement {
     const wrap = el('div', 'name-field');
@@ -233,7 +292,7 @@ export class JournalPanel {
       info.append(el('div', 'entry-name', regionLabel(this.game.state, z)), el('div', 'entry-sub', `${named ? `${ZONES[z].name}. ` : ''}${describeRegion(cover, count, lush.zoneCharacter[z])}`));
       // Changed enough to be worth a name: offer one, in the player's own words if they like.
       if (canName(lush, z)) info.appendChild(this.nameField(z, named?.name));
-      const natives = PLANT_LIST.filter((p) => p.habitat.includes(z) && !p.foxOnly && this.game.state.collection[p.id]).map((p) => p.name);
+      const natives = PLANT_LIST.filter((p) => p.habitat.includes(z) && !p.foxOnly && !p.season && this.game.state.collection[p.id]).map((p) => p.name);
       if (natives.length) info.appendChild(el('div', 'entry-sub dim', `Thrives here: ${natives.join(', ')}`));
       const bar = el('div', 'trait-bar-track');
       const fill = el('div', 'trait-bar-fill');

@@ -42,6 +42,9 @@ export class AudioManager {
   private currentZone: ZoneId = 'meadow';
   private sparkleTimer = 0;
   private enabled = true;
+  private noise: AudioBuffer | null = null;
+  /** October: seconds until the next owl, creak or gust may sound. */
+  private octTimer = 20;
   readonly music = new MusicManager();
 
   /**
@@ -83,6 +86,7 @@ export class AudioManager {
     });
 
     const noiseBuffer = this.makeNoiseBuffer(2);
+    this.noise = noiseBuffer;
 
     // Wind bed
     const windSrc = this.ctx.createBufferSource();
@@ -188,6 +192,108 @@ export class AudioManager {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
     osc.start(t);
     osc.stop(t + 0.55);
+  }
+
+  // ---- October: a few sounds, far apart, and none of them loud ----
+
+  /** A note shaped by a gain envelope, through a lowpass so it sounds far off. */
+  private tone(type: OscillatorType, from: number, to: number, at: number, len: number, peak: number, cutoff = 2000) {
+    if (!this.ctx || !this.master || !this.enabled) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = cutoff;
+    osc.type = type;
+    osc.frequency.setValueAtTime(from, at);
+    osc.frequency.exponentialRampToValueAtTime(to, at + len);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + Math.min(0.08, len * 0.3));
+    g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+    osc.connect(f).connect(g).connect(this.master);
+    osc.start(at);
+    osc.stop(at + len + 0.05);
+  }
+
+  /** Filtered noise, swelling and falling: leaves, or a breath of wind. */
+  private breath(type: BiquadFilterType, freq: number, q: number, len: number, peak: number) {
+    if (!this.ctx || !this.master || !this.noise || !this.enabled) return;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = this.ctx.createBiquadFilter();
+    f.type = type;
+    f.frequency.value = freq;
+    f.Q.value = q;
+    const g = this.ctx.createGain();
+    const t = this.ctx.currentTime;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + len * 0.4);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t, Math.random());
+    src.stop(t + len + 0.05);
+  }
+
+  /** An owl, some way off: hoo … hoo-hoo. */
+  playOwl() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tone('sine', 400, 370, t, 0.42, 0.022, 900);
+    this.tone('sine', 390, 360, t + 0.75, 0.22, 0.016, 900);
+    this.tone('sine', 395, 355, t + 1.02, 0.45, 0.02, 900);
+  }
+
+  /** A branch, creaking, somewhere you can't see. */
+  playCreak() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tone('sawtooth', 120, 82, t, 0.9, 0.006, 700);
+  }
+
+  /** Leaves shifting in a bush, with nothing in it. */
+  playRustle() {
+    this.breath('bandpass', 3200, 1.2, 0.55, 0.05);
+  }
+
+  /** Something calling, a long way off. Twice. */
+  playDistantCall() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tone('triangle', 720, 520, t, 0.18, 0.01, 1100);
+    this.tone('triangle', 700, 500, t + 0.32, 0.2, 0.009, 1100);
+  }
+
+  /** The air going very still, then a breath of wind. */
+  playHush() {
+    this.breath('lowpass', 420, 0.7, 2.6, 0.035);
+  }
+
+  /** One soft high note, far away. */
+  playSoftChime() {
+    if (!this.ctx) return;
+    this.tone('sine', 1318, 1310, this.ctx.currentTime, 2.2, 0.018, 4000);
+  }
+
+  /**
+   * October's night sounds outdoors: now and then an owl, a creak or a gust;
+   * very rarely, a single note from a music box nobody's winding.
+   */
+  octoberAmbience(dt: number, darkness: number, outdoors: boolean) {
+    if (!this.ctx || !this.enabled) return;
+    this.octTimer -= dt;
+    if (this.octTimer > 0) return;
+    this.octTimer = 25 + Math.random() * 50;
+    if (!outdoors) {
+      if (darkness > 0.5 && Math.random() < 0.25) this.playCreak();
+      return;
+    }
+    const r = Math.random();
+    if (darkness > 0.5) {
+      if (r < 0.4) this.playOwl();
+      else if (r < 0.6) this.playCreak();
+      else if (r < 0.85) this.breath('lowpass', 600, 0.6, 3.2, 0.03);
+      else if (r < 0.88) this.tone('triangle', 1568, 1560, this.ctx.currentTime, 1.6, 0.008, 5000);
+    } else if (r < 0.3) this.breath('lowpass', 700, 0.6, 3, 0.025);
   }
 
   /** Lets the music follow where Ellen is and what time it is. */
