@@ -58,7 +58,8 @@ import { ZONES } from '../data/zones';
 import type { OutdoorZoneId, ZoneId } from '../types';
 import { tickFox } from '../systems/fox';
 import { tickScout, facingToward, SNIFF_MIN, SNIFF_MAX, SNIFF_GAP, FROG_SIGHT, FROG_CATCH_CHANCE } from '../systems/scout';
-import { riverFrogs, type FrogAt } from '../systems/wildlife';
+import { riverFrogs, alligatorAt, gatorBaskLeftMs, GATOR_BANK, GATOR_RIDE_MS, type FrogAt } from '../systems/wildlife';
+import { overlandWaypoint } from '../data/worldMap';
 import { tickScott, tickChase, newChase, companySpots, truckSpots, CANNABIS } from '../systems/scott';
 import type { ScottSpot } from '../data/scottSpots';
 import { tickCat } from '../systems/cat';
@@ -334,6 +335,10 @@ export class Game {
   private lastFrame = performance.now();
   /** Creek frogs out of sight, by seed, until when (performance.now() ms): fled into the water, or eaten. */
   private frogsGone = new Map<number, number>();
+  /** When (performance.now() ms) the alligator set off round the creek with Scout on its back, while it's out. */
+  private gatorRide: number | null = null;
+  /** Not another ride before this (performance.now() ms): the old thing likes its rest. */
+  private nextGatorRideAt = 0;
   /** Where a frog's just plopped into the creek, for the ripple. */
   private frogSplashes: { x: number; y: number; start: number }[] = [];
   private autosaveAcc = 0;
@@ -861,6 +866,8 @@ export class Game {
       sc.y = t.y;
       sc.facing = t.facing;
       sc.behavior = 'following';
+    } else if (!playing && this.tendGatorRide(dtSeconds, move.x !== 0 || move.y !== 0)) {
+      // Off to the alligator, or out on the creek on its back.
     } else if (!playing) {
       const frogs = this.state.player.inGreenhouse ? [] : this.visibleFrogs();
       const sc = this.state.scout;
@@ -2429,6 +2436,81 @@ export class Game {
     this.onStateTouched?.();
   }
 
+  /**
+   * Scout and the alligator: when it's sunning itself on its bank and she's
+   * close by, now and then she trots down, climbs onto its back, and it
+   * takes her for a turn round the creek before bringing her back to the
+   * bank. Returns true while this is what Scout's doing (so her usual
+   * routine is skipped).
+   */
+  private tendGatorRide(dtSeconds: number, ellenMoving: boolean): boolean {
+    const now = performance.now();
+    const sc = this.state.scout;
+    const me = this.state.player;
+    if (this.gatorRide !== null && now >= this.gatorRide + GATOR_RIDE_MS) {
+      this.gatorRide = null;
+      this.nextGatorRideAt = now + 150000 + Math.random() * 150000;
+      if (sc.behavior === 'onGator') {
+        // Set down on the bank, beside it, none the worse.
+        sc.x = GATOR_BANK.x + 0.7;
+        sc.y = GATOR_BANK.y + 0.45;
+        sc.facing = 'left';
+        sc.behavior = 'following';
+        if (!me.inGreenhouse) this.pushToast('The alligator brings Scout back to the bank, safe and sound. Her tail hasn’t stopped wagging.', 'info');
+        return true;
+      }
+    }
+    // Indoors, or carried off in the truck: whatever she was up to is off.
+    if (me.inGreenhouse || this.riding() || sc.leadTo) {
+      if (sc.behavior === 'toGator' || sc.behavior === 'onGator') sc.behavior = 'following';
+      return false;
+    }
+    if (sc.behavior === 'onGator') {
+      if (this.gatorRide === null) {
+        sc.behavior = 'following';
+        return false;
+      }
+      const g = alligatorAt(now, this.gatorRide);
+      sc.x = g.x;
+      sc.y = g.y + 0.02;
+      sc.facing = facingToward(-Math.sin(g.heading), Math.cos(g.heading));
+      return true;
+    }
+    // Room for a whole ride before it would set off on its own swim.
+    const time = gatorBaskLeftMs(now) > GATOR_RIDE_MS + 2000;
+    if (sc.behavior === 'toGator') {
+      const to = { x: GATOR_BANK.x + 0.15, y: GATOR_BANK.y };
+      const d = Math.hypot(to.x - sc.x, to.y - sc.y);
+      if (!time || this.gatorRide !== null || Math.hypot(me.x - sc.x, me.y - sc.y) > 14) {
+        sc.behavior = 'following';
+        return false;
+      }
+      if (d < 0.25) {
+        sc.behavior = 'onGator';
+        this.gatorRide = now;
+        this.pushToast('Scout clambers up onto the alligator’s back, and off they go round the creek.', 'info');
+        return true;
+      }
+      const wp = overlandWaypoint(sc.x, sc.y, to.x, to.y);
+      const wd = Math.hypot(wp.x - sc.x, wp.y - sc.y) || 1;
+      const step = Math.min(4.2 * dtSeconds, wd);
+      sc.x += ((wp.x - sc.x) / wd) * step;
+      sc.y += ((wp.y - sc.y) / wd) * step;
+      sc.facing = facingToward(wp.x - sc.x, wp.y - sc.y);
+      return true;
+    }
+    // Whether she goes: Ellen's stopped nearby, Scout's on the gator's side of the creek and not after a frog.
+    if (this.gatorRide !== null || !time || now < this.nextGatorRideAt || ellenMoving || sc.frog !== undefined) return false;
+    const near = Math.hypot(sc.x - GATOR_BANK.x, sc.y - GATOR_BANK.y) < 7 && Math.hypot(me.x - GATOR_BANK.x, me.y - GATOR_BANK.y) < 9;
+    if (!near || sc.x < GATOR_BANK.x - 0.5) return false;
+    // She likes it: a few seconds' standing about is usually enough.
+    if (Math.random() < 0.25 * dtSeconds) {
+      sc.behavior = 'toGator';
+      return true;
+    }
+    return false;
+  }
+
   /** The creek's frogs that are out right now (not off in the water after a fright, nor eaten). */
   private visibleFrogs(): FrogAt[] {
     const now = performance.now();
@@ -2474,7 +2556,7 @@ export class Game {
     this.camera.follow(focus.x, focus.y);
     const crouching = this.state.clock.totalMinutes < this.actionAnimUntil;
     this.frogSplashes = this.frogSplashes.filter((sp) => now - sp.start < 1200);
-    const scene = { frogsGone: this.frogsGone, frogSplashes: this.frogSplashes, tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss, october: isOctober() ? this.octView : null };
+    const scene = { gatorRide: this.gatorRide, frogsGone: this.frogsGone, frogSplashes: this.frogSplashes, tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss, october: isOctober() ? this.octView : null };
     if (this.state.player.inGreenhouse) {
       this.renderer.renderIndoor(this.sceneCamera(), this.state, now, crouching, scene);
     } else {

@@ -262,7 +262,7 @@ export interface FoxState {
   fled: boolean;
 }
 
-export type ScoutBehavior = 'following' | 'idleSit' | 'idleSniff' | 'idleLook' | 'noticing' | 'leading' | 'pointing' | 'chasingFrog';
+export type ScoutBehavior = 'following' | 'idleSit' | 'idleSniff' | 'idleLook' | 'noticing' | 'leading' | 'pointing' | 'chasingFrog' | 'toGator' | 'onGator';
 
 export interface ScoutState {
   x: number;

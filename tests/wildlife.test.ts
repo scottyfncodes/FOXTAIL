@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { riverAlligator, GATOR_BANK, riverTurtles, riverFrogs, pondTurtleAt, pondTurtleCount, pondFrogs, pondPads, pondFrogCount, fireflies, fireflyStrength, FIREFLY_AREAS, TURTLE_STONES } from '../src/game/systems/wildlife';
+import { riverAlligator, alligatorAt, gatorBaskLeftMs, GATOR_RIDE_MS, GATOR_BANK, riverTurtles, riverFrogs, pondTurtleAt, pondTurtleCount, pondFrogs, pondPads, pondFrogCount, fireflies, fireflyStrength, FIREFLY_AREAS, TURTLE_STONES } from '../src/game/systems/wildlife';
 import { CREEK_WATER, BRIDGES, rectContains } from '../src/game/data/worldMap';
 import { inPond } from '../src/game/systems/koi';
 import type { PlacedDecor } from '../src/game/state';
@@ -119,5 +119,32 @@ describe('the alligator', () => {
     }
     expect(basking).toBeGreaterThan(0);
     expect(swimming).toBeGreaterThan(0);
+  });
+});
+
+describe('a ride on the alligator', () => {
+  it('sets off from its spot on the bank and brings Scout back to the same spot, keeping to the creek', () => {
+    const start = 1000;
+    const first = alligatorAt(start + 1, start);
+    expect(Math.hypot(first.x - GATOR_BANK.x, first.y - GATOR_BANK.y)).toBeLessThan(0.1);
+    const last = alligatorAt(start + GATOR_RIDE_MS - 1, start);
+    expect(Math.hypot(last.x - GATOR_BANK.x, last.y - GATOR_BANK.y)).toBeLessThan(0.1);
+    let wettest = 0;
+    for (let t = 0; t < GATOR_RIDE_MS; t += 250) {
+      const g = alligatorAt(start + t, start);
+      wettest = Math.max(wettest, g.wet);
+      expect(g.x).toBeGreaterThanOrEqual(CREEK_WATER.x);
+      expect(g.x).toBeLessThanOrEqual(CREEK_WATER.x + CREEK_WATER.w + 0.5);
+      expect(BRIDGES.some((b) => g.y > b.y - 1.2 && g.y < b.y + b.h + 1.2)).toBe(false);
+    }
+    expect(wettest).toBe(1);
+    // Once it's over, it's back to its own day.
+    expect(alligatorAt(start + GATOR_RIDE_MS + 5, start)).toEqual(riverAlligator(start + GATOR_RIDE_MS + 5));
+  });
+
+  it('knows how long it has left on the bank', () => {
+    for (let now = 0; now < 300000; now += 1000) {
+      expect(gatorBaskLeftMs(now) > 0).toBe(riverAlligator(now).basking);
+    }
   });
 });
