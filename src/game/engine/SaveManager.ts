@@ -17,7 +17,7 @@ const LEGACY_KEYS = ['foxtrot-save-v3', 'foxtrot-save-v2', 'foxtrot-save-v1'];
 // later is filled from the defaults instead of being left undefined.
 const STRUCT_FIELDS = ['stall', 'player', 'clock', 'weather', 'tools', 'fox', 'scout', 'scott', 'cat', 'market', 'foxLog', 'putting', 'commissions'] as const;
 const ARRAY_FIELDS = ['basket', 'owned', 'bought', 'decor', 'pondStock', 'koi', 'hints', 'furniture', 'seededFixtures', 'seenShop', 'gardenBeds', 'paths', 'clearedObstacles', 'foxFinds'] as const;
-const RECORD_FIELDS = ['plants', 'collection', 'spots', 'decorStock', 'furnitureStock', 'curiosities', 'purchases', 'regions', 'regionTier'] as const;
+const RECORD_FIELDS = ['plants', 'collection', 'spots', 'decorStock', 'furnitureStock', 'curiosities', 'purchases', 'regions', 'regionTier', 'minigames'] as const;
 
 /** Anything standing where the house now is gets moved out onto the lawn in front of it. */
 function inHouse(x: number, y: number): boolean {
@@ -64,6 +64,19 @@ export function migrateSave(raw: unknown): GameState | null {
   if (merged.commission !== null && !isRecord(merged.commission)) merged.commission = null;
   for (const key of RECORD_FIELDS) {
     if (!isRecord(merged[key])) merged[key] = defaults[key];
+  }
+  // Anything malformed in the little games' records is dropped: it's only a best score.
+  const minigames = merged.minigames as Loose;
+  for (const [id, r] of Object.entries(minigames)) {
+    if (!isRecord(r)) {
+      delete minigames[id];
+      continue;
+    }
+    minigames[id] = {
+      plays: typeof r.plays === 'number' && Number.isFinite(r.plays) ? r.plays : 0,
+      best: typeof r.best === 'number' && Number.isFinite(r.best) ? r.best : null,
+      goal: r.goal === true,
+    };
   }
   if (typeof merged.coins !== 'number' || !Number.isFinite(merged.coins)) merged.coins = defaults.coins;
   // The mini truck (v11): kept where it was parked, with whatever rides in the back.

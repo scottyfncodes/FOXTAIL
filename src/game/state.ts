@@ -338,6 +338,16 @@ export interface PuttingRecord {
   aces: string[];
 }
 
+/** One of the little games around the property (see systems/minigames). */
+export interface MiniGameRecord {
+  /** Games played to the end. */
+  plays: number;
+  /** Best score, or null before the first finished game. */
+  best: number | null;
+  /** Whether its goal has been reached (and the one-off reward paid). */
+  goal: boolean;
+}
+
 export interface GameState {
   version: number;
   createdAt: number;
@@ -383,6 +393,8 @@ export interface GameState {
   foxLog: FoxLog;
   /** Putt-putt on the living-room mat. */
   putting: PuttingRecord;
+  /** Acorn pitch, rock skipping, the garden maze and the rest, by game id. */
+  minigames: Record<string, MiniGameRecord>;
   /** Mushrooms, insects and other oddities found in the wild, by id. */
   curiosities: Record<string, { foundAt: number; count: number }>;
   tools: { lantern: number };
@@ -443,6 +455,7 @@ export function createNewGame(): GameState {
     foxFinds: [],
     foxLog: { sightings: 0, trailsStarted: 0, trailsFollowed: 0, trailsLost: 0, finds: 0, lastTrailAt: null, hunchMisses: 0 },
     putting: { rounds: 0, best: null, aces: [] },
+    minigames: {},
     curiosities: {},
     tools: { lantern: 0 },
     basket: [],

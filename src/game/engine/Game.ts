@@ -14,6 +14,7 @@ import { FRONT_DOOR, roomAt, GREENHOUSE_DOORS, DOOR_OUTWARD, type GreenhouseDoor
 import { FURNITURE_DEFS } from '../data/furniture';
 import { displaySlots, nurserySpots, placeFurniture, placeBlockReason, pickUpFurniture, findFurniture, fixtureOffset, footprint } from '../systems/furniture';
 import { ACE_REWARD, COURSE, COURSE_PAR, bestRound, recordAce, recordRound, toPar } from '../systems/putting';
+import { MINI_GAMES, findMiniGame, miniGameLabel, recordMiniGame, type MiniGameId, type MiniGameResult } from '../systems/minigames';
 import { endPlay, startPlay, tickPlay, type PlayState } from '../systems/play';
 import { makeIndoorCamera, screenToTiles } from '../world/IndoorCamera';
 import { Camera as CameraClass } from './Camera';
@@ -102,6 +103,7 @@ export type InteractableKind =
   | 'bed'
   | 'display'
   | 'puttingMat'
+  | 'miniGame'
   | 'rock'
   | 'decor'
   | 'pond'
@@ -143,6 +145,7 @@ export const INTERACT_PRIORITY: Record<InteractableKind, number> = {
   bed: 2,
   display: 2,
   puttingMat: 2,
+  miniGame: 4,
   foxFind: 3,
   lantern: 3,
   plaque: 3,
@@ -255,6 +258,8 @@ export class Game {
   onOpenMarket: (() => void) | null = null;
   onOpenPond: ((pondId: string) => void) | null = null;
   onOpenPutting: (() => void) | null = null;
+  /** One of the little games around the property: acorns, stones, the maze, the laser pointer… */
+  onOpenMiniGame: ((id: MiniGameId) => void) | null = null;
   onOpenPlantCard: ((plantId: string) => void) | null = null;
   onOpenGroundCard: ((target: { kind: 'bed' | 'path'; id: string }) => void) | null = null;
   /** The journal's Regions page: where a region is named. */
@@ -1120,6 +1125,11 @@ export class Game {
           consider({ kind: 'rock', id: `${tx},${ty}`, x: tx, y: ty, label, available: tooled && afford }, tx + 0.5, ty + 0.5, kind === 'tree' ? 1.6 : INTERACT_RANGE);
         }
       }
+      // The little games around the property, each where it's set up.
+      for (const g of MINI_GAMES) {
+        if (g.where === 'ranger') continue;
+        consider({ kind: 'miniGame', id: g.id, x: g.where.x, y: g.where.y, label: miniGameLabel(g, this.state.minigames[g.id]), available: true }, g.where.x, g.where.y, 1.3);
+      }
       const stall = stallRect(this.state);
       const mx = stall.x + stall.w / 2;
       const my = stall.y + 1.1;
@@ -1156,6 +1166,11 @@ export class Game {
         const label = best === null ? `Play putt-putt · a hole in one is worth ${ACE_REWARD} coins` : `Play putt-putt · best ${best} (${toPar(best, COURSE_PAR)})${acesLeft ? ` · an ace pays ${ACE_REWARD}` : ''}`;
         consider({ kind: 'puttingMat', id: mat.id, x: fp.x, y: fp.y, label, available: true }, fp.x + fp.w / 2, fp.y + fp.h / 2, 1.2);
       }
+      // Ranger, wherever he's got to indoors: the laser pointer lives in Ellen's pocket.
+      const laser = findMiniGame('catLaser')!;
+      const cat = this.state.cat;
+      // Not while he's hiding: he's not to be found.
+      if (cat.activity !== 'hiding') consider({ kind: 'miniGame', id: laser.id, x: cat.x, y: cat.y, label: miniGameLabel(laser, this.state.minigames[laser.id]), available: true }, cat.x, cat.y, 1.1);
       for (const d of GREENHOUSE_DOORS) {
         consider({ kind: 'greenhouseExit', id: d.id, x: d.inside.x, y: d.inside.y, label: d.label, available: true }, d.inside.x + 0.5, d.inside.y + 0.5);
       }
@@ -1228,6 +1243,8 @@ export class Game {
       this.onOpenGreenhouse?.({ kind: n.kind, id: n.id });
     } else if (n.kind === 'puttingMat') {
       this.onOpenPutting?.();
+    } else if (n.kind === 'miniGame') {
+      this.onOpenMiniGame?.(n.id as MiniGameId);
     }
     this.onStateTouched?.();
   }
@@ -1951,6 +1968,21 @@ export class Game {
     this.onStateTouched?.();
     saveGame(this.state);
     return best;
+  }
+
+  /**
+   * One of the little games finished with this score: noted, saved, and the
+   * first time past its goal paid the same as a first hole in one.
+   */
+  finishMiniGame(id: MiniGameId, score: number): MiniGameResult {
+    const res = recordMiniGame(this.state.minigames, id, score);
+    if (res.coins) {
+      this.state.coins += res.coins;
+      this.audio.playDiscoveryChime();
+    } else if (res.best) this.audio.playToolChime();
+    this.onStateTouched?.();
+    saveGame(this.state);
+    return res;
   }
 
   sell(uid: string) {

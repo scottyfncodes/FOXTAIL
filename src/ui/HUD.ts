@@ -192,6 +192,7 @@ export class HUD {
       decor: 'MOVE',
       setDown: 'DROP',
       puttingMat: 'PUTT',
+      miniGame: 'PLAY',
       plaque: 'LOOK',
     };
     setText(this.actionBtn, verbs[n.kind] ?? 'GO');
