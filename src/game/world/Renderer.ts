@@ -8,7 +8,7 @@ import type { DiscoverySpot, ZoneId } from '../types';
 import { TILE_SIZE, GRID_W, GREENHOUSE_FOOTPRINT, GREENHOUSE_DOOR, zoneAt, isWater, type Rect } from '../data/worldMap';
 import { ZONES } from '../data/zones';
 import { GREENHOUSE_GRID_W, GREENHOUSE_GRID_H, GREENHOUSE_EXIT, NURSERY_BEDS, STORAGE_CRATES, type DisplaySlot } from '../data/stations';
-import { displaySlots, climbsTrellis } from '../systems/furniture';
+import { displaySlots, climbsTrellis, trailsUpTrellis } from '../systems/furniture';
 import { nextPondSize } from '../systems/decor';
 import { scottHasJoint } from '../systems/scott';
 import { koiInPond, pondKoiAt, pondSize, riverKoi } from '../systems/koi';
@@ -4704,17 +4704,22 @@ export class Renderer {
         ctx.fillRect(right - tile * 0.03, top - tile * 0.03, tile * 0.06, floor - top + tile * 0.03);
         ctx.fillRect(left - tile * 0.03, top - tile * 0.05, right - left + tile * 0.06, tile * 0.06);
         potY = s.y + tile * 0.04;
-        if (plant && climbsTrellis(PLANTS[plant.defId]?.form ?? '')) {
-          // The vine is its hanging form mirrored upward about the pot rim,
-          // clipped so nothing spills below the pot.
+        if (plant && climbsTrellis(plant.defId)) {
           const rim = potY + tile * 0.02;
           ctx.save();
           ctx.beginPath();
           ctx.rect(s.x - tile * 1.2, top - tile * 0.4, tile * 2.4, rim - top + tile * 0.4);
           ctx.clip();
-          ctx.translate(0, 2 * rim);
-          ctx.scale(1, -1);
-          this.drawPlantSprite(s.x, rim, tile * 0.8, plant.defId, plant.variantId, stageFloat(plant.growth), plant.seed, 'hanging', now);
+          if (trailsUpTrellis(PLANTS[plant.defId]?.form ?? '')) {
+            // A trailer's hanging strands, mirrored upward about the pot rim and
+            // clipped so nothing spills below the pot.
+            ctx.translate(0, 2 * rim);
+            ctx.scale(1, -1);
+            this.drawPlantSprite(s.x, rim, tile * 0.8, plant.defId, plant.variantId, stageFloat(plant.growth), plant.seed, 'hanging', now);
+          } else {
+            // Any other vine winds its own way up the lattice.
+            this.drawPlantSprite(s.x, rim, tile * 0.8, plant.defId, plant.variantId, stageFloat(plant.growth), plant.seed, 'climb', now);
+          }
           ctx.restore();
           this.drawPot(s.x, potY, tile, plant.location.kind === 'display' ? plant.location.potId : 'terracotta');
           if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 3) this.drawSparkle(s.x, top + tile * 0.4, tile, now, '#ffe9a8', 2);

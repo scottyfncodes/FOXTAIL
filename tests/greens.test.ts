@@ -79,8 +79,8 @@ describe('the seven green plants', () => {
   });
 
   it('only Virginia creeper climbs a trellis', () => {
-    expect(climbsTrellis(PLANTS.virginiaCreeper.form)).toBe(true);
-    for (const id of GREENS.filter((g) => g !== 'virginiaCreeper')) expect(climbsTrellis(PLANTS[id].form), id).toBe(false);
+    expect(climbsTrellis('virginiaCreeper')).toBe(true);
+    for (const id of GREENS.filter((g) => g !== 'virginiaCreeper')) expect(climbsTrellis(id), id).toBe(false);
   });
 
   it('planted out and grown large, the ground covers spread faster than the clumps', () => {
@@ -110,5 +110,17 @@ describe('the seven green plants', () => {
     });
     const loaded = migrateSave(JSON.parse(JSON.stringify(state)))!;
     for (const id of GREENS) expect(loaded.plants[id]?.defId).toBe(id);
+  });
+});
+
+describe('vines on a trellis', () => {
+  it('every vine climbs, whatever its leaves: the trailers, and the heart-leaved, split-leaved and pitcher-hung ones too', () => {
+    for (const id of ['pothos', 'scindapsus', 'tradescantia', 'hoya', 'stringOfPearls', 'burrosTail', 'virginiaCreeper', 'philodendron', 'syngonium', 'swissCheeseVine', 'monstera', 'monkeyCups']) {
+      expect(climbsTrellis(id), id).toBe(true);
+    }
+    // Plants that aren't vines just sit in their pot at the foot.
+    for (const id of ['spiderPlant', 'fiddleLeafFig', 'snakePlant', 'alocasia', 'anthurium', 'echeveria', 'hosta']) {
+      expect(climbsTrellis(id), id).toBe(false);
+    }
   });
 });

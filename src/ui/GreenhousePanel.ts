@@ -58,7 +58,7 @@ export class GreenhousePanel {
       const garden = gardenPlanter(this.game.state, t.id);
       const slot = garden ? { kind: 'trellis' } : displaySlots(this.game.state).find((s) => s.id === t.id);
       this.panel.setTitle(garden ? 'Garden Trellis' : (SLOT_NAMES[slot?.kind ?? 'stand'] ?? 'Display'));
-      if (slot?.kind === 'trellis' && !plant) this.panel.body.appendChild(note('Vines and trailers potted here climb the trellis.'));
+      if (slot?.kind === 'trellis' && !plant) this.panel.body.appendChild(note('Any vine or trailer potted here climbs the trellis.'));
       if (plant) this.renderPlant(plant);
       else this.renderDisplayChoice(t.id);
     }

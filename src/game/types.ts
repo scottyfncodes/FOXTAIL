@@ -175,6 +175,8 @@ export interface PlantDef {
    * in the shallows alike.
    */
   water?: 'only' | 'also';
+  /** A vine: on a trellis it climbs, whatever shape its leaves. (Trailing, bead and climbing forms always do.) */
+  vine?: boolean;
   /** Only comes from crossing these two species; never found anywhere. */
   parents?: [string, string];
 }
