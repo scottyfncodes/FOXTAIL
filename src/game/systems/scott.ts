@@ -110,7 +110,7 @@ export function isVisit(spot: Pick<ScottSpot, 'kind'>): boolean {
 }
 
 /** Something worth a word that happened on his rounds. */
-export type ScottEvent = 'baked';
+export type ScottEvent = 'baked' | 'honk';
 
 export interface ScottTickContext {
   dtSeconds: number;
@@ -124,6 +124,35 @@ export interface ScottTickContext {
   truck?: TruckState | null;
   /** Something he's spotted and wants to show Ellen: he drops what he's doing and goes straight there. */
   summon?: ScottSpot | null;
+  /** Who's out on foot (Ellen, Scout): he won't drive into them. */
+  onFoot?: { x: number; y: number }[];
+}
+
+/** Anyone this close ahead of the truck, and in its lane, and he stops. */
+export const BRAKE_DIST = 2.1;
+/** …this close, and he eases off. */
+export const SLOW_DIST = 3.6;
+/** Half the truck's width, and a bit, either side of its line. */
+export const LANE_HALF = 0.95;
+/** Real seconds sat waiting before he gives a friendly toot. */
+export const HONK_AFTER = 2.5;
+
+/** How far ahead of the truck, heading (dx, dy), the nearest person in its lane is; Infinity if nobody is. */
+export function clearAhead(x: number, y: number, dx: number, dy: number, people: { x: number; y: number }[]): number {
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return Infinity;
+  const ux = dx / len;
+  const uy = dy / len;
+  let nearest = Infinity;
+  for (const p of people) {
+    // The truck's drawn standing up off its wheels: measure to someone's feet from a little above its own.
+    const px = p.x - x;
+    const py = p.y - (y - 0.3);
+    const along = px * ux + py * uy;
+    const lateral = Math.abs(px * uy - py * ux);
+    if (along > -0.4 && lateral < LANE_HALF && along < nearest) nearest = along;
+  }
+  return nearest;
 }
 
 export function tickScott(scott: ScottState, ctx: ScottTickContext): ScottEvent | null {
@@ -141,8 +170,7 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): ScottEvent 
     scott.hurrying = true;
   }
   if (scott.activity === 'driving') {
-    drive(scott, ctx);
-    return null;
+    return drive(scott, ctx);
   }
   if (scott.activity !== 'traveling') {
     const here = scott.currentSpotId ? findScottSpot(scott.currentSpotId) : undefined;
@@ -250,13 +278,26 @@ function stepToward(scott: ScottState, wp: { x: number; y: number }, maxStep: nu
 }
 
 /** One stretch of the drive: on round the loop, then home to where the truck was parked, and out of the cab. */
-function drive(scott: ScottState, ctx: ScottTickContext): void {
+function drive(scott: ScottState, ctx: ScottTickContext): ScottEvent | null {
   const t = ctx.truck;
   const home = scott.driveHome;
   if (t && home) {
     const route = [...DRIVE_LOOP, home];
     let leg = scott.driveLeg ?? 0;
     let budget = DRIVE_SPEED * ctx.dtSeconds;
+    // Someone on foot in the road ahead: ease off, and stop well short of them.
+    if (leg < route.length && ctx.onFoot?.length) {
+      const target = route[leg];
+      const wp = outdoorWaypoint(scott.x, scott.y, target.x, target.y, TRUCK_KEEPOUT);
+      const ahead = clearAhead(scott.x, scott.y, wp.x - scott.x, wp.y - scott.y, ctx.onFoot);
+      if (ahead < BRAKE_DIST) {
+        const waited = scott.driveWait ?? 0;
+        scott.driveWait = waited + ctx.dtSeconds;
+        return waited < HONK_AFTER && scott.driveWait >= HONK_AFTER ? 'honk' : null;
+      }
+      if (ahead < SLOW_DIST) budget *= 0.35 + (0.65 * (ahead - BRAKE_DIST)) / (SLOW_DIST - BRAKE_DIST);
+    }
+    delete scott.driveWait;
     while (leg < route.length && budget > 0) {
       const target = route[leg];
       // Round the house and greenhouse, never up over them.
@@ -271,7 +312,7 @@ function drive(scott: ScottState, ctx: ScottTickContext): void {
     t.x = scott.x;
     t.y = scott.y;
     t.facing = scott.facing;
-    if (leg < route.length) return;
+    if (leg < route.length) return null;
     t.facing = home.facing;
   }
   // Parked (or the truck's gone from under him): he climbs out by the driver's door, and he's done.
@@ -285,6 +326,8 @@ function drive(scott: ScottState, ctx: ScottTickContext): void {
   scott.nextChangeAt = Math.min(scott.nextChangeAt, ctx.now + 2);
   delete scott.driveLeg;
   delete scott.driveHome;
+  delete scott.driveWait;
+  return null;
 }
 
 // ---------------------------------------------------------------- the chase

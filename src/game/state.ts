@@ -312,6 +312,8 @@ export interface ScottState {
   driveLeg?: number;
   /** Where the truck was parked when he took it, so he can put it back. */
   driveHome?: { x: number; y: number; facing: Facing };
+  /** Real seconds he's been sat at the wheel waiting for someone to get out of the road. */
+  driveWait?: number;
   /** Game-minute until which his last loaf sits cooling on the coffee table. */
   loafUntil?: number;
   /** The cannabis seedling he's waiting by to show Ellen, and since when. */

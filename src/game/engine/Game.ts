@@ -898,8 +898,16 @@ export class Game {
       const truck = this.state.player.riding ? null : this.state.truck;
       const extraSpots = [...eveningStroll(this.state, minuteOfDay(this.state.clock.totalMinutes)), ...companySpots(this.state), ...truckSpots(truck)];
       const summon = this.scottShowSpot();
-      const event = tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset, extraSpots, truck, summon });
+      // Out on foot, Ellen and Scout are who he watches the road for (Scout's no worry out on the alligator).
+      const me = this.state.player;
+      const sc = this.state.scout;
+      const onFoot = me.inGreenhouse ? [] : [{ x: me.x, y: me.y }, ...(sc.behavior === 'onGator' ? [] : [{ x: sc.x, y: sc.y }])];
+      const event = tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset, extraSpots, truck, summon, onFoot });
       if (event === 'baked' && this.state.player.inGreenhouse) this.pushToast('Scott’s taken a loaf out of the oven. The whole house smells of warm bread.', 'info');
+      if (event === 'honk') {
+        this.audio.playHorn();
+        this.pushToast('Scott pulls up and gives a friendly toot of the horn. He’ll wait.', 'info');
+      }
     }
     this.catInterestAcc += dtMs;
     if (this.catInterestAcc >= CAT_INTEREST_MS) {

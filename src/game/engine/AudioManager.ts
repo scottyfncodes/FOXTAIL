@@ -194,6 +194,15 @@ export class AudioManager {
     osc.stop(t + 0.55);
   }
 
+  /** A little truck's horn, two short friendly beeps: two notes together, muffled so it's never shrill. */
+  playHorn() {
+    if (!this.ctx || !this.master) return;
+    const t = this.ctx.currentTime;
+    for (const at of [0, 0.22]) {
+      for (const freq of [392, 494]) this.tone('square', freq, freq, t + at, 0.16, 0.025, 1400);
+    }
+  }
+
   // ---- October: a few sounds, far apart, and none of them loud ----
 
   /** A note shaped by a gain envelope, through a lowpass so it sounds far off. */
