@@ -145,6 +145,19 @@ export class StartOverlay {
       flies.appendChild(f);
     }
     this.root.appendChild(flies);
+    // In October: a big low moon, and bats going across it (hidden otherwise).
+    const moon = el('div', 'start-moon');
+    this.root.appendChild(moon);
+    const bats = el('div', 'start-bats');
+    for (let i = 0; i < 7; i++) {
+      const b = el('i', 'start-bat', '🦇');
+      b.style.top = `${8 + ((i * 17) % 30)}%`;
+      b.style.animationDelay = `${i * 1.7}s`;
+      b.style.animationDuration = `${9 + (i % 3) * 2}s`;
+      b.style.fontSize = `${20 + (i % 3) * 7}px`;
+      bats.appendChild(b);
+    }
+    this.root.appendChild(bats);
 
     const card = el('div', 'start-card');
     const hero = el('div', 'start-hero');
@@ -157,6 +170,7 @@ export class StartOverlay {
     card.appendChild(hero);
     card.appendChild(el('h1', undefined, 'FOXTAIL'));
     card.appendChild(el('div', 'start-tagline', 'a quiet game about wild houseplants'));
+    card.appendChild(el('div', 'start-october', '🎃 something is out there tonight 🎃'));
 
     const sum = isNew ? null : this.summary();
     if (sum) {

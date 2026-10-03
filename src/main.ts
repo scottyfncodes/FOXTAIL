@@ -1,5 +1,6 @@
 import './styles/main.css';
 import { Game } from './game/engine/Game';
+import { isOctober, onThemeChange } from './game/season';
 import { HUD } from './ui/HUD';
 import { JournalPanel } from './ui/JournalPanel';
 import { BasketPanel } from './ui/BasketPanel';
@@ -23,6 +24,11 @@ import type { MiniGamePanel } from './ui/MiniGamePanel';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const game = new Game(canvas);
+
+// October dresses the HUD and the panels too: orange and violet, not teal.
+const applyThemeClass = () => document.body.classList.toggle('theme-october', isOctober());
+applyThemeClass();
+onThemeChange(applyThemeClass);
 
 const hud = new HUD(game);
 document.getElementById('app')!.appendChild(hud.root);

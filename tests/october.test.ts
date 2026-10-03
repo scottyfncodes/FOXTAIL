@@ -435,3 +435,17 @@ describe('the journal’s October page', () => {
     expect(octoberNotes(state).find((n) => n.note.id === 'ghost')!.lines.join(' ')).toMatch(/lit/);
   });
 });
+
+describe('the yard dressed for Halloween', () => {
+  it('everything stands on dry ground inside the valley, clear of the house and the greenhouse', async () => {
+    const { HALLOWEEN_DECOR, STRING_LIGHTS } = await import('../src/game/data/october');
+    const { isWater, isInsideHomeFootprint, GRID_W, GRID_H } = await import('../src/game/data/worldMap');
+    for (const d of HALLOWEEN_DECOR) {
+      expect(d.x > 0 && d.x < GRID_W && d.y > 0 && d.y < GRID_H, `${d.kind} ${d.x},${d.y}`).toBe(true);
+      expect(isWater(Math.floor(d.x), Math.floor(d.y)), `${d.kind} in the creek`).toBe(false);
+      // Crows sit up on the roof and the broom leans on the wall; everything else stands on the ground.
+      if (d.kind !== 'crow' && d.kind !== 'broom') expect(isInsideHomeFootprint(Math.floor(d.x), Math.floor(d.y)), `${d.kind} inside the house`).toBe(false);
+    }
+    for (const line of STRING_LIGHTS) expect(line.length).toBeGreaterThanOrEqual(2);
+  });
+});

@@ -245,21 +245,27 @@ export function scatterLeaves(g: Ctx, px: number, pad: number, zone: ZoneId, var
 export class LeafLitter {
   private fog: HTMLCanvasElement | null = null;
 
-  /** A soft white puff, drawn scaled for every bit of mist. */
-  fogSprite(): HTMLCanvasElement | null {
-    if (this.fog) return this.fog;
+  private tinted = new Map<string, HTMLCanvasElement>();
+
+  /** A soft puff, drawn scaled for every bit of mist: white, or (after dark, in the strange places) violet or green. */
+  fogSprite(tint: 'white' | 'violet' | 'green' = 'white'): HTMLCanvasElement | null {
+    if (tint === 'white' && this.fog) return this.fog;
+    const hit = this.tinted.get(tint);
+    if (hit) return hit;
     const c = document.createElement('canvas');
     c.width = 128;
     c.height = 128;
     const g = c.getContext('2d');
     if (!g) return null;
+    const rgb = tint === 'violet' ? [190, 150, 240] : tint === 'green' ? [170, 235, 170] : [222, 230, 238];
     const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-    gr.addColorStop(0, 'rgba(226,232,240,1)');
-    gr.addColorStop(0.45, 'rgba(220,228,236,0.55)');
-    gr.addColorStop(1, 'rgba(210,220,232,0)');
+    gr.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},1)`);
+    gr.addColorStop(0.45, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.55)`);
+    gr.addColorStop(1, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0)`);
     g.fillStyle = gr;
     g.fillRect(0, 0, 128, 128);
-    this.fog = c;
+    if (tint === 'white') this.fog = c;
+    else this.tinted.set(tint, c);
     return c;
   }
 
@@ -271,12 +277,13 @@ export class LeafLitter {
 
   /** Mist lying in the low places: thin by day, thicker after dark, never everywhere. */
   drawFog(ctx: Ctx, camera: Camera, b: { minX: number; maxX: number; minY: number; maxY: number }, darkness: number, now: number) {
-    const sprite = this.fogSprite();
-    if (!sprite) return;
+    const white = this.fogSprite();
+    if (!white) return;
     const tile = tileOf(camera);
     ctx.save();
     for (let bi = 0; bi < FOG_BANKS.length; bi++) {
       const bank = FOG_BANKS[bi];
+      const sprite = bank.tint && darkness > 0.45 ? (this.fogSprite(bank.tint) ?? white) : white;
       const strength = bank.night ? Math.max(0, darkness - 0.3) / 0.7 : 0.45 + darkness * 0.55;
       if (strength < 0.02) continue;
       if (bank.x + bank.w < b.minX - 3 || bank.x > b.maxX + 3 || bank.y + bank.h < b.minY - 3 || bank.y > b.maxY + 3) continue;
@@ -590,15 +597,20 @@ export function drawOldThing(ctx: Ctx, kind: OldThingKind, x: number, y: number,
       ctx.moveTo(-tile * 0.08, -tile * 1.28);
       for (let i = 1; i <= 4; i++) ctx.lineTo(-tile * 0.08 + i * tile * 0.04, -tile * (1.28 + (i % 2 ? 0.02 : 0)));
       ctx.stroke();
-      ctx.fillStyle = '#3a3026';
-      ctx.fillRect(-tile * 0.24, -tile * 1.5, tile * 0.48, tile * 0.05);
+      // A witch's hat, bent at the tip, with an orange band.
+      ctx.fillStyle = '#2a1a36';
       ctx.beginPath();
-      ctx.moveTo(-tile * 0.13, -tile * 1.5);
-      ctx.lineTo(-tile * 0.06, -tile * 1.72);
-      ctx.lineTo(tile * 0.12, -tile * 1.68);
-      ctx.lineTo(tile * 0.13, -tile * 1.5);
+      ctx.ellipse(0, -tile * 1.49, tile * 0.27, tile * 0.05, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-tile * 0.14, -tile * 1.5);
+      ctx.quadraticCurveTo(-tile * 0.05, -tile * 1.75, tile * 0.02, -tile * 1.92);
+      ctx.quadraticCurveTo(tile * 0.14, -tile * 1.95, tile * 0.2, -tile * 1.86);
+      ctx.quadraticCurveTo(tile * 0.06, -tile * 1.8, tile * 0.14, -tile * 1.5);
       ctx.closePath();
       ctx.fill();
+      ctx.fillStyle = '#e07a24';
+      ctx.fillRect(-tile * 0.13, -tile * 1.58, tile * 0.26, tile * 0.05);
       ctx.restore();
       break;
     }
