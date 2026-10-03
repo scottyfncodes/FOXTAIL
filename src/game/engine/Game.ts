@@ -674,7 +674,15 @@ export class Game {
       endPlay(this.state.scout, this.state.cat, this.state.clock.totalMinutes);
     }
 
-    if (!playing) {
+    if (this.riding() && this.state.truck) {
+      // Scout rides in the back while Ellen drives, nose into the wind.
+      const t = this.state.truck;
+      const sc = this.state.scout;
+      sc.x = t.x;
+      sc.y = t.y;
+      sc.facing = t.facing;
+      sc.behavior = 'following';
+    } else if (!playing) {
       tickScout(this.state.scout, {
         playerX: this.state.player.x,
         playerY: this.state.player.y,
@@ -1544,7 +1552,7 @@ export class Game {
     this.carryingDecorId = null;
     if (!boardTruck(this.state)) return;
     this.audio.playToolChime();
-    this.pushToast('Driving. Thickets can’t slow the truck, and anything you gather rides in the back once your basket is full.', 'info');
+    this.pushToast('Driving — Scout’s jumped in the back. Thickets can’t slow the truck, and anything you gather rides in the back once your basket is full.', 'info');
     this.hint('truckPark', 'To get out, press E with nothing else in reach — or tap the 🚚 button.', 'important', () => this.riding());
     this.onStateTouched?.();
   }
@@ -1557,6 +1565,11 @@ export class Game {
       return;
     }
     this.audio.playToolChime();
+    // Scout jumps down after her.
+    const sc = this.state.scout;
+    sc.x = this.state.player.x - 0.7;
+    sc.y = this.state.player.y + 0.4;
+    sc.facing = 'down';
     const n = this.state.truck!.bed.length;
     this.pushToast(n ? `Parked. ${n} plant${n === 1 ? '' : 's'} in the back — they’re within reach while you’re beside it.` : 'Parked.', 'info');
     this.onStateTouched?.();

@@ -422,7 +422,9 @@ export class Renderer {
           ),
       });
     }
-    drawables.push({ y: state.scout.y, draw: () => this.atScale(camera, state.scout.x, state.scout.y, CHARACTER_SCALE.scout, () => this.drawScout(camera, state.scout, now)) });
+    // Riding in the truck, Scout is drawn with it, in the back.
+    const scoutRiding = !!state.truck && !!state.player.riding;
+    if (!scoutRiding) drawables.push({ y: state.scout.y, draw: () => this.atScale(camera, state.scout.x, state.scout.y, CHARACTER_SCALE.scout, () => this.drawScout(camera, state.scout, now)) });
     const moving = Math.hypot(state.player.x - this.lastEllenX, state.player.y - this.lastEllenY) > 0.001;
     this.lastEllenX = state.player.x;
     this.lastEllenY = state.player.y;
@@ -435,7 +437,15 @@ export class Renderer {
       }
       if (state.truck && state.player.riding) {
         const t = state.truck;
-        drawables.push({ y: state.player.y + 0.05, draw: () => this.drawTruck(camera, t, now, true, moving) });
+        drawables.push({
+          y: state.player.y + 0.05,
+          draw: () => {
+            // Head-on, he's behind the cab; otherwise he stands in the bed, legs hidden by its sides.
+            if (t.facing === 'down') this.drawScoutInBed(camera, t, now, moving);
+            this.drawTruck(camera, t, now, true, moving);
+            if (t.facing !== 'down') this.drawScoutInBed(camera, t, now, moving);
+          },
+        });
       } else {
         drawables.push({ y: state.player.y, draw: () => this.atScale(camera, state.player.x, state.player.y, CHARACTER_SCALE.ellen, () => this.drawEllen(camera, state.player.x, state.player.y, state.player.facing, now, moving, crouching)) });
       }
@@ -2802,6 +2812,32 @@ export class Renderer {
       ctx.fill();
     }
     ctx.lineCap = 'butt';
+  }
+
+  /**
+   * Scout in the back of the truck: standing in the bed, looking the way
+   * it's going, ears up. Below the bed's rim he's clipped away, so only
+   * his head and back show over the side.
+   */
+  private drawScoutInBed(camera: Camera, t: { x: number; y: number; facing: Facing }, now: number, moving: boolean) {
+    const { ctx } = this;
+    const tile = TILE_SIZE * camera.zoom;
+    const side = t.facing === 'left' || t.facing === 'right';
+    const ahead = t.facing === 'left' ? -1 : 1;
+    // Where he stands, in tiles from the truck's point: the middle of the bed.
+    const dx = side ? -ahead * 0.5 : 0;
+    const dy = t.facing === 'down' ? -1.2 : t.facing === 'up' ? -0.5 : -0.55;
+    // Where the bed's rim is on screen; nothing of him shows below it.
+    const s = camera.worldToScreen(t.x * TILE_SIZE, t.y * TILE_SIZE);
+    const rim = s.y + tile * (side ? -0.56 : t.facing === 'up' ? -0.48 : -1.0);
+    const bounce = moving ? Math.abs(Math.sin(now / 90)) * 0.03 : 0;
+    const scout: ScoutState = { x: t.x + dx, y: t.y + dy - bounce, facing: t.facing, behavior: 'idleLook', nextEventAt: 0 };
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, ctx.canvas.width, Math.max(0, rim));
+    ctx.clip();
+    this.atScale(camera, scout.x, scout.y, CHARACTER_SCALE.scout, () => this.drawScout(camera, scout, now));
+    ctx.restore();
   }
 
   private drawScout(camera: Camera, scout: ScoutState, now: number) {
