@@ -12,7 +12,7 @@ import { mulberry32 } from '../engine/Random';
 // variant, a growth bucket, a seed bucket and zoom, and blitted with a
 // little wind sway.
 
-export type PlantMode = 'ground' | 'pot' | 'hanging';
+export type PlantMode = 'ground' | 'pot' | 'hanging' | 'climb';
 
 const STAGE_SCALE = [0.42, 0.62, 0.86, 1.1, 1.34];
 
@@ -2994,12 +2994,79 @@ export function paintPlant(ctx: CanvasRenderingContext2D, defId: string, variant
   const S = unit * look.size * stageScale(sf) * 0.62;
   const p: Paint = { ctx, look, rand: mulberry32(seed * 7919 + 13), unit, S, sf, mode };
   ctx.save();
-  FORM_DRAW[def.form](p);
+  if (mode === 'climb') drawClimbingVine(p, def.form);
+  else FORM_DRAW[def.form](p);
   ctx.restore();
+}
+
+/**
+ * A vine grown up a trellis: two or three stems winding up the lattice,
+ * thickening with age, with the plant's own leaves along them — hearts
+ * (fenestrated, for the split-leaf aroids) or, for the tropical pitcher
+ * plant, oval leaves with the odd cup dangling from a tendril.
+ */
+function drawClimbingVine(p: Paint, form: PlantForm) {
+  const { ctx, look, rand, S, sf } = p;
+  const H = S * (1.1 + sf * 0.55);
+  const stems = sf >= 2 ? 3 : 2;
+  const shape: LeafShape = form === 'cups' ? 'oval' : 'heart';
+  const splits = form === 'splitleaf';
+  for (let k = 0; k < stems; k++) {
+    const off = (k - (stems - 1) / 2) * S * 0.3;
+    const ph = rand() * Math.PI * 2;
+    const amp = S * (0.14 + rand() * 0.1);
+    const top = -H * (0.72 + rand() * 0.28);
+    const at = (u: number) => ({ x: off * (0.4 + u * 0.6) + Math.sin(u * 6.5 + ph) * amp * u, y: top * u });
+    stroke(ctx, stemColor(look, -4), Math.max(0.9, S * (0.025 + sf * 0.004)), () => {
+      ctx.moveTo(0, 0);
+      for (let i = 1; i <= 24; i++) {
+        const q = at(i / 24);
+        ctx.lineTo(q.x, q.y);
+      }
+    });
+    const n = Math.round(3 + sf * 2.2);
+    for (let i = 0; i < n; i++) {
+      const u = (i + 0.6) / (n + 0.2);
+      const q = at(u);
+      const side = (i + k) % 2 ? 1 : -1;
+      const L = S * (0.24 + rand() * 0.1) * (1 - u * 0.3) * (splits ? 1.25 : 1);
+      const W = L * (form === 'cups' ? 0.36 : 0.5) * (look.leafWidth ?? 1);
+      withTransform(ctx, q.x, q.y, side * (0.85 + rand() * 0.45), () => {
+        leaf(p, { shape, L, W, dim: u > 0.5 ? 0 : 4 });
+        if (splits && sf >= 1.5) {
+          // The same slits and holes the aroid grows in a pot.
+          ctx.strokeStyle = 'rgba(16,28,18,0.88)';
+          ctx.lineWidth = Math.max(0.8, W * 0.09);
+          ctx.lineCap = 'round';
+          const slits = Math.min(4, 1 + Math.floor((sf - 1.5) * 2));
+          for (let s2 = 0; s2 < slits; s2++) {
+            const t = 0.22 + (s2 / Math.max(1, slits)) * 0.6;
+            for (const sd of [-1, 1]) {
+              ctx.beginPath();
+              ctx.moveTo(sd * W * 1.0 * Math.sin(Math.PI * t), -L * t);
+              ctx.lineTo(sd * W * 0.34, -L * (t + 0.05));
+              ctx.stroke();
+            }
+          }
+        }
+      });
+      if (form === 'cups' && i % 3 === 1 && sf >= 1) {
+        // A tendril curling out from the leaf tip, and a cup hanging from it.
+        const cx = q.x + side * S * 0.22;
+        const cy = q.y + S * 0.06;
+        stroke(ctx, stemColor(look), Math.max(0.6, S * 0.012), () => {
+          ctx.moveTo(q.x, q.y);
+          ctx.quadraticCurveTo(q.x + side * S * 0.2, q.y - S * 0.08, cx, cy);
+        });
+        withTransform(ctx, cx, cy, 0, () => monkeyCup(p, S * 0.2));
+      }
+    }
+  }
 }
 
 /** Bounding box (in units of S) each form needs around its base. */
 function extent(form: PlantForm, mode: PlantMode): { w: number; up: number; down: number } {
+  if (mode === 'climb') return { w: 1.8, up: 3.6, down: 0.6 };
   const trailing = form === 'trailing' || form === 'beads';
   if (trailing && mode === 'ground') return { w: 2.6, up: 1.2, down: 1.3 };
   if (trailing) return { w: 1.4, up: 1.1, down: mode === 'hanging' ? 3.4 : 2.6 };

@@ -81,6 +81,12 @@ grow in patches all over it.
   his own places, and his own ideas about your plants. In the greenhouse,
   he and Scout can't leave each other alone: one stalks, pounces and chases,
   then it's the other's turn.
+- **Trellises.** Any vine potted at the foot of a trellis, indoors or in
+  the garden, climbs it: the trailers (pothos, satin pothos, wandering
+  dude, wax plant, string of pearls, burro's tail), Virginia creeper, and
+  the vines with broader leaves too (heartleaf philodendron, arrowhead
+  vine, Swiss cheese vine, monstera, and the tropical pitcher plant, cups
+  dangling from its tendrils).
 - **Arrange it yourself.** Everything indoors — beds, trays, stands, tables,
   planters, hooks, lamps, rugs — can be dragged anywhere, turned, or put
   away (🪑 button indoors). Plants move with their pots. The living room's
