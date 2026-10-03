@@ -14,7 +14,7 @@ export type KeepsakePlace =
   | { kind: 'frame'; wall: 'east'; at: number; span: number }
   /** Set on the bookshelf, among the books. */
   | { kind: 'bookshelf' }
-  /** On a tee by the putting mat: Scott's, of course. */
+  /** On the golf ball rail along the putting mat: Scott's, of course. */
   | { kind: 'puttingMat' };
 
 export interface Keepsake {
@@ -35,7 +35,7 @@ export const KEEPSAKES: Keepsake[] = [
   { curiosityId: 'lunaMoth', place: { kind: 'frame', wall: 'east', at: 5.95, span: 0.6 }, note: 'Ellen paints it in pale green and hangs it in the living room.' },
   { curiosityId: 'glowworms', place: { kind: 'frame', wall: 'east', at: 9.2, span: 0.6 }, note: 'Ellen paints them, and the paint catches the lamplight in the living room after dark.' },
   { curiosityId: 'splitGeode', place: { kind: 'bookshelf' }, note: 'The two halves come home and sit on the living room bookshelf.' },
-  { curiosityId: 'lostGolfBall', place: { kind: 'puttingMat' }, note: 'It comes home on a tee by Scott’s putting mat. He swears it isn’t his.' },
+  { curiosityId: 'lostGolfBall', place: { kind: 'puttingMat' }, note: 'It comes home to a little wooden rail along Scott’s putting mat, with room for more. He swears it isn’t his.' },
 ];
 
 export function findKeepsake(curiosityId: string): Keepsake | undefined {

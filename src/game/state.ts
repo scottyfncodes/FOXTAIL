@@ -2,10 +2,11 @@ import type { OutdoorZoneId, ZoneId } from './types';
 import type { DecorId, FurnitureId } from './data/shop';
 import { MARKET_STALL, PLAYER_START } from './data/worldMap';
 import { SHOP_ITEMS } from './data/shop';
+import type { GolfBallRecord } from './systems/golfBalls';
 
 // Bump SAVE_VERSION when the state shape changes; SaveManager.migrateSave
 // fills new fields from createNewGame(). The storage key stays fixed.
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 // The storage key keeps the game's working title so existing saves carry over.
 export const SAVE_KEY = 'foxtrot-save-v4';
 
@@ -418,6 +419,8 @@ export interface GameState {
   minigames: Record<string, MiniGameRecord>;
   /** Mushrooms, insects and other oddities found in the wild, by id. */
   curiosities: Record<string, { foundAt: number; count: number }>;
+  /** The golf ball collection: how many of each kind of lost golf ball have been found, by id. */
+  golfBalls: Record<string, GolfBallRecord>;
   tools: { lantern: number };
   basket: BasketItem[];
   plants: Record<string, OwnedPlant>;
@@ -484,6 +487,7 @@ export function createNewGame(): GameState {
     putting: { rounds: 0, best: null, aces: [] },
     minigames: {},
     curiosities: {},
+    golfBalls: {},
     tools: { lantern: 0 },
     basket: [],
     plants: {},

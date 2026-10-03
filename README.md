@@ -199,7 +199,18 @@ grow in patches all over it.
   going, waiting for you to come and see. Everything found comes home in
   some form: Ellen's framed sketches of the creatures and insects fill the
   living room walls, the split geode sits on the bookshelf, and the lost golf
-  ball goes on a tee by Scott's putting mat.
+  balls go on a little wooden rail along Scott's putting mat.
+- **Golf balls.** Every lost golf ball Scout or the fox turns up is one of
+  15 kinds, Common to Legendary: old whites and range balls, pink and
+  orange ones, a glitter ball, a golden one, a Fox Ball with a tail
+  painted round it… and a Mystery Ball that stays a mystery until it's in
+  your hand. The first of a kind gets a small "New golf ball found!" card;
+  another of one you have is just a line, and counted. The journal's
+  **Golf Balls** page shows every kind (the ones still out there as
+  shapes, never their colours), and the rail by the putting mat keeps one
+  of each kind found. Kinds not yet found turn up more often, so
+  the rarest is a long search, not an impossible one. Putt-putt still uses
+  Scott's own balls: the collection is never spent.
 - **Follow Scott.** Once cannabis starts coming up wild on its own, Scott
   keeps an eye out for it. When a new seedling shows, he drops what he's
   doing, walks out to it and waves you over.
@@ -311,6 +322,8 @@ furniture and garden pieces). Esc also closes whatever panel is open. Progress a
   procedural: `PlantArt.ts` draws every species/variant at any growth stage and
   caches plants as sprites so a region with hundreds of plants stays fast.
 - `src/ui/` — HUD, basket, greenhouse, market and journal panels.
+- `src/game/data/golfBalls.ts` — every kind of golf ball (add one with one line);
+  `src/game/systems/golfBalls.ts` — finding them, counting them, the odds.
   Messages go through `src/game/systems/toasts.ts`, which sizes how long each
   stays up by its significance and length, and keeps milestones from being
   crowded out by routine feedback.

@@ -2059,3 +2059,132 @@ body.theme-october .start-bat {
     height: 60px;
   }
 }
+
+/* ---------------------------------------------------------- golf balls */
+
+.golf-title {
+  margin: 0 0 2px;
+  font-size: 17px;
+}
+
+.golf-card {
+  position: relative;
+  min-height: 132px;
+}
+
+.golf-card.clickable:active {
+  transform: scale(0.97);
+}
+
+.golf-card .card-name.unknown-ball {
+  color: var(--ink-dim);
+}
+
+.golf-count {
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Newly found and not yet looked at: a small tag, settling in once. */
+.golf-new {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  animation: golf-new-in 0.6s ease;
+}
+
+@keyframes golf-new-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.rarity-secret {
+  color: var(--ink-dim);
+  letter-spacing: 0.08em;
+}
+
+.golf-link {
+  display: inline-block;
+  margin: 6px 0 0;
+  min-height: 32px;
+  padding: 6px 0;
+  text-align: left;
+}
+
+/* NEW GOLF BALL FOUND!: the ball beside its name, the ball easing in. */
+.toast.golf-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.golf-toast .golf-ball-portrait {
+  flex: 0 0 auto;
+  animation: golf-ball-in 0.7s ease;
+}
+
+@keyframes golf-ball-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) rotate(-90deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+}
+
+.golf-toast-head {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.golf-toast-was {
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.golf-toast-name {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .golf-new,
+  .golf-toast .golf-ball-portrait {
+    animation: none;
+  }
+}
+
+/* Pips and word on one line, even in a narrow card. */
+.golf-card .rarity {
+  gap: 3px;
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.golf-card .rarity-pips {
+  letter-spacing: 0;
+  font-size: 8px;
+}

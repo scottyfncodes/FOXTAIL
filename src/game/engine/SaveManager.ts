@@ -8,6 +8,7 @@ import { SHOP_ITEMS, INTRODUCED_IN_V7 } from '../data/shop';
 import { HOUSE_FOOTPRINT, HOUSE_DOOR } from '../data/worldMap';
 import { CURIOSITY_SPECIES } from '../data/curiosities';
 import { recordFound } from '../systems/collection';
+import { findGolfBall, GOLF_BALL_CURIOSITY } from '../data/golfBalls';
 
 // Older builds stored each schema version under its own key; they're read
 // once as a fallback so those players' progress is recovered, not lost.
@@ -19,7 +20,7 @@ const LEGACY_KEYS = ['foxtrot-save-v3', 'foxtrot-save-v2', 'foxtrot-save-v1'];
 export const GROW_LAMP_REFUND = 150;
 const STRUCT_FIELDS = ['stall', 'player', 'clock', 'weather', 'tools', 'fox', 'scout', 'scott', 'cat', 'market', 'foxLog', 'putting', 'commissions'] as const;
 const ARRAY_FIELDS = ['basket', 'owned', 'bought', 'decor', 'pondStock', 'koi', 'hints', 'furniture', 'seededFixtures', 'seenShop', 'gardenBeds', 'paths', 'clearedObstacles', 'foxFinds'] as const;
-const RECORD_FIELDS = ['plants', 'collection', 'spots', 'decorStock', 'furnitureStock', 'curiosities', 'purchases', 'regions', 'regionTier', 'minigames'] as const;
+const RECORD_FIELDS = ['plants', 'collection', 'spots', 'decorStock', 'furnitureStock', 'curiosities', 'golfBalls', 'purchases', 'regions', 'regionTier', 'minigames'] as const;
 
 /** Anything standing where the house now is gets moved out onto the lawn in front of it. */
 function inHouse(x: number, y: number): boolean {
@@ -167,6 +168,7 @@ export function migrateSave(raw: unknown): GameState | null {
     f.variantId = sp.variantId;
     delete f.curiosityId;
   }
+  state.golfBalls = migrateGolfBalls(state, fromVersion);
   for (const p of Object.values(state.plants)) {
     const loc = p.location;
     if (loc.kind === 'wild' && loc.bedId && !state.gardenBeds.some((b) => b.id === loc.bedId)) delete loc.bedId;
@@ -217,6 +219,26 @@ export function migrateSave(raw: unknown): GameState | null {
     state.cat.y = at.y;
   }
   return state;
+}
+
+/**
+ * The golf ball collection (v13). Anything malformed, or a kind this build
+ * doesn't know, is dropped. Before v13 every lost golf ball was the same
+ * scuffed white one: however many a player had found count as that.
+ */
+function migrateGolfBalls(state: GameState, fromVersion: number): GameState['golfBalls'] {
+  const out: GameState['golfBalls'] = {};
+  for (const [id, r] of Object.entries(state.golfBalls)) {
+    if (!findGolfBall(id) || !isRecord(r) || typeof r.count !== 'number' || !Number.isFinite(r.count) || r.count < 1) continue;
+    out[id] = { foundAt: typeof r.foundAt === 'number' && Number.isFinite(r.foundAt) ? r.foundAt : state.clock.totalMinutes, count: Math.floor(r.count) };
+    if (r.fresh === true) out[id].fresh = true;
+  }
+  const lost = state.curiosities[GOLF_BALL_CURIOSITY];
+  if (fromVersion < 13 && isRecord(lost) && !Object.keys(out).length) {
+    const count = typeof lost.count === 'number' && Number.isFinite(lost.count) ? Math.max(1, Math.floor(lost.count)) : 1;
+    out.scuffedWhite = { foundAt: typeof lost.foundAt === 'number' && Number.isFinite(lost.foundAt) ? lost.foundAt : state.clock.totalMinutes, count };
+  }
+  return out;
 }
 
 function migrateOctober(raw: unknown): GameState['october'] {

@@ -4,17 +4,19 @@ import { el, clear } from './dom';
 import { PLANT_LIST, PLANTS, rarityRank, findVariant, latinLine } from '../game/data/plants';
 import { variantAllowed } from '../game/systems/lineage';
 import { CURIOSITIES } from '../game/data/curiosities';
+import { GOLF_BALLS, GOLF_BALL_CURIOSITY, findGolfBall } from '../game/data/golfBalls';
+import { golfBallDisplayName, golfBallTotals, hasGolfBall, markGolfBallsSeen } from '../game/systems/golfBalls';
 import { ZONES } from '../game/data/zones';
 import type { OutdoorZoneId } from '../game/types';
 import { collectionTotals, speciesCounts, isEstablished, ESTABLISH_THRESHOLD } from '../game/systems/collection';
 import { describeRegion } from '../game/systems/wild';
 import { canName, NAME_MAX, regionLabel } from '../game/systems/regions';
-import { note, portrait, rarityBadge } from './common';
+import { golfBallPortrait, golfRarityBadge, note, portrait, rarityBadge } from './common';
 import { octoberNotes } from '../game/systems/october';
 import { findFace } from '../game/data/october';
 import { drawPumpkin } from '../game/world/OctoberArt';
 
-type Tab = 'plants' | 'regions' | 'curiosities' | 'october';
+type Tab = 'plants' | 'regions' | 'curiosities' | 'golf' | 'october';
 
 const REGIONS: OutdoorZoneId[] = ['meadow', 'woodland', 'creek', 'dampForest', 'rockyClearing', 'overgrownClearing'];
 
@@ -28,12 +30,14 @@ export class JournalPanel {
   panel = new Panel('Field Journal', { tabs: true });
   private tab: Tab = 'plants';
   private detail: string | null = null;
+  private golfDetail: string | null = null;
 
   constructor(private game: Game) {
     for (const [id, label] of [
       ['plants', 'Collection'],
       ['regions', 'Regions'],
       ['curiosities', 'Curiosities'],
+      ['golf', 'Golf Balls'],
       ['october', 'October'],
     ] as [Tab, string][]) {
       const btn = el('button', 'panel-tab', label);
@@ -41,6 +45,7 @@ export class JournalPanel {
       btn.addEventListener('click', () => {
         this.tab = id;
         this.detail = null;
+        this.golfDetail = null;
         this.render();
       });
       this.panel.tabsEl.appendChild(btn);
@@ -49,6 +54,7 @@ export class JournalPanel {
 
   open(tab?: Tab) {
     this.detail = null;
+    this.golfDetail = null;
     if (tab) this.tab = tab;
     this.render();
     this.panel.open();
@@ -62,17 +68,22 @@ export class JournalPanel {
     // Curiosities only get a page once there's something on it.
     const anyCurio = Object.keys(this.game.state.curiosities).length > 0;
     if (!anyCurio && this.tab === 'curiosities') this.tab = 'plants';
+    // The golf balls get theirs with the first one found.
+    const anyGolf = golfBallTotals(this.game.state).found > 0;
+    if (!anyGolf && this.tab === 'golf') this.tab = 'plants';
     // October gets a page once there's something on it, and keeps it whatever the look.
     const anyOctober = this.octoberPlants().length > 0 || this.game.state.october.faces.length > 0 || octoberNotes(this.game.state).length > 0;
     if (!anyOctober && this.tab === 'october') this.tab = 'plants';
     for (const c of Array.from(this.panel.tabsEl.children) as HTMLElement[]) {
       c.classList.toggle('active', c.dataset.tab === this.tab);
       if (c.dataset.tab === 'curiosities') c.style.display = anyCurio ? '' : 'none';
+      if (c.dataset.tab === 'golf') c.style.display = anyGolf ? '' : 'none';
       if (c.dataset.tab === 'october') c.style.display = anyOctober ? '' : 'none';
     }
     this.panel.clearBody();
     if (this.tab === 'regions') return this.renderRegions();
     if (this.tab === 'curiosities') return this.renderCuriosities();
+    if (this.tab === 'golf') return this.golfDetail ? this.renderGolfBall(this.golfDetail) : this.renderGolfBalls();
     if (this.tab === 'october') return this.renderOctober();
     if (this.detail) return this.renderDetail(this.detail);
     this.renderCollection();
@@ -198,6 +209,15 @@ export class JournalPanel {
       if (rec) {
         info.append(el('div', 'entry-name', c.name), el('div', 'entry-sub', c.description), rarityBadge(c.rarity));
         if (rec.count > 1) info.appendChild(el('div', 'entry-sub dim', `Seen ${rec.count} times.`));
+        if (c.id === GOLF_BALL_CURIOSITY) {
+          const g = golfBallTotals(state);
+          const link = el('button', 'back-link golf-link', `Golf Balls ${g.found} / ${g.total} →`);
+          link.addEventListener('click', () => {
+            this.tab = 'golf';
+            this.render();
+          });
+          info.appendChild(link);
+        }
       } else {
         info.append(el('div', 'entry-name unknown', '???'));
       }
@@ -205,6 +225,73 @@ export class JournalPanel {
       list.appendChild(row);
     }
     body.appendChild(list);
+  }
+
+  /** Every kind of lost golf ball: the ones found, and the shapes of the ones still out there. */
+  private renderGolfBalls() {
+    const state = this.game.state;
+    const body = this.panel.body;
+    const totals = golfBallTotals(state);
+    body.appendChild(el('h3', 'golf-title', 'Golf Ball Collection'));
+    body.appendChild(el('div', 'collection-summary', `Golf Balls ${totals.found} / ${totals.total} discovered · ${totals.balls} found in all`));
+    const grid = el('div', 'collection-grid golf-grid');
+    for (const ball of GOLF_BALLS) {
+      const rec = state.golfBalls[ball.id];
+      const found = hasGolfBall(state, ball.id);
+      const card = el('div', `collection-card golf-card${found ? ' found clickable' : ''}`);
+      card.dataset.ball = ball.id;
+      if (found) {
+        if (rec?.fresh) card.appendChild(el('span', 'golf-new', 'NEW'));
+        card.append(golfBallPortrait(ball, 56), el('div', 'card-name', ball.name), golfRarityBadge(ball.rarity));
+        if (rec.count > 1) card.appendChild(el('div', 'golf-count', `×${rec.count}`));
+        card.setAttribute('role', 'button');
+        card.tabIndex = 0;
+        const openIt = () => {
+          this.golfDetail = ball.id;
+          this.render();
+        };
+        card.addEventListener('click', openIt);
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') openIt();
+        });
+      } else {
+        // Not found yet: its shape and its name, never its colours — and a hidden one keeps even its rarity to itself.
+        card.append(golfBallPortrait(ball, 56, ball.hidden ? { mystery: true } : { silhouette: true }), el('div', 'card-name unknown-ball', golfBallDisplayName(state, ball)), golfRarityBadge(ball.hidden ? null : ball.rarity));
+      }
+      grid.appendChild(card);
+    }
+    body.appendChild(grid);
+    // Looked at: nothing here is NEW next time.
+    markGolfBallsSeen(state);
+  }
+
+  private renderGolfBall(id: string) {
+    const state = this.game.state;
+    const ball = findGolfBall(id);
+    const rec = state.golfBalls[id];
+    if (!ball || !hasGolfBall(state, id)) {
+      this.golfDetail = null;
+      return this.renderGolfBalls();
+    }
+    const body = this.panel.body;
+    const back = el('button', 'back-link', '← Golf Balls');
+    back.addEventListener('click', () => {
+      this.golfDetail = null;
+      this.render();
+    });
+    body.appendChild(back);
+    const head = el('div', 'plant-head');
+    const info = el('div', 'entry-info');
+    info.append(el('h3', undefined, ball.name), golfRarityBadge(ball.rarity));
+    if (ball.hidden) info.appendChild(el('div', 'entry-sub dim', `Once the ${ball.hidden.name}.`));
+    head.append(golfBallPortrait(ball, 96), info);
+    body.appendChild(head);
+    body.appendChild(note(ball.description));
+    const stats = el('div', 'stat-grid');
+    const s = el('div', 'stat');
+    s.append(el('div', 'stat-value', `×${rec.count}`), el('div', 'stat-label', rec.count === 1 ? 'Found once' : 'Found'));
+    stats.appendChild(s);
+    body.appendChild(stats);
   }
 
   /** October's plants found so far: never a silhouette, only what's been seen. */

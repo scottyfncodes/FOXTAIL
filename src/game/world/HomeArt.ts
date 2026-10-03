@@ -17,7 +17,8 @@ import {
 } from '../data/interior';
 import { SCOTT_APPEARANCE, ELLEN_APPEARANCE } from '../data/character';
 import { hasKeepsake } from '../data/keepsakes';
-import { drawKeepsakeFrames, drawGeodeOnShelf, drawLostGolfBall } from './KeepsakeArt';
+import { drawKeepsakeFrames, drawGeodeOnShelf, drawLostGolfBall, drawGolfBallRail } from './KeepsakeArt';
+import { golfBallTotals } from '../systems/golfBalls';
 
 // The inside of the house: the greenhouse's plank floor and glass walls on
 // the west, and on the east the living room — warmer floor, papered walls,
@@ -383,8 +384,9 @@ export function drawFixture(ctx: Ctx, camera: Camera, f: LivingFixture, fc: Fixt
         ctx.arc(a.x + w * bx, a.y + h * (0.4 + bx * 0.3), tile * 0.035, 0, Math.PI * 2);
         ctx.fill();
       }
-      // The lost golf ball the fox found, on its tee at the start of the mat.
-      if (hasKeepsake(fc.state, 'lostGolfBall')) drawLostGolfBall(ctx, a.x - tile * 0.2, a.y + h * 0.75, tile);
+      // The lost golf balls Scout and the fox have found: one of every kind, on a rail along the back of the mat.
+      if (golfBallTotals(fc.state).found > 0) drawGolfBallRail(ctx, fc.state, a.x + w * 0.04, a.y + tile * 0.02, w * 0.74, tile);
+      else if (hasKeepsake(fc.state, 'lostGolfBall')) drawLostGolfBall(ctx, a.x - tile * 0.2, a.y + h * 0.75, tile);
       // While there are holes still to ace, a coin sits by the cup: Scott's
       // standing bet, glinting now and then so the mat reads as worth a go.
       if (fc.state.putting.aces.length < 9) {

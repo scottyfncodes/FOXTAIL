@@ -6,7 +6,8 @@ import { zoneAt } from '../game/data/worldMap';
 import { isNight, minuteOfDay } from '../game/engine/Clock';
 import { ModeBar } from './ModeBar';
 import { ToastScheduler } from '../game/systems/toasts';
-import { coin } from './common';
+import { coin, golfBallPortrait, golfRarityBadge } from './common';
+import { findGolfBall } from '../game/data/golfBalls';
 import { MusicControl } from './MusicControl';
 
 function formatClock(totalMinutes: number): string {
@@ -22,6 +23,23 @@ const WEATHER_ICON: Record<string, string> = { clear: '☀', rain: '☔', overca
 
 function setText(node: Node, text: string) {
   if (node.textContent !== text) node.textContent = text;
+}
+
+/** NEW GOLF BALL FOUND!, with the ball itself, its name and its rarity: small, and gone in a few seconds. */
+function golfBallToast(t: ToastEvent): HTMLElement {
+  const ball = findGolfBall(t.golfBall ?? '');
+  const node = el('div', `toast ${t.kind} sig-${t.significance} golf-toast`);
+  if (!ball) {
+    node.textContent = t.text;
+    return node;
+  }
+  node.setAttribute('aria-label', t.text);
+  const info = el('div', 'golf-toast-info');
+  info.append(el('div', 'golf-toast-head', 'New golf ball found!'));
+  if (ball.hidden) info.append(el('div', 'golf-toast-was', `The ${ball.hidden.name}…`));
+  info.append(el('div', 'golf-toast-name', ball.name), golfRarityBadge(ball.rarity));
+  node.append(golfBallPortrait(ball, 40), info);
+  return node;
 }
 
 export class HUD {
@@ -134,7 +152,7 @@ export class HUD {
   }
 
   private showToast(t: ToastEvent) {
-    const node = el('div', `toast ${t.kind} sig-${t.significance}`, t.text);
+    const node = t.golfBall ? golfBallToast(t) : el('div', `toast ${t.kind} sig-${t.significance}`, t.text);
     node.setAttribute('role', 'status');
     this.toasts.push(node, t.text, t.significance, performance.now(), t.opts);
     this.pumpToasts();

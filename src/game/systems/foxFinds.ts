@@ -7,6 +7,8 @@ import { weightedPick } from '../engine/Random';
 import { journalComplete, variantAllowed } from './lineage';
 import { addToBasket, basketFull } from './basket';
 import { hasFound, recordFound } from './collection';
+import { GOLF_BALL_CURIOSITY } from '../data/golfBalls';
+import { findGolfBallFor, golfCollectionComplete, type GolfBallFind } from './golfBalls';
 
 // What's at the end of a fox's trail. Usually a plant — something rare, or
 // something you've never seen, or once in a long while something that
@@ -63,7 +65,9 @@ export function pickCuriosity(state: GameState, zone: OutdoorZoneId, cond: FindC
     if (c.when === 'rain' && !cond.rain) return false;
     return true;
   });
-  return weightedPick(eligible, (c) => RARITY_WEIGHT[c.rarity] * (state.curiosities[c.id] ? 1 : 2), rand) ?? null;
+  // Something not yet noted is twice as likely; so is a lost golf ball, while there are kinds still to find.
+  const unnoted = (c: CuriosityDef) => !state.curiosities[c.id] || (c.id === GOLF_BALL_CURIOSITY && !golfCollectionComplete(state));
+  return weightedPick(eligible, (c) => RARITY_WEIGHT[c.rarity] * (unnoted(c) ? 2 : 1), rand) ?? null;
 }
 
 /** Leaves something at the end of a trail. Returns what was left (possibly several plants, for a grove). */
@@ -133,10 +137,12 @@ export interface CollectFindResult {
   newSpecies?: boolean;
   newVariant?: boolean;
   newCuriosity?: boolean;
+  /** A lost golf ball: which kind it turned out to be. */
+  golfBall?: GolfBallFind;
 }
 
 /** Takes a cutting from a plant the fox led you to, or notes down a curiosity. */
-export function collectFoxFind(state: GameState, id: string, now: number): CollectFindResult {
+export function collectFoxFind(state: GameState, id: string, now: number, rand: () => number = Math.random): CollectFindResult {
   const idx = state.foxFinds.findIndex((f) => f.id === id);
   if (idx === -1) return { ok: false, reason: 'gone' };
   const find = state.foxFinds[idx];
@@ -150,7 +156,8 @@ export function collectFoxFind(state: GameState, id: string, now: number): Colle
     state.curiosities[c.id] = { foundAt: rec?.foundAt ?? now, count: (rec?.count ?? 0) + 1 };
     state.foxFinds.splice(idx, 1);
     state.foxLog.finds++;
-    return { ok: true, find, newCuriosity: !rec };
+    const golfBall = c.id === GOLF_BALL_CURIOSITY ? findGolfBallFor(state, now, rand) : undefined;
+    return { ok: true, find, newCuriosity: !rec, golfBall };
   }
   if (!find.defId || !find.variantId || !PLANTS[find.defId]) {
     state.foxFinds.splice(idx, 1);
