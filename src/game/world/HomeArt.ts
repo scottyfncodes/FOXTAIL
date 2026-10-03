@@ -16,6 +16,8 @@ import {
   type LivingFixture,
 } from '../data/interior';
 import { SCOTT_APPEARANCE, ELLEN_APPEARANCE } from '../data/character';
+import { hasKeepsake } from '../data/keepsakes';
+import { drawKeepsakeFrames, drawGeodeOnShelf, drawLostGolfBall } from './KeepsakeArt';
 
 // The inside of the house: the greenhouse's plank floor and glass walls on
 // the west, and on the east the living room — warmer floor, papered walls,
@@ -134,6 +136,8 @@ export function drawInteriorShell(ctx: Ctx, camera: Camera, state: GameState, no
   for (const w of LIVING_WINDOWS) drawWindow(ctx, camera, w, day, now);
   // Doorways into the rest of the house: warm, dim, never entered.
   for (const d of IMPLIED_DOORWAYS) drawImpliedDoorway(ctx, camera, d, state);
+  // Every curiosity found so far, sketched and framed on the walls.
+  drawKeepsakeFrames(ctx, camera, state, now);
 
   // The two ways out: the garden door in the glass, the front door in the wall.
   // Every glass door out to the garden: garden, back and side.
@@ -379,6 +383,8 @@ export function drawFixture(ctx: Ctx, camera: Camera, f: LivingFixture, fc: Fixt
         ctx.arc(a.x + w * bx, a.y + h * (0.4 + bx * 0.3), tile * 0.035, 0, Math.PI * 2);
         ctx.fill();
       }
+      // The lost golf ball the fox found, on its tee at the start of the mat.
+      if (hasKeepsake(fc.state, 'lostGolfBall')) drawLostGolfBall(ctx, a.x - tile * 0.2, a.y + h * 0.75, tile);
       // While there are holes still to ace, a coin sits by the cup: Scott's
       // standing bet, glinting now and then so the mat reads as worth a go.
       if (fc.state.putting.aces.length < 9) {
@@ -584,10 +590,13 @@ export function drawFixture(ctx: Ctx, camera: Camera, f: LivingFixture, fc: Fixt
       ctx.fillStyle = '#5a4030';
       ctx.fillRect(a.x, a.y - tile * 0.8, w, tile * 0.8 + h);
       const spines = ['#8a3a2e', '#3e5a7a', '#c9a463', '#4d6a44', '#7a4a6a', '#d8cdb4'];
+      // The split geode, once found, takes the end of the middle shelf.
+      const geode = hasKeepsake(fc.state, 'splitGeode');
       for (let r = 0; r < 3; r++) {
         let x = a.x + tile * 0.06;
         let i = r * 3;
-        while (x < a.x + w - tile * 0.12) {
+        const end = a.x + w - tile * (geode && r === 1 ? 0.5 : 0.12);
+        while (x < end) {
           const bw = tile * (0.07 + hash2(i, r) * 0.06);
           ctx.fillStyle = spines[i % spines.length];
           ctx.fillRect(x, a.y - tile * (0.74 - r * 0.26), bw, tile * 0.21);
@@ -595,6 +604,7 @@ export function drawFixture(ctx: Ctx, camera: Camera, f: LivingFixture, fc: Fixt
           i++;
         }
       }
+      if (geode) drawGeodeOnShelf(ctx, a.x + w - tile * 0.36, a.y - tile * 0.38, tile);
       break;
     }
     case 'catTree': {

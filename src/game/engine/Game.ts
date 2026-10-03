@@ -42,6 +42,7 @@ import {
 } from '../systems/landscape';
 import { createFoxFinds, collectFoxFind, expireFoxFinds, pickCuriosity, FOX_FIND_LIFETIME } from '../systems/foxFinds';
 import { findCuriosity } from '../data/curiosities';
+import { findKeepsake } from '../data/keepsakes';
 import { discoveryFlourish, discoveryAside, type Flourish } from '../systems/rarity';
 import type { CatInterest } from '../systems/cat';
 import { KIND_SIGNIFICANCE, type Significance, type ToastKind, type ToastOptions } from '../systems/toasts';
@@ -1579,7 +1580,11 @@ export class Game {
     if (f.kind === 'curiosity') {
       const c = findCuriosity(f.curiosityId ?? '');
       if (c) {
-        if (res.newCuriosity) this.announce(`${c.name}. ${c.description}`, c.rarity);
+        if (res.newCuriosity) {
+          this.announce(`${c.name}. ${c.description}`, c.rarity);
+          const keepsake = findKeepsake(c.id);
+          if (keepsake) this.pushToast(keepsake.note, 'info');
+        }
         else this.pushToast(`${c.name} again.`, 'discovery', 'normal');
         this.flourish(f.x, f.y, c.rarity, !!res.newCuriosity);
       }
