@@ -180,3 +180,49 @@ function findScottSpotOrThrow(id: string) {
   if (!s) throw new Error(id);
   return s;
 }
+
+describe('Scott at the wheel', () => {
+  const start = () => {
+    const state = createNewGame();
+    const truck: TruckState = { x: TRUCK_PARK.x, y: TRUCK_PARK.y, facing: 'right', bed: [] };
+    state.truck = truck;
+    const s = state.scott;
+    const door = truckSpots(truck).find((t) => t.kind === 'drive')!;
+    Object.assign(s, { zone: 'meadow', x: door.x, y: door.y, activity: 'traveling', targetSpotId: door.id, currentSpotId: null });
+    return { state, truck, s };
+  };
+
+  it('stops short of Ellen standing in the road, toots once, and drives on when she steps aside', () => {
+    // Where the truck goes on its drive, with nobody about.
+    const dry = start();
+    const route: { x: number; y: number }[] = [];
+    const dctx = (now: number) => ({ dtSeconds: 0.05, now, rand: () => 0.5, extraSpots: truckSpots(dry.truck), truck: dry.truck });
+    tickScott(dry.s, dctx(100));
+    for (let i = 0; dry.s.activity === 'driving' && i < 20000; i++) {
+      tickScott(dry.s, dctx(100 + i * 0.05));
+      route.push({ x: dry.truck.x, y: dry.truck.y });
+    }
+    // Ellen (and Scout beside her) stand right in his way, a third of the way round.
+    const at = route[Math.floor(route.length / 3)];
+    const ellen = { x: at.x, y: at.y };
+    const scout = { x: at.x + 0.4, y: at.y + 0.2 };
+    const { truck, s } = start();
+    const ctx = (now: number, onFoot: { x: number; y: number }[]) => ({ dtSeconds: 0.05, now, rand: () => 0.5, extraSpots: truckSpots(truck), truck, onFoot });
+    tickScott(s, ctx(100, [ellen, scout]));
+    let honks = 0;
+    for (let i = 0; i < 6000; i++) {
+      if (tickScott(s, ctx(100 + i * 0.05, [ellen, scout])) === 'honk') honks++;
+      for (const p of [ellen, scout]) {
+        const fp = truckHitsBuilding(truck.x, truck.y, truck.facing, [{ x: p.x - 0.2, y: p.y - 0.2, w: 0.4, h: 0.4 }]);
+        expect(fp).toBe(false);
+      }
+    }
+    // Still out, waiting patiently, having tooted just the once.
+    expect(s.activity).toBe('driving');
+    expect(honks).toBe(1);
+    // She steps out of the road; he carries on and gets home.
+    for (let i = 0; s.activity === 'driving' && i < 20000; i++) tickScott(s, ctx(500 + i * 0.05, [{ x: 5, y: 5 }]));
+    expect(s.activity).not.toBe('driving');
+    expect(truck).toMatchObject({ x: TRUCK_PARK.x, y: TRUCK_PARK.y });
+  });
+});
