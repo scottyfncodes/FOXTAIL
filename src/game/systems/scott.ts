@@ -1,17 +1,17 @@
 import { hasGrown } from './collection';
-import type { CatState, Facing, GameState, PlayerState, ScottActivity, ScottState, ScoutState } from '../state';
-import { DRIVE_ROUTE, SCOTT_SPOTS, SCOTT_TRUCK_FACING, SCOTT_TRUCK_PARK, VISIT_KINDS, findScottSpot, type ScottSpot, type ScottSpotKind } from '../data/scottSpots';
+import type { CatState, GameState, PlayerState, ScottActivity, ScottState, ScoutState, TruckState } from '../state';
+import { DRIVE_LOOP, SCOTT_SPOTS, VISIT_KINDS, findScottSpot, type ScottSpot, type ScottSpotKind } from '../data/scottSpots';
 import { catLift } from './cat';
 import { interiorWaypoint } from '../data/interior';
 import { spotPosition, type AnchorOffset } from '../data/catSpots';
-import { outdoorWaypoint, zoneAt } from '../data/worldMap';
+import { outdoorWaypoint, TRUCK_KEEPOUT, zoneAt } from '../data/worldMap';
 import type { ZoneId } from '../types';
 
 // Ellen's husband, ambient and independent of the player: he potters
 // between fixed spots on his own clock — tinkering, napping, snacking,
 // practicing his golf swing and putting, fishing the creek, splitting
-// firewood, working on his truck or taking it out for a drive, baking a
-// loaf. Now and then he wanders over to give Ranger a scratch, ruffle
+// firewood, baking a loaf — and, once Ellen's bought the truck, working on
+// it or borrowing it for a drive. Now and then he wanders over to give Ranger a scratch, ruffle
 // Scout's ears, or just say hello to Ellen. Not a companion, not a guide —
 // just someone else who lives here.
 
@@ -64,10 +64,19 @@ export const VISIT_RANGE = 22;
 /** Once they've wandered this far off, he leaves them to it. */
 const VISIT_LEAVE = 2.4;
 
-/** Where his truck is right now, and which way it faces: on the road with him, or parked. */
-export function scottTruck(scott: ScottState): { x: number; y: number; facing: Facing } {
-  if (scott.activity === 'driving') return { x: scott.x, y: scott.y, facing: scott.facing };
-  return { x: SCOTT_TRUCK_PARK.x, y: SCOTT_TRUCK_PARK.y, facing: SCOTT_TRUCK_FACING };
+/**
+ * The truck's spots, once Ellen has one and isn't in it: under its front
+ * bumper with a wrench wherever it's parked, and — when it's parked out in
+ * the meadow, where his drive starts — the driver's door.
+ */
+export function truckSpots(truck: Pick<TruckState, 'x' | 'y' | 'facing'> | null | undefined): ScottSpot[] {
+  if (!truck) return [];
+  const side = truck.facing === 'left' || truck.facing === 'right';
+  const ahead = truck.facing === 'left' ? -1 : 1;
+  const bumper = side ? { x: truck.x + ahead * 1.6, y: truck.y + 0.1 } : { x: truck.x + 0.95, y: truck.y + 0.1 };
+  const out: ScottSpot[] = [{ id: 'truck-fixing', kind: 'wrench', zone: zoneAt(bumper.x, bumper.y), x: bumper.x, y: bumper.y, face: side ? (ahead < 0 ? 'right' : 'left') : 'left' }];
+  if (zoneAt(truck.x, truck.y) === 'meadow') out.push({ id: 'truck-drive', kind: 'drive', zone: 'meadow', x: truck.x, y: truck.y + 0.7 });
+  return out;
 }
 
 /**
@@ -106,8 +115,10 @@ export interface ScottTickContext {
   rand: () => number;
   /** How far the living-room furniture has been moved, so the couch and the mat take him with them. */
   offset?: AnchorOffset;
-  /** Places he might go this evening that aren't on his usual round: the regions Ellen has named. */
+  /** Places he might go that aren't on his usual round: the regions Ellen has named, the truck, his family. */
   extraSpots?: ScottSpot[];
+  /** Ellen's truck, when she has one and isn't driving it: what he borrows for a drive. */
+  truck?: TruckState | null;
 }
 
 export function tickScott(scott: ScottState, ctx: ScottTickContext): ScottEvent | null {
@@ -161,7 +172,7 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): ScottEvent 
     // Data changed under him (or a save from an older spot list), or whoever
     // he was off to see has gone indoors — settle wherever he is rather than
     // getting stuck chasing a spot that's gone.
-    const visiting = scott.targetSpotId.startsWith('visit-');
+    const visiting = scott.targetSpotId.startsWith('visit-') || scott.targetSpotId.startsWith('truck-');
     scott.activity = visiting ? 'relaxing' : 'tinkering';
     scott.currentSpotId = null;
     scott.nextChangeAt = ctx.now + (visiting ? 1 : 10);
@@ -187,10 +198,18 @@ export function tickScott(scott: ScottState, ctx: ScottTickContext): ScottEvent 
   // the couch he's facing the TV, back to the room.
   scott.facing = spot.face ?? (spot.kind === 'putt' ? 'right' : spot.kind === 'tv' || spot.kind === 'drink' ? 'up' : 'down');
   if (spot.kind === 'drive') {
-    // Into the cab and away.
-    scott.x = SCOTT_TRUCK_PARK.x;
-    scott.y = SCOTT_TRUCK_PARK.y;
-    scott.facing = SCOTT_TRUCK_FACING;
+    const t = ctx.truck;
+    if (!t) {
+      // She's taken it (or it's gone): never mind.
+      scott.activity = 'relaxing';
+      scott.nextChangeAt = ctx.now + 1;
+      return null;
+    }
+    // Into the cab and away, remembering where she'd left it.
+    scott.driveHome = { x: t.x, y: t.y, facing: t.facing };
+    scott.x = t.x;
+    scott.y = t.y;
+    scott.facing = t.facing;
     scott.driveLeg = 0;
   }
   return null;
@@ -212,28 +231,42 @@ function stepToward(scott: ScottState, wp: { x: number; y: number }, maxStep: nu
   return wd - step;
 }
 
-/** One stretch of the drive: on along the loop, and out of the cab once he's home. */
+/** One stretch of the drive: on round the loop, then home to where the truck was parked, and out of the cab. */
 function drive(scott: ScottState, ctx: ScottTickContext): void {
-  let leg = scott.driveLeg ?? 0;
-  let budget = DRIVE_SPEED * ctx.dtSeconds;
-  while (leg < DRIVE_ROUTE.length && budget > 0) {
-    const wp = DRIVE_ROUTE[leg];
-    const before = Math.hypot(wp.x - scott.x, wp.y - scott.y);
-    const left = stepToward(scott, wp, budget);
-    budget -= before - left;
-    if (left > 0.01) break;
-    leg++;
+  const t = ctx.truck;
+  const home = scott.driveHome;
+  if (t && home) {
+    const route = [...DRIVE_LOOP, home];
+    let leg = scott.driveLeg ?? 0;
+    let budget = DRIVE_SPEED * ctx.dtSeconds;
+    while (leg < route.length && budget > 0) {
+      const target = route[leg];
+      // Round the house and greenhouse, never up over them.
+      const wp = outdoorWaypoint(scott.x, scott.y, target.x, target.y, TRUCK_KEEPOUT);
+      const before = Math.hypot(wp.x - scott.x, wp.y - scott.y);
+      const left = stepToward(scott, wp, budget);
+      budget -= before - left;
+      if (left > 0.01) break;
+      if (wp.x === target.x && wp.y === target.y) leg++;
+    }
+    scott.driveLeg = leg;
+    t.x = scott.x;
+    t.y = scott.y;
+    t.facing = scott.facing;
+    if (leg < route.length) return;
+    t.facing = home.facing;
   }
-  scott.driveLeg = leg;
-  if (leg < DRIVE_ROUTE.length) return;
-  // Parked: he climbs out by the driver's door, and he's done.
-  const door = findScottSpot('truck-drive');
-  scott.x = door?.x ?? SCOTT_TRUCK_PARK.x;
-  scott.y = door?.y ?? SCOTT_TRUCK_PARK.y + 0.7;
+  // Parked (or the truck's gone from under him): he climbs out by the driver's door, and he's done.
+  if (t) {
+    scott.x = t.x;
+    scott.y = t.y + 0.7;
+  }
   scott.facing = 'down';
   scott.activity = 'relaxing';
+  scott.currentSpotId = null;
   scott.nextChangeAt = Math.min(scott.nextChangeAt, ctx.now + 2);
   delete scott.driveLeg;
+  delete scott.driveHome;
 }
 
 // ---------------------------------------------------------------- the chase

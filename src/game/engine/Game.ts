@@ -1,4 +1,4 @@
-import type { GameState, OwnedPlant } from '../state';
+import type { Facing, GameState, OwnedPlant } from '../state';
 import { makeUid } from '../state';
 import { loadOrCreate, saveGame, resetGame } from './SaveManager';
 import { advanceClock } from './Clock';
@@ -51,7 +51,7 @@ import { ZONES } from '../data/zones';
 import type { OutdoorZoneId, ZoneId } from '../types';
 import { tickFox } from '../systems/fox';
 import { tickScout } from '../systems/scout';
-import { tickScott, tickChase, newChase, companySpots, scottTruck } from '../systems/scott';
+import { tickScott, tickChase, newChase, companySpots, truckSpots } from '../systems/scott';
 import { tickCat } from '../systems/cat';
 import { spotContent, collectSpot } from '../systems/spots';
 import { advanceWorld, canPlantAt, computeLushness, type LushField } from '../systems/wild';
@@ -81,7 +81,7 @@ import { catAvoids } from '../systems/cat';
 import { minuteOfDay } from './Clock';
 import { pickUpDecor, nearestDecor, moveDecor, decorFits, isGardenPlanter } from '../systems/decor';
 import { stallRect } from '../systems/yard';
-import { boardTruck, parkTruck, deliverTruck, truckCovers, loadTruck, unloadTruck, takeOut, TRUCK_SPEED, TRUCK_BED_CAP } from '../systems/truck';
+import { boardTruck, parkTruck, deliverTruck, truckCovers, truckHitsBuilding, scottDriving, loadTruck, unloadTruck, takeOut, TRUCK_SPEED, TRUCK_BED_CAP } from '../systems/truck';
 import { basketCapacity } from '../systems/basket';
 
 export type InteractableKind =
@@ -578,15 +578,19 @@ export class Game {
       const speed = MOVE_SPEED * (riding ? TRUCK_SPEED : this.groundSpeed());
       const dx = move.x * speed * dtSeconds;
       const dy = move.y * speed * dtSeconds;
-      const blocked = this.state.player.inGreenhouse ? (x: number, y: number) => isBlockedIndoor(x, y, this.indoorSolid) : (x: number, y: number) => this.blockedOutdoor(x, y);
-      const next = tryMove(this.state.player.x, this.state.player.y, dx, dy, blocked);
-      this.state.player.x = next.x;
-      this.state.player.y = next.y;
-      if (Math.abs(move.x) > Math.abs(move.y)) {
-        this.state.player.facing = move.x > 0 ? 'right' : 'left';
-      } else if (move.y !== 0) {
-        this.state.player.facing = move.y > 0 ? 'down' : 'up';
-      }
+      const p = this.state.player;
+      const want: Facing = Math.abs(move.x) > Math.abs(move.y) ? (move.x > 0 ? 'right' : 'left') : move.y > 0 ? 'down' : 'up';
+      // Driving, the whole truck keeps off the greenhouse, the house and the stall —
+      // it can't even turn where its nose would swing up over them.
+      const buildings = [stallRect(this.state)];
+      const facing = riding && truckHitsBuilding(p.x, p.y, want, buildings) && !truckHitsBuilding(p.x, p.y, p.facing, buildings) ? p.facing : want;
+      const stuckIn = riding && truckHitsBuilding(p.x, p.y, facing, buildings);
+      const truckBlocked = (x: number, y: number) => riding && !stuckIn && truckHitsBuilding(x, y, facing, buildings);
+      const blocked = p.inGreenhouse ? (x: number, y: number) => isBlockedIndoor(x, y, this.indoorSolid) : (x: number, y: number) => this.blockedOutdoor(x, y) || truckBlocked(x, y);
+      const next = tryMove(p.x, p.y, dx, dy, blocked);
+      p.x = next.x;
+      p.y = next.y;
+      p.facing = facing;
       if (riding && this.state.truck) {
         this.state.truck.x = this.state.player.x;
         this.state.truck.y = this.state.player.y;
@@ -690,8 +694,10 @@ export class Game {
       if (this.tools.active) this.tools.cancel();
     }
     if (!kissing && !this.chase.kiss) {
-      const extraSpots = [...eveningStroll(this.state, minuteOfDay(this.state.clock.totalMinutes)), ...companySpots(this.state)];
-      const event = tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset, extraSpots });
+      // The truck is Ellen's: he only gets his hands on it once she's bought it, and not while she's in it.
+      const truck = this.state.player.riding ? null : this.state.truck;
+      const extraSpots = [...eveningStroll(this.state, minuteOfDay(this.state.clock.totalMinutes)), ...companySpots(this.state), ...truckSpots(truck)];
+      const event = tickScott(this.state.scott, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, offset: this.fixtureOffset, extraSpots, truck });
       if (event === 'baked' && this.state.player.inGreenhouse) this.pushToast('Scott’s taken a loaf out of the oven. The whole house smells of warm bread.', 'info');
     }
     this.catInterestAcc += dtMs;
@@ -1006,7 +1012,7 @@ export class Game {
         consider({ kind: 'houseDoor', id: 'house', x: HOUSE_DOOR.x, y: HOUSE_DOOR.y, label: 'Go inside — home', available: true }, HOUSE_DOOR.x + 0.5, HOUSE_DOOR.y + 0.5);
       }
       const truck = this.state.truck;
-      if (truck && !this.riding()) {
+      if (truck && !this.riding() && !scottDriving(this.state)) {
         const n = truck.bed.length;
         consider({ kind: 'truck', id: 'truck', x: truck.x, y: truck.y, label: `Get in the truck${n ? ` · ${n} in the back` : ''}`, available: true }, truck.x, truck.y - 0.3, 1.7);
       }
@@ -1518,9 +1524,7 @@ export class Game {
   private blockedOutdoor(x: number, y: number): boolean {
     if (isBlockedOutdoor(x, y, this.blockingSet, stallRect(this.state))) return true;
     const t = this.state.truck;
-    if (t && !this.state.player.riding && truckCovers(t, x, y)) return true;
-    // Scott's own truck, when it's parked.
-    return this.state.scott.activity !== 'driving' && truckCovers(scottTruck(this.state.scott), x, y);
+    return !!t && !this.state.player.riding && !scottDriving(this.state) && truckCovers(t, x, y);
   }
 
   /** Whether she could stand here: open ground, nothing in the way. */
@@ -1532,6 +1536,10 @@ export class Game {
   /** Climbs into the truck. */
   boardTruck() {
     if (!this.state.truck || this.riding() || this.state.player.inGreenhouse) return;
+    if (scottDriving(this.state)) {
+      this.pushToast('Scott’s borrowed the truck for a drive. He’ll have it back where you left it.', 'info');
+      return;
+    }
     if (this.tools.active) this.tools.cancel();
     this.carryingDecorId = null;
     if (!boardTruck(this.state)) return;

@@ -133,13 +133,16 @@ grow in patches all over it.
 - **Drive.** The stall's dearest item is a mini truck, delivered to the lane
   by the house. Walk up and get in: it goes twice as fast as walking, thickets
   don't slow it, and a dozen more plants ride in the back once your basket is
-  full. Park beside the stall to sell the whole load, or by the greenhouse
+  full. Its whole body keeps off the greenhouse, the house and the stall. Park beside the stall to sell the whole load, or by the greenhouse
   door to pot straight from the bed. Press E with nothing else in reach, or
   tap 🚚, to get out.
 - **Scott.** Jack of all trades, master of a few. When he's not golfing
-  he fishes the creek, splits firewood at the woodpile in the woods, works
-  on his old red pickup parked past the house, and takes it out for a
-  drive round the meadow (headlights on after dark). Now and then he
+  he fishes the creek, splits firewood at the woodpile in the woods, and
+  bakes. Once Ellen has bought the truck, they share it: he works on it
+  wherever she left it, and when it's parked in the meadow he borrows it
+  for a drive (headlights on after dark), going round the house and
+  greenhouse, and parks it back where it was. While he's out in it, she
+  can't get in. Now and then he
   wanders over to give Ranger a scratch, make a fuss of Scout, or just
   wave hello to Ellen.
 - **Name what you made.** Once a region has changed enough under your

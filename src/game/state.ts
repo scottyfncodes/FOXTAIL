@@ -290,8 +290,10 @@ export interface ScottState {
   nextChangeAt: number;
   /** Jogging back to work after being caught (and kissed). */
   hurrying?: boolean;
-  /** Out for a drive in his truck: which leg of the loop he's on. */
+  /** Out for a drive in Ellen's truck: which leg of the loop he's on. */
   driveLeg?: number;
+  /** Where the truck was parked when he took it, so he can put it back. */
+  driveHome?: { x: number; y: number; facing: Facing };
   /** Game-minute until which his last loaf sits cooling on the coffee table. */
   loafUntil?: number;
 }
