@@ -347,6 +347,8 @@ export interface GameState {
   coins: number;
   /** One-off shop purchases. */
   owned: string[];
+  /** Repeatable shop items bought at least once (one-offs live in `owned`): what opens up the next step in the market. */
+  bought: string[];
   /** How many of each price-escalating repeatable item have been bought. */
   purchases: Record<string, number>;
   /** Shop items the player has already looked at; anything else shows NEW. */
@@ -420,6 +422,7 @@ export function createNewGame(): GameState {
     weather: { condition: 'clear', nextChangeAt: 8 * 60 + 360 },
     coins: 20,
     owned: [],
+    bought: [],
     purchases: {},
     // Everything on sale from the start counts as seen: NEW is for what
     // unlocks later, not the whole catalogue on day one.

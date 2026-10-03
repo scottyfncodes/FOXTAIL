@@ -167,15 +167,37 @@ export function pondPrice(state: Pick<GameState, 'purchases'>, w: number, h: num
   return Math.round(pondBasePrice(size.w, size.h) * Math.pow(growth, state.purchases?.gardenPond ?? 0));
 }
 
-/** Whether the market offers this item yet: unlocked by its prerequisite, or already owned. */
-export function shopItemVisible(state: Pick<GameState, 'owned'>, itemId: string): boolean {
+type BoughtState = Pick<GameState, 'owned'> & Partial<Pick<GameState, 'bought' | 'decorStock' | 'furnitureStock' | 'decor' | 'furniture' | 'koi' | 'purchases'>>;
+
+/**
+ * Whether this has ever been bought: a one-off owned, or a repeatable bought
+ * at least once — or, for a save from before that was noted, anything of it
+ * already about the place.
+ */
+export function hasBought(state: BoughtState, itemId: string): boolean {
+  if (state.owned.includes(itemId) || (state.bought ?? []).includes(itemId)) return true;
+  const item = findShopItem(itemId);
+  if (!item?.repeatable) return false;
+  const target = item.stock ?? itemId;
+  if (itemId === 'koi') return (state.koi?.length ?? 0) > 0;
+  return (
+    ((state.decorStock as Record<string, number> | undefined)?.[target] ?? 0) > 0 ||
+    ((state.furnitureStock as Record<string, number> | undefined)?.[target] ?? 0) > 0 ||
+    (state.decor ?? []).some((d) => d.decorId === target) ||
+    (state.furniture ?? []).some((f) => f.kind === target && f.id.startsWith('furniture')) ||
+    (state.purchases?.[item.priceKey ?? itemId] ?? 0) > 0
+  );
+}
+
+/** Whether the market offers this item yet: the one before it in its line bought, or already bought itself. */
+export function shopItemVisible(state: BoughtState, itemId: string): boolean {
   const item = findShopItem(itemId);
   if (!item) return false;
-  return !item.after || state.owned.includes(item.after) || state.owned.includes(item.id);
+  return !item.after || hasBought(state, item.after) || hasBought(state, item.id);
 }
 
 /** A shop item the player hasn't looked at yet. */
-export function isShopItemNew(state: Pick<GameState, 'owned' | 'seenShop'>, itemId: string): boolean {
+export function isShopItemNew(state: BoughtState & Pick<GameState, 'seenShop'>, itemId: string): boolean {
   return shopItemVisible(state, itemId) && !state.seenShop.includes(itemId);
 }
 
@@ -201,7 +223,7 @@ export function buyBlockReason(state: GameState, itemId: string, opts: BuyOption
   const item = findShopItem(itemId);
   if (!item) return 'locked';
   if (!item.repeatable && state.owned.includes(itemId)) return 'owned';
-  if (item.after && !state.owned.includes(item.after)) return 'locked';
+  if (!shopItemVisible(state, itemId)) return 'locked';
   if (state.coins < priceFor(state, itemId, opts)) return 'coins';
   return null;
 }
@@ -213,6 +235,7 @@ export function buyItem(state: GameState, itemId: string, opts: BuyOptions = {})
   const units = item.pack ?? 1;
   if (item.priceGrowth) state.purchases[item.priceKey ?? itemId] = (state.purchases[item.priceKey ?? itemId] ?? 0) + units;
   markShopSeen(state, [itemId]);
+  if (item.repeatable && !state.bought.includes(itemId)) state.bought.push(itemId);
   const target = item.stock ?? itemId;
   if (itemId === 'koi') {
     state.koi.push(newKoi());

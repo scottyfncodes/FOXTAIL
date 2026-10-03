@@ -14,6 +14,13 @@ import { checkPlanting } from '../src/game/systems/landscape';
 import { MarketPanel } from '../src/ui/MarketPanel';
 import type { Game } from '../src/game/engine/Game';
 
+/** A game with every line in the market opened up to its end, so pond and koi tests can buy straight away. */
+function unlocked() {
+  const state = createNewGame();
+  state.bought.push(...SHOP_ITEMS.filter((i) => i.repeatable).map((i) => i.id));
+  return state;
+}
+
 /** A canvas context that records what's drawn, for checking art without a real canvas. */
 function recorder() {
   const calls: { fn: string; args: unknown[] }[] = [];
@@ -87,7 +94,7 @@ describe('cuttings', () => {
     }
     // Commons still take more than nine times in ten.
     expect(CUTTING_FAIL.common).toBeLessThan(0.1);
-    const state = createNewGame();
+    const state = unlocked();
     const p = { defId: 'pothos', variantId: 'golden' };
     expect(cuttingFailChance(state, p)).toBe(CUTTING_FAIL.common);
     state.owned.push('rootingKit');
@@ -97,7 +104,7 @@ describe('cuttings', () => {
 
 describe('ponds dug to size', () => {
   it('price by area: bigger always costs more, the original size still costs 3000, and nothing is free', () => {
-    const state = createNewGame();
+    const state = unlocked();
     expect(pondPrice(state, POND_DEFAULT.w, POND_DEFAULT.h)).toBe(3000);
     expect(itemPrice(state, 'gardenPond')).toBe(3000);
     const small = pondPrice(state, POND_MIN.w, POND_MIN.h);
@@ -127,7 +134,7 @@ describe('ponds dug to size', () => {
   });
 
   it('are bought at the chosen size, dug at that size, and keep it when picked up', () => {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1e6;
     expect(buyItem(state, 'gardenPond', { pond: { w: 4, h: 3 } })).toBe(true);
     expect(state.coins).toBe(1e6 - pondBasePrice(4, 3));
@@ -183,7 +190,7 @@ describe('koi in the creek', () => {
 
 describe('koi in ponds', () => {
   function withPond(w: number, h: number): { state: GameState; pondId: string } {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1e6;
     // The original size is bought as-is (it predates the size steps).
     buyItem(state, 'gardenPond', w === POND_DEFAULT.w && h === POND_DEFAULT.h ? {} : { pond: { w, h } });
@@ -255,7 +262,7 @@ describe('koi in ponds', () => {
 
 describe('selling back to the market', () => {
   it('pays half the list price for anything in stock, always less than it cost', () => {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1e6;
     const spent: Record<string, number> = {};
     for (const item of SHOP_ITEMS.filter((s) => s.repeatable)) {
@@ -276,7 +283,7 @@ describe('selling back to the market', () => {
   });
 
   it('only sells what the player actually has: nothing placed, nothing bought as an upgrade, nothing twice', () => {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1000;
     expect(sellBack(state, 'decor', 'gardenBench')).toBeNull();
     expect(sellBack(state, 'koi', 'nope')).toBeNull();
@@ -294,7 +301,7 @@ describe('selling back to the market', () => {
   });
 
   it('a koi in a pond can’t be sold until it is netted out', () => {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1e6;
     buyItem(state, 'gardenPond');
     const pond = placeDecor(state, 'gardenPond', 50, 30)!;
@@ -308,7 +315,7 @@ describe('selling back to the market', () => {
   });
 
   it('sells a pond in stock at half its own size’s list price', () => {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1e6;
     buyItem(state, 'gardenPond', { pond: { w: 5, h: 4 } });
     buyItem(state, 'gardenPond', { pond: { w: 1.5, h: 1 } });
@@ -321,7 +328,7 @@ describe('selling back to the market', () => {
   });
 
   it('no buy-and-sell-back loop makes money: every round trip loses coins', () => {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1e7;
     for (let round = 0; round < 5; round++) {
       for (const item of SHOP_ITEMS.filter((s) => s.repeatable)) {
@@ -343,7 +350,7 @@ describe('the market UI', () => {
     document.body.innerHTML = '';
   });
 
-  function setup(state = createNewGame()) {
+  function setup(state = unlocked()) {
     const game = {
       state,
       buy: (id: string, opts?: Parameters<typeof buyItem>[2]) => buyItem(state, id, opts),
@@ -357,7 +364,7 @@ describe('the market UI', () => {
   }
 
   it('shows the resale value first, and only sells on a second, confirming press', () => {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1000;
     buyItem(state, 'gardenLantern');
     const { body, tab } = setup(state);
@@ -377,7 +384,7 @@ describe('the market UI', () => {
   });
 
   it('offers one double nursery bed and no single or one-off pair, and lets the pond be sized before buying', () => {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1e6;
     const { body, tab } = setup(state);
     tab('shop');
@@ -421,7 +428,7 @@ describe('the Plant Market sign', () => {
 
 describe('saves', () => {
   it('older saves load with nothing lost: no koi, no pond sizes, ponds and beds as they were', () => {
-    const raw = createNewGame() as unknown as Record<string, unknown>;
+    const raw = unlocked() as unknown as Record<string, unknown>;
     delete raw.koi;
     delete raw.pondStock;
     raw.decor = [{ id: 'p1', decorId: 'gardenPond', x: 50, y: 30 }];
@@ -448,7 +455,7 @@ describe('saves', () => {
   });
 
   it('koi, sized ponds and the koi in them round-trip', () => {
-    const state = createNewGame();
+    const state = unlocked();
     state.coins = 1e6;
     buyItem(state, 'gardenPond', { pond: { w: 3, h: 2 } });
     buyItem(state, 'gardenPond', { pond: { w: 4, h: 4 } });

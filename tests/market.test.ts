@@ -60,6 +60,7 @@ describe('Plant Stand & Supply', () => {
   it('garden decor is bought by the piece, placed, and can be picked up again', () => {
     const state = createNewGame();
     state.coins = 1000;
+    state.bought.push('gardenLantern', 'birdbath');
     buyItem(state, 'gardenBench');
     buyItem(state, 'gardenBench');
     expect(state.decorStock.gardenBench).toBe(2);
@@ -116,6 +117,7 @@ describe('moving garden pieces', () => {
   it('sells a garden trellis as a repeatable piece of decor', () => {
     const state = createNewGame();
     state.coins = 200;
+    state.bought.push('steppingStones', 'picketFence');
     expect(buyItem(state, 'gardenTrellis')).toBe(true);
     expect(buyItem(state, 'gardenTrellis')).toBe(true);
     expect(state.decorStock.gardenTrellis).toBe(2);

@@ -24,7 +24,9 @@ describe('market Buy tab', () => {
     const subheads = Array.from(body.querySelectorAll('.shop-subhead')).map((h) => h.textContent);
     expect(subheads).toEqual(['🌱Production', '🏡Space', '🪴Display']);
     const production = Array.from(body.querySelectorAll('.shop-row.purpose-production .entry-name')).map((n) => n.textContent);
-    expect(production).toEqual(expect.arrayContaining(['Double Nursery Bed', 'Grow Lights', 'Grow Lamp']));
+    expect(production).toEqual(expect.arrayContaining(['Double Nursery Bed', 'Grow Lights']));
+    // The grow lamp waits until the grow lights are in.
+    expect(production).not.toContain('Grow Lamp');
     expect(production).not.toContain('Nursery Bed');
     expect(production).not.toContain('Extra Nursery Beds');
     for (const row of Array.from(body.querySelectorAll('.shop-row[class*="purpose-"]'))) {
@@ -38,19 +40,37 @@ describe('market Buy tab', () => {
     expect(heads).toEqual(['Greenhouse', 'Pots', 'Garden', 'Equipment', 'Market Stall']);
   });
 
-  it('shows the escalating nursery bed price and owned state on one-offs', () => {
+  it('shows the escalating nursery bed price, and folds a one-off away once it’s yours', () => {
     const { state, market, body } = setup();
     state.coins = 10_000;
     market.refresh();
-    const bedRow = () => Array.from(body.querySelectorAll('.shop-row')).find((r) => r.querySelector('.entry-name')!.textContent!.startsWith('Double Nursery Bed'))!;
-    expect(bedRow().querySelector('button')!.textContent).toBe('113 coins');
-    (bedRow().querySelector('button') as HTMLButtonElement).click();
-    expect(bedRow().querySelector('button')!.textContent).toBe('253 coins');
-    const shelf = Array.from(body.querySelectorAll('.shop-row')).find((r) => r.querySelector('.entry-name')!.textContent === 'Wall Shelf')!;
-    (shelf.querySelector('button') as HTMLButtonElement).click();
-    const shelfAfter = Array.from(body.querySelectorAll('.shop-row')).find((r) => r.querySelector('.entry-name')!.textContent!.startsWith('Wall Shelf'))!;
-    expect(shelfAfter.querySelector('button')!.textContent).toBe('Owned ✓');
-    expect((shelfAfter.querySelector('button') as HTMLButtonElement).disabled).toBe(true);
+    const row = (name: string) => Array.from(body.querySelectorAll('.shop-row')).find((r) => r.querySelector('.entry-name')!.textContent!.startsWith(name));
+    expect(row('Double Nursery Bed')!.querySelector('button')!.textContent).toBe('113 coins');
+    (row('Double Nursery Bed')!.querySelector('button') as HTMLButtonElement).click();
+    expect(row('Double Nursery Bed')!.querySelector('button')!.textContent).toBe('253 coins');
+    // The wall shelf only comes in once the hook rail is bought…
+    expect(row('Wall Shelf')).toBeUndefined();
+    (row('Hanging Hook Rail')!.querySelector('button') as HTMLButtonElement).click();
+    // …and the rail, once bought, folds into a single line rather than a row.
+    expect(row('Hanging Hook Rail')).toBeUndefined();
+    expect(Array.from(body.querySelectorAll('.shop-owned')).some((n) => n.textContent!.includes('Hanging Hook Rail'))).toBe(true);
+    expect(row('Wall Shelf')!.querySelector('.new-tag')).toBeTruthy();
+    market.panel.close();
+  });
+
+  it('opens each line one step at a time: the pots come in one after another', () => {
+    const { state, market, body } = setup();
+    state.coins = 10_000;
+    market.refresh();
+    const potRows = () => Array.from(body.querySelectorAll('.shop-row')).map((r) => r.querySelector('.entry-name')!.textContent!).filter((n) => /Pots|Stoneware|Baskets|Copper|Porcelain|Urns|Stars/.test(n));
+    expect(potRows()).toEqual([expect.stringContaining('Teal Glazed Pots')]);
+    const buy = (name: string) => (Array.from(body.querySelectorAll('.shop-row')).find((r) => r.querySelector('.entry-name')!.textContent!.startsWith(name))!.querySelector('button') as HTMLButtonElement).click();
+    buy('Teal Glazed Pots');
+    expect(potRows()).toEqual([expect.stringContaining('Speckled Stoneware')]);
+    buy('Speckled Stoneware');
+    expect(potRows()).toEqual([expect.stringContaining('Woven Baskets')]);
+    // What's still to come is counted, not listed.
+    expect(Array.from(body.querySelectorAll('.shop-later')).some((n) => /4 more things come in/.test(n.textContent!))).toBe(true);
     market.panel.close();
   });
 
