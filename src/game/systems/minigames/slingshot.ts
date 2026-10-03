@@ -12,7 +12,7 @@
 export const GRAVITY = 6;
 export const MAX_SPEED = 13.5;
 export const MIN_SPEED = 3;
-export const CONE_R = 0.075;
+export const CONE_R = 0.07;
 /** Where the pouch rests, between the fork's prongs: the launch point. */
 export const POUCH = { x: 0.3, y: 1.25 };
 const GROUND_BOUNCE = 0.32;
@@ -50,15 +50,15 @@ export interface Round {
   cones: number;
 }
 
-const disc = (x: number, y: number): TargetDef => ({ kind: 'disc', x, y, r: 0.24, points: 1 });
-const small = (x: number, y: number): TargetDef => ({ kind: 'small', x, y, r: 0.16, points: 2 });
-const windmill = (x: number, y: number): TargetDef => ({ kind: 'windmill', x, y, r: 0.2, points: 1 });
-const duck = (x: number, y: number, dx: number, period: number, phase = 0): TargetDef => ({ kind: 'duck', x, y, r: 0.22, points: 2, slide: { dx, period, phase } });
+const disc = (x: number, y: number): TargetDef => ({ kind: 'disc', x, y, r: 0.22, points: 1 });
+const small = (x: number, y: number): TargetDef => ({ kind: 'small', x, y, r: 0.14, points: 2 });
+const windmill = (x: number, y: number): TargetDef => ({ kind: 'windmill', x, y, r: 0.18, points: 1 });
+const duck = (x: number, y: number, dx: number, period: number, phase = 0): TargetDef => ({ kind: 'duck', x, y, r: 0.2, points: 2, slide: { dx, period, phase } });
 const swing = (x: number, y: number, len: number, amp: number, period: number, phase = 0): TargetDef => ({
   kind: 'swing',
   x,
   y,
-  r: 0.2,
+  r: 0.18,
   points: 2,
   swing: { len, amp, period, phase },
 });
@@ -67,15 +67,16 @@ const swing = (x: number, y: number, len: number, amp: number, period: number, p
 export const ROUNDS: Round[] = [
   { name: 'Three on posts', targets: [disc(2.9, 1.0), disc(4.0, 1.3), disc(5.1, 1.65)], cones: 5 },
   { name: 'Smaller and further', targets: [disc(3.3, 1.05), small(4.2, 1.75), windmill(5.0, 1.25), small(5.8, 1.95)], cones: 6 },
-  { name: 'On the move', targets: [disc(3.0, 0.75), duck(4.3, 0.95, 0.75, 4.2), swing(5.5, 3.3, 1.7, 0.42, 3.0)], cones: 5 },
+  { name: 'On the move', targets: [disc(3.0, 0.75), duck(4.3, 0.95, 0.75, 4.2), swing(5.3, 3.3, 1.7, 0.42, 3.0)], cones: 5 },
   {
     name: 'All sorts',
-    targets: [small(2.8, 0.7), duck(4.1, 0.85, 0.65, 3.4, 0.3), small(5.5, 1.0), swing(5.0, 3.3, 1.75, 0.5, 2.7, 0.5), windmill(6.0, 2.2)],
+    targets: [small(2.8, 0.7), duck(4.1, 0.85, 0.65, 3.4, 0.3), small(5.5, 1.0), swing(5.0, 3.3, 1.75, 0.5, 2.7, 0.5), windmill(5.85, 2.2)],
     cones: 7,
   },
 ];
 
-export const MAX_SCORE = ROUNDS.reduce((s, r) => s + r.targets.reduce((a, t) => a + t.points, 0) + (r.cones - r.targets.length), 0);
+/** Every target down with one pinecone each, and the spares kept: a clean session. */
+export const CLEAN_SCORE = ROUNDS.reduce((s, r) => s + r.targets.reduce((a, t) => a + t.points, 0) + (r.cones - r.targets.length), 0);
 
 /** Where a target is at time `t` (seconds into the round). */
 export function targetPos(d: TargetDef, t: number): { x: number; y: number; angle: number } {
@@ -100,9 +101,14 @@ export interface Rect {
   y1: number;
 }
 
+const solidCache = new WeakMap<Round, Rect[]>();
+
 /** Posts and rails a pinecone can bounce off: they stay put whether the target's up or down. */
 export function solids(round: Round): Rect[] {
+  const known = solidCache.get(round);
+  if (known) return known;
   const out: Rect[] = [];
+  solidCache.set(round, out);
   for (const d of round.targets) {
     if (d.kind === 'disc' || d.kind === 'small' || d.kind === 'windmill') {
       out.push({ x0: d.x - 0.05, y0: 0, x1: d.x + 0.05, y1: d.y - d.r * 0.9 });

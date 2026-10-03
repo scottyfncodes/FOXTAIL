@@ -1,5 +1,6 @@
 import type { Game } from '../../game/engine/Game';
 import { MiniGamePanel } from '../MiniGamePanel';
+import { scoreText } from '../../game/systems/minigames';
 import type { CanvasPoint } from '../CanvasGamePanel';
 import { SCOTT_APPEARANCE, SCOUT_APPEARANCE } from '../../game/data/character';
 import { PLANTS } from '../../game/data/plants';
@@ -138,7 +139,7 @@ export class GardenMazePanel extends MiniGamePanel {
     const s = Math.floor(this.clock);
     this.shownSecond = s;
     const clock = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    this.setCard(`Maze ${this.mazeIndex + 1}/${SESSION_MAZES} · ${clock}`, `${this.total} ${this.def.unit}`);
+    this.setCard(`Maze ${this.mazeIndex + 1}/${SESSION_MAZES} · ${clock}`, scoreText(this.def, this.total));
   }
 
   // ------------------------------------------------------------ precomputed hedges

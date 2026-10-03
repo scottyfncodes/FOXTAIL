@@ -1,5 +1,6 @@
 import type { Game } from '../../game/engine/Game';
 import { MiniGamePanel } from '../MiniGamePanel';
+import { scoreText } from '../../game/systems/minigames';
 import type { CanvasPoint } from '../CanvasGamePanel';
 import { SCOTT_APPEARANCE, SCOUT_APPEARANCE } from '../../game/data/character';
 import { mulberry32 } from '../../game/engine/Random';
@@ -101,7 +102,7 @@ export class StickFetchPanel extends MiniGamePanel {
   private refresh() {
     const g = this.g;
     const n = Math.min(g.n + 1, THROWS);
-    this.setCard(`Throw ${n} of ${THROWS}`, `${g.total} ${this.def.unit}`);
+    this.setCard(`Throw ${n} of ${THROWS}`, scoreText(this.def, g.total));
     if (g.phase === 'aim') {
       this.setStatus(
         g.n === 0

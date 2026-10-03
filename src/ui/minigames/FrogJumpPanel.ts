@@ -1,6 +1,7 @@
 import type { Game } from '../../game/engine/Game';
 import type { CanvasPoint } from '../CanvasGamePanel';
 import { MiniGamePanel } from '../MiniGamePanel';
+import { scoreText } from '../../game/systems/minigames';
 import {
   FAR_EDGE,
   FROG_R,
@@ -84,7 +85,7 @@ export class FrogJumpPanel extends MiniGamePanel {
   private refreshCard() {
     if (this.finished) return;
     const combo = this.run.combo >= 2 ? ` · ${this.run.combo} in a row` : '';
-    this.setCard(`Stretch ${this.run.stage + 1}/${STAGES.length}${combo}`, `${this.run.score} ${this.def.unit}`);
+    this.setCard(`Stretch ${this.run.stage + 1}/${STAGES.length}${combo}`, scoreText(this.def, this.run.score));
   }
 
   // ------------------------------------------------------------ layout & mapping

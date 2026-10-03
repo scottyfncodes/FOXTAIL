@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MINI_GAMES, MINI_GAME_REWARD, findMiniGame, miniGameLabel, recordMiniGame } from '../src/game/systems/minigames';
+import { MINI_GAMES, MINI_GAME_REWARD, findMiniGame, miniGameLabel, recordMiniGame, scoreText } from '../src/game/systems/minigames';
 import { ACE_REWARD } from '../src/game/systems/putting';
 import { createNewGame, type MiniGameRecord } from '../src/game/state';
 import { migrateSave, saveGame, loadGame } from '../src/game/engine/SaveManager';
@@ -84,6 +84,13 @@ describe('a little game’s record', () => {
     expect(records.frogJump.best).toBe(0);
     expect(records.twigJenga.best).toBe(4);
     expect(records.rockSkip).toBeUndefined();
+  });
+
+  it('counts one of a thing as one, not "1 twigs"', () => {
+    expect(scoreText(findMiniGame('twigJenga')!, 1)).toBe('1 twig');
+    expect(scoreText(findMiniGame('catLaser')!, 1)).toBe('1 pounce');
+    expect(scoreText(findMiniGame('rockSkip')!, 12)).toBe('12 skips');
+    expect(scoreText(findMiniGame('gardenMaze')!, 0)).toBe('0 points');
   });
 
   it('says what the goal pays until it has, then just the best', () => {

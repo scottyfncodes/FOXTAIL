@@ -1,7 +1,7 @@
 import type { Game } from '../game/engine/Game';
 import { button } from './common';
 import { CanvasGamePanel } from './CanvasGamePanel';
-import { MINI_GAME_REWARD, findMiniGame, type MiniGameDef, type MiniGameId } from '../game/systems/minigames';
+import { MINI_GAME_REWARD, findMiniGame, scoreText, type MiniGameDef, type MiniGameId } from '../game/systems/minigames';
 
 // One of the little games around the property. On top of the shared frame
 // it knows its own record: the best score in the corner, a "Play again" or
@@ -55,7 +55,7 @@ export abstract class MiniGamePanel extends CanvasGamePanel {
   protected bestLine(): string {
     const rec = this.game.state.minigames[this.id];
     const parts: string[] = [];
-    if (rec?.best != null) parts.push(`Best ${rec.best} ${this.def.unit}`);
+    if (rec?.best != null) parts.push(`Best ${scoreText(this.def, rec.best)}`);
     if (!rec?.goal) parts.push(`${this.def.goal} ${this.def.unit} earns ${MINI_GAME_REWARD} coins, once`);
     return parts.join(' · ');
   }
@@ -69,9 +69,9 @@ export abstract class MiniGamePanel extends CanvasGamePanel {
     this.finished = true;
     const s = Math.max(0, Math.round(score));
     const res = this.game.finishMiniGame(this.id, s);
-    const sub = res.coins ? `Past ${this.def.goal} for the first time: +${res.coins} coins` : res.first ? 'Your first go.' : res.best ? 'A new best!' : `Best: ${this.best} ${this.def.unit}`;
-    this.banner = { text: `${s} ${this.def.unit}`, sub, until: Infinity };
-    this.setCard(this.def.name, `${s} ${this.def.unit}`);
+    const sub = res.coins ? `Past ${this.def.goal} for the first time: +${res.coins} coins` : res.first ? 'Your first go.' : res.best ? 'A new best!' : `Best: ${scoreText(this.def, this.best ?? 0)}`;
+    this.banner = { text: scoreText(this.def, s), sub, until: Infinity };
+    this.setCard(this.def.name, scoreText(this.def, s));
     this.setStatus(summary);
     this.setActions(button('Play again', () => this.restart()), button('Done', () => this.panel.close(), 'secondary-btn'));
   }

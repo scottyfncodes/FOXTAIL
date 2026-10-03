@@ -1,6 +1,7 @@
 import type { Game } from '../../game/engine/Game';
 import { button } from '../common';
 import { MiniGamePanel } from '../MiniGamePanel';
+import { scoreText } from '../../game/systems/minigames';
 import type { CanvasPoint } from '../CanvasGamePanel';
 import { SCOTT_APPEARANCE } from '../../game/data/character';
 import { mulberry32 } from '../../game/engine/Random';
@@ -108,7 +109,7 @@ export class TwigJengaPanel extends MiniGamePanel {
   }
 
   private refresh() {
-    this.setCard(`Pile ${this.pileIndex + 1}/${SESSION_PILES}`, `${this.total} ${this.def.unit}`);
+    this.setCard(`Pile ${this.pileIndex + 1}/${SESSION_PILES}`, scoreText(this.def, this.total));
     if (this.hint) this.setStatus(this.hint);
     else if (this.pileIndex === 0)
       this.setStatus('Tap a twig to slide it out. A layer stands on its middle twig or both ends; hold a twig first to feel which way the pile would lean.');

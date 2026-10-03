@@ -1,6 +1,7 @@
 import type { Game } from '../../game/engine/Game';
 import type { CanvasPoint } from '../CanvasGamePanel';
 import { MiniGamePanel } from '../MiniGamePanel';
+import { scoreText } from '../../game/systems/minigames';
 import { SCOTT_APPEARANCE } from '../../game/data/character';
 import {
   BANK_BONUS,
@@ -105,7 +106,7 @@ export class RockSkipPanel extends MiniGamePanel {
   private refreshCard() {
     if (this.finished) return;
     const n = Math.min(THROWS, this.throwNo + 1);
-    this.setCard(`Throw ${n}/${THROWS}`, `${this.total} ${this.def.unit}`);
+    this.setCard(`Throw ${n}/${THROWS}`, scoreText(this.def, this.total));
   }
 
   // ------------------------------------------------------------ layout & mapping

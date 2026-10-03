@@ -119,6 +119,11 @@ export const MINI_GAMES: MiniGameDef[] = [
   },
 ];
 
+/** "1 skip", "12 skips": a score with its unit, singular when it's one. */
+export function scoreText(def: Pick<MiniGameDef, 'unit'>, n: number): string {
+  return `${n} ${n === 1 ? def.unit.replace(/es$/, 'e').replace(/s$/, '') : def.unit}`;
+}
+
 export function findMiniGame(id: string): MiniGameDef | undefined {
   return MINI_GAMES.find((g) => g.id === id);
 }
@@ -135,7 +140,7 @@ export function miniGameRecord(records: Record<string, MiniGameRecord>, id: Mini
 export function miniGameLabel(def: MiniGameDef, rec: MiniGameRecord | undefined): string {
   const best = rec?.best ?? null;
   if (best === null) return `${def.prompt} · reach ${def.goal} for ${MINI_GAME_REWARD} coins`;
-  return `${def.prompt} · best ${best} ${def.unit}${rec?.goal ? '' : ` · ${def.goal} pays ${MINI_GAME_REWARD}`}`;
+  return `${def.prompt} · best ${scoreText(def, best)}${rec?.goal ? '' : ` · ${def.goal} pays ${MINI_GAME_REWARD}`}`;
 }
 
 export interface MiniGameResult {
