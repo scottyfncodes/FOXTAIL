@@ -9,17 +9,19 @@
 // as it touches down ("a good touch") is a little flick of luck and
 // technique: it keeps more of its speed and skims flatter.
 
-export const GRAVITY = 9.8;
+export const GRAVITY = 7;
 /** Scott's crouched a little: the stone leaves his hand this high, metres. */
 export const RELEASE_H = 0.6;
 /** The far bank, metres from Scott's hand. A stone that gets there clatters up it. */
-export const FAR_BANK = 30;
+export const FAR_BANK = 28;
 /** The hardest throw, metres a second. */
 export const MAX_SPEED = 15;
 /** Throws in a session. */
 export const THROWS = 5;
 /** What clattering up the far bank is worth, in skips. */
 export const BANK_BONUS = 2;
+/** It has to have skipped its way there: a lob over the water into the reeds earns nothing extra. */
+export const BANK_MIN_SKIPS = 3;
 /** Launch angles (radians) the arm can manage: a little down to fairly steep. */
 export const MIN_ANGLE = (-12 * Math.PI) / 180;
 export const MAX_ANGLE = (55 * Math.PI) / 180;
@@ -58,9 +60,9 @@ export interface StoneDef {
 // round one is heavy and stubborn — few skips but it carries; the chip
 // is a skittish little thing that dances when it's going slow.
 export const STONES: Record<StoneKind, StoneDef> = {
-  flat: { kind: 'flat', name: 'Flat', blurb: 'the best skipper', keep: 0.66, keepGood: 0.85, rest: 0.42, lift: 0.05, crit: 22, minSpeed: 2.6, speed: 1, spinLoss: 0.18 },
-  round: { kind: 'round', name: 'Round', blurb: 'heavy, carries', keep: 0.76, keepGood: 0.89, rest: 0.32, lift: 0.045, crit: 17, minSpeed: 4.4, speed: 1, spinLoss: 0.12 },
-  chip: { kind: 'chip', name: 'Chip', blurb: 'light, skittish', keep: 0.6, keepGood: 0.82, rest: 0.5, lift: 0.06, crit: 26, minSpeed: 1.6, speed: 0.82, spinLoss: 0.25 },
+  flat: { kind: 'flat', name: 'Flat', blurb: 'the best skipper', keep: 0.66, keepGood: 0.87, rest: 0.25, lift: 0.15, crit: 22, minSpeed: 2.8, speed: 1, spinLoss: 0.18 },
+  round: { kind: 'round', name: 'Round', blurb: 'heavy, carries', keep: 0.8, keepGood: 0.93, rest: 0.2, lift: 0.12, crit: 18, minSpeed: 5.5, speed: 1, spinLoss: 0.12 },
+  chip: { kind: 'chip', name: 'Chip', blurb: 'light, skittish', keep: 0.62, keepGood: 0.85, rest: 0.3, lift: 0.17, crit: 26, minSpeed: 1.6, speed: 0.8, spinLoss: 0.25 },
 };
 
 export const STONE_KINDS: StoneKind[] = ['flat', 'round', 'chip'];
@@ -88,8 +90,7 @@ export interface Stone {
 export type SkipEvent =
   | { type: 'skip'; x: number; good: boolean; n: number }
   | { type: 'sink'; x: number; why: 'steep' | 'slow' }
-  | { type: 'bank'; x: number }
-  | { type: 'late-good'; x: number };
+  | { type: 'bank'; x: number; clatter: boolean }
 
 /** A fresh stone leaving Scott's hand at `angle` (radians up from level) with `power` 0..1. */
 export function launch(kind: StoneKind, angle: number, power: number): Stone {
@@ -166,7 +167,7 @@ export function stepStone(s: Stone, dt: number): SkipEvent | null {
   if (s.x >= FAR_BANK) {
     s.x = FAR_BANK;
     s.state = 'bank';
-    return { type: 'bank', x: s.x };
+    return { type: 'bank', x: s.x, clatter: reachedBank(s) };
   }
   if (s.y > 0 || s.vy >= 0) return null;
   // Touchdown.
@@ -182,7 +183,9 @@ export function stepStone(s: Stone, dt: number): SkipEvent | null {
   }
   const good = s.tapAt !== null && s.t - s.tapAt <= TOUCH_EARLY;
   s.tapAt = null;
-  s.vx *= effectiveKeep(def, s.spin, good);
+  // A steep touchdown digs in and bleeds speed; a shallow one barely kisses the water.
+  const steep = incidence / critAngle(s.kind, s.spin);
+  s.vx *= effectiveKeep(def, s.spin, good) * (1 - 0.3 * steep * steep);
   // Bounce: some of the fall comes back, plus the lift a quick stone gets planing.
   let up = -s.vy * def.rest + def.lift * s.vx;
   // A good touch skims it flat: longer, lower hops.
@@ -195,9 +198,14 @@ export function stepStone(s: Stone, dt: number): SkipEvent | null {
   return { type: 'skip', x: s.x, good, n: s.skips };
 }
 
-/** Skips a throw scores: one per skip, and a bonus for making the far bank. */
+/** It skipped all the way over and clattered up the far bank (not just lobbed into the reeds). */
+export function reachedBank(s: Stone): boolean {
+  return s.state === 'bank' && s.skips >= BANK_MIN_SKIPS;
+}
+
+/** Skips a throw scores: one per skip, and a bonus for skipping right up the far bank. */
 export function throwScore(s: Stone): number {
-  return s.skips + (s.state === 'bank' ? BANK_BONUS : 0);
+  return s.skips + (reachedBank(s) ? BANK_BONUS : 0);
 }
 
 /**
