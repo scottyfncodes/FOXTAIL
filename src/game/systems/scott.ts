@@ -83,7 +83,7 @@ export function truckSpots(truck: Pick<TruckState, 'x' | 'y' | 'facing'> | null 
 }
 
 /**
- * The company he might wander over to: Ranger where she's settled, Scout,
+ * The company he might wander over to: Ranger where he's settled, Scout,
  * and Ellen. Each stands as a spot just beside them, recomputed each moment
  * so he walks to where they are now, not where they were.
  */
@@ -92,7 +92,7 @@ export function companySpots(state: { player: Pick<PlayerState, 'x' | 'y' | 'inG
   const zone = (x: number, y: number): ZoneId => (indoors ? 'greenhouse' : zoneAt(x, y));
   const out: ScottSpot[] = [];
   const cat = state.cat;
-  // Ranger only gets a fuss when she's settled somewhere he can reach — not up on the TV.
+  // Ranger only gets a fuss when he's settled somewhere he can reach — not up on the TV.
   if ((cat.activity === 'sitting' || cat.activity === 'sleeping' || cat.activity === 'grooming') && catLift(cat) === 0) {
     out.push({ id: 'visit-ranger', kind: 'pet', zone: 'greenhouse', x: cat.x - 0.45, y: cat.y + 0.05, face: 'right' });
   }

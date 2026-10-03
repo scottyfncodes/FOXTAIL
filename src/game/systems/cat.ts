@@ -4,11 +4,11 @@ import { interiorWaypoint } from '../data/interior';
 import { weightedPick } from '../engine/Random';
 import { plantRoles } from './beds';
 
-// The house cat: ambient, indoor-only, and indifferent to everyone. She has
-// her places — the couch, her bed, the window, the sunny spot among the
-// stands — and her own ideas: now and then she goes to sniff at one of the
-// plants, tucks herself away behind something big and leafy, or curls up
-// in an empty propagation tray. Nobody asks her to.
+// The house cat: ambient, indoor-only, and indifferent to everyone. He has
+// his places — the couch, his bed, the window, the sunny spot among the
+// stands — and his own ideas: now and then he goes to sniff at one of the
+// plants, tucks himself away behind something big and leafy, or curls up
+// in an empty propagation tray. Nobody asks him to.
 
 const TRAVEL_SPEED = 2.6; // tiles/sec — quicker, lower steps than Scott's
 const ARRIVE_DIST = 0.25;
@@ -31,18 +31,18 @@ const WHIM_DURATIONS: Partial<Record<CatActivity, [number, number]>> = {
   sleeping: [50, 120],
 };
 
-/** Plants she won't go near: anything with teeth, hairs or a cup of something. */
+/** Plants he won't go near: anything with teeth, hairs or a cup of something. */
 export function catAvoids(defId: string, variantId: string): boolean {
   return plantRoles(defId, variantId).includes('carnivore');
 }
 
-/** Somewhere she might take an interest in: a plant, and whether it's big enough to hide behind. */
+/** Somewhere he might take an interest in: a plant, and whether it's big enough to hide behind. */
 export interface CatInterest {
   x: number;
   y: number;
   /** Large and leafy enough to disappear behind. */
   big: boolean;
-  /** An empty tray or bed, just her size. */
+  /** An empty tray or bed, just his size. */
   emptyTray?: boolean;
 }
 
@@ -52,7 +52,7 @@ export interface CatTickContext {
   rand: () => number;
   /** Plants and trays around the house right now. */
   interests?: CatInterest[];
-  /** How far the living-room furniture has been moved, so her spots follow it. */
+  /** How far the living-room furniture has been moved, so his spots follow it. */
   offset?: AnchorOffset;
 }
 
@@ -76,7 +76,7 @@ function pickWhim(cat: CatState, ctx: CatTickContext): boolean {
     const big = list.filter((i) => i.big);
     if (!big.length) return false;
     const it = pick(big);
-    // Just behind the plant, so its leaves are drawn over her.
+    // Just behind the plant, so its leaves are drawn over him.
     cat.targetX = it.x + (ctx.rand() - 0.5) * 0.2;
     cat.targetY = it.y - 0.14;
     cat.targetActivity = 'hiding';
@@ -94,7 +94,7 @@ function pickWhim(cat: CatState, ctx: CatTickContext): boolean {
   return false;
 }
 
-/** How high she's sitting right now (on the couch, the TV…), in tiles. */
+/** How high he's sitting right now (on the couch, the TV…), in tiles. */
 export function catLift(cat: CatState): number {
   if (cat.activity === 'wandering') return 0;
   if (cat.currentSpotId?.startsWith('whim:')) return cat.currentSpotId === 'whim:tray' ? 0.12 : 0;
@@ -103,7 +103,7 @@ export function catLift(cat: CatState): number {
 
 export function tickCat(cat: CatState, ctx: CatTickContext): void {
   if (cat.activity !== 'wandering') {
-    // Settled on a piece of furniture that's been moved: she goes with it.
+    // Settled on a piece of furniture that's been moved: he goes with it.
     const here = cat.currentSpotId ? findCatSpot(cat.currentSpotId) : undefined;
     if (here?.anchor) {
       const at = spotPosition(here, ctx.offset);
@@ -158,7 +158,7 @@ export function tickCat(cat: CatState, ctx: CatTickContext): void {
     cat.currentSpotId = act === 'sleeping' ? 'whim:tray' : `whim:${act}`;
     const [minD, maxD] = WHIM_DURATIONS[act] ?? [10, 20];
     cat.nextChangeAt = ctx.now + minD + ctx.rand() * (maxD - minD);
-    // Nose toward the plant she's investigating.
+    // Nose toward the plant he's investigating.
     cat.facing = act === 'investigating' && cat.lookX != null ? (cat.lookX > cat.x ? 'right' : 'left') : 'down';
     return;
   }
