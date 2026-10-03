@@ -1,3 +1,4 @@
+import { CURIOSITIES } from '../src/game/data/curiosities';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createNewGame, SAVE_KEY, type GameState } from '../src/game/state';
 import { GOLF_BALLS, GOLF_BALL_RARITIES, GOLF_BALL_CURIOSITY, GOLF_BALL_TIER_WEIGHT, findGolfBall } from '../src/game/data/golfBalls';
@@ -141,20 +142,27 @@ describe('finding golf balls', () => {
     expect(median).toBeLessThan(90);
   });
 
-  it('keeps a lost golf ball as likely as an unnoted curiosity while there are kinds still to find', () => {
+  it('makes a lost golf ball a rare find, before and after you start collecting', () => {
     const state = createNewGame();
-    const share = () => {
+    const share = (zone: 'meadow' | 'rockyClearing') => {
       const rand = mulberry32(3);
       let hits = 0;
-      for (let i = 0; i < 4000; i++) if (pickCuriosity(state, 'meadow', { night: false, rain: false }, rand)?.id === GOLF_BALL_CURIOSITY) hits++;
-      return hits / 4000;
+      for (let i = 0; i < 8000; i++) if (pickCuriosity(state, zone, { night: false, rain: false }, rand)?.id === GOLF_BALL_CURIOSITY) hits++;
+      return hits / 8000;
     };
-    const before = share();
+    // A new valley: a handful in a hundred finds, not most of them.
+    expect(share('meadow')).toBeLessThan(0.06);
+    expect(share('rockyClearing')).toBeLessThan(0.13);
+    expect(share('meadow')).toBeGreaterThan(0.01);
+    // Having found one makes it no more (or less) likely.
+    const before = share('meadow');
     state.curiosities[GOLF_BALL_CURIOSITY] = { foundAt: 0, count: 1 };
     recordGolfBall(state, 'oldWhite', 0);
-    expect(share()).toBeCloseTo(before, 1);
-    for (const b of GOLF_BALLS) recordGolfBall(state, b.id, 0);
-    expect(share()).toBeLessThan(before - 0.05);
+    expect(share('meadow')).toBeCloseTo(before, 2);
+    // Even once everything else has been noted, it stays the odd one.
+    for (const c of CURIOSITIES) state.curiosities[c.id] ??= { foundAt: 0, count: 1 };
+    expect(share('meadow')).toBeLessThan(0.1);
+    expect(share('rockyClearing')).toBeLessThan(0.22);
   });
 });
 
