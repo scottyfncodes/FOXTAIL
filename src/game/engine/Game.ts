@@ -43,6 +43,8 @@ import {
 import { createFoxFinds, collectFoxFind, expireFoxFinds, pickCuriosity, FOX_FIND_LIFETIME } from '../systems/foxFinds';
 import { findCuriosity } from '../data/curiosities';
 import { findKeepsake } from '../data/keepsakes';
+import { GOLF_BALL_CURIOSITY, GOLF_BALL_GAME_RARITY, GOLF_BALL_RARITY_LABEL } from '../data/golfBalls';
+import type { GolfBallFind } from '../systems/golfBalls';
 import { discoveryFlourish, discoveryAside, type Flourish } from '../systems/rarity';
 import type { CatInterest } from '../systems/cat';
 import { KIND_SIGNIFICANCE, type Significance, type ToastKind, type ToastOptions } from '../systems/toasts';
@@ -153,6 +155,8 @@ export interface ToastEvent {
   significance: Significance;
   /** Whether it's still worth showing, and what to note once it has been. */
   opts?: ToastOptions;
+  /** A new kind of golf ball: shown with the ball itself. */
+  golfBall?: string;
 }
 
 /**
@@ -1652,7 +1656,10 @@ export class Game {
     const f = res.find;
     this.actionAnimUntil = now + 0.5;
     this.audio.playDiscoveryChime();
-    if (f.kind === 'curiosity') {
+    if (f.kind === 'curiosity' && res.golfBall) {
+      this.announceGolfBall(res.golfBall, !!res.newCuriosity);
+      this.flourish(f.x, f.y, GOLF_BALL_GAME_RARITY[res.golfBall.ball.rarity], res.golfBall.isNew);
+    } else if (f.kind === 'curiosity') {
       const c = findCuriosity(f.curiosityId ?? '');
       if (c) {
         if (res.newCuriosity) {
@@ -1672,6 +1679,25 @@ export class Game {
       this.flourish(f.x, f.y, r, !!(res.newSpecies || res.newVariant));
     }
     this.onStateTouched?.();
+  }
+
+  /**
+   * A lost golf ball, and which kind it is. A kind never seen before gets a
+   * little card of its own; another of one already found is just a line.
+   */
+  private announceGolfBall(g: GolfBallFind, firstEver: boolean) {
+    const b = g.ball;
+    const rarity = GOLF_BALL_GAME_RARITY[b.rarity];
+    if (g.isNew) {
+      const label = GOLF_BALL_RARITY_LABEL[b.rarity];
+      const text = b.hidden ? `New golf ball found! The ${b.hidden.name}… it’s ${b.name}. ${label}.` : `New golf ball found! ${b.name}. ${label}.`;
+      this.onToast?.({ id: makeUid('toast'), text, kind: 'discovery', significance: rarityRank(rarity) >= 2 ? 'major' : 'important', golfBall: b.id });
+      if (rarityRank(rarity) >= 2) this.audio.music.playStinger();
+      const keepsake = firstEver ? findKeepsake(GOLF_BALL_CURIOSITY) : undefined;
+      if (keepsake) this.pushToast(keepsake.note, 'info');
+    } else {
+      this.pushToast(`A lost golf ball — another ${b.name} (×${g.count}).`, 'discovery', 'normal');
+    }
   }
 
   /** A discovery toast, with a quiet aside when it's a rare one. Rare finds are moments. */

@@ -7,6 +7,8 @@ import { PLANTS } from '../game/data/plants';
 import type { OwnedPlant } from '../game/state';
 import type { Game } from '../game/engine/Game';
 import { crossOf, crossBlockReason } from '../game/systems/propagation';
+import { GOLF_BALL_GAME_RARITY, GOLF_BALL_RARITY_LABEL, type GolfBallDef, type GolfBallRarity } from '../game/data/golfBalls';
+import { drawGolfBall, type BallPaint } from '../game/world/GolfBallArt';
 
 /** A small canvas painting of a plant, drawn with the same art as the world. */
 export function portrait(defId: string, variantId: string, sf: number, seed: number, size: number, silhouette = false): HTMLCanvasElement {
@@ -27,6 +29,34 @@ export function rarityBadge(r: Rarity): HTMLElement {
   const pips = r === 'mythic' ? '●●●●●✦' : '●'.repeat(rank + 1) + '○'.repeat(4 - rank);
   wrap.append(el('span', 'rarity-pips', pips), el('span', 'rarity-word', RARITY_LABEL[r]));
   return wrap;
+}
+
+/** A golf ball's rarity, in the same pips and colours as everything else's; `null` keeps it a secret. */
+export function golfRarityBadge(r: GolfBallRarity | null): HTMLElement {
+  if (!r) {
+    const wrap = el('span', 'rarity rarity-secret');
+    wrap.append(el('span', 'rarity-pips', '○○○○○'), el('span', 'rarity-word', '???'));
+    return wrap;
+  }
+  const wrap = rarityBadge(GOLF_BALL_GAME_RARITY[r]);
+  wrap.querySelector('.rarity-word')!.textContent = GOLF_BALL_RARITY_LABEL[r];
+  return wrap;
+}
+
+/** A small canvas painting of a golf ball, drawn sharp on high-density screens. */
+export function golfBallPortrait(ball: GolfBallDef, size: number, paint: BallPaint = {}): HTMLCanvasElement {
+  const c = el('canvas', 'portrait golf-ball-portrait');
+  const dpr = Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  c.width = Math.round(size * dpr);
+  c.height = Math.round(size * dpr);
+  c.style.width = `${size}px`;
+  c.style.height = `${size}px`;
+  const g = c.getContext('2d');
+  if (g) {
+    g.scale(dpr, dpr);
+    drawGolfBall(g, size / 2, size / 2, size * 0.36, ball.look, { detail: true, ...paint });
+  }
+  return c;
 }
 
 /** Game-minutes rendered as the real time the player will actually wait. */

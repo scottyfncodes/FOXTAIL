@@ -4,10 +4,13 @@ import { TILE_SIZE } from '../data/worldMap';
 import { isNight } from '../engine/Clock';
 import { INTERIOR_W } from '../data/interior';
 import { keepsakesOnShow } from '../data/keepsakes';
+import { GOLF_BALLS, type GolfBallDef } from '../data/golfBalls';
+import { hasGolfBall } from '../systems/golfBalls';
+import { drawGolfBall } from './GolfBallArt';
 
 // The curiosities, at home: Ellen's sketches of them in plain frames on the
-// living room walls, and the two that are only things — a split geode and a
-// lost golf ball — set where they belong.
+// living room walls, and the two that are only things — a split geode and the
+// lost golf balls — set where they belong.
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -409,4 +412,43 @@ export function drawLostGolfBall(ctx: Ctx, x: number, y: number, tile: number) {
   ctx.fill();
   ctx.fillStyle = 'rgba(0,0,0,0.12)';
   for (const [dx, dy] of [[-0.02, -0.22], [0.01, -0.24], [-0.03, -0.18]]) ctx.fillRect(x + dx * tile, y + dy * tile, 1, 1);
+}
+
+/** What sits on the rail: for each kind of golf ball, in collection order, the ball if one's been found, else an empty hollow (null). */
+export function golfRailBalls(state: Pick<GameState, 'golfBalls'>): (GolfBallDef | null)[] {
+  return GOLF_BALLS.map((b) => (hasGolfBall(state, b.id) ? b : null));
+}
+
+/** One hollow on the rail for every kind of golf ball there is, left to right in collection order. */
+export function golfRailSlots(x: number, w: number): number[] {
+  const n = GOLF_BALLS.length;
+  const pad = w * 0.06;
+  return GOLF_BALLS.map((_, i) => x + pad + ((w - pad * 2) * (i + 0.5)) / n);
+}
+
+/**
+ * The golf ball rail: a strip of oak along the back of Scott's putting mat
+ * with a hollow for each kind of lost golf ball, and in each hollow the
+ * first of that kind found. The ones still out there leave their hollow
+ * empty, so the gaps show.
+ */
+export function drawGolfBallRail(ctx: Ctx, state: Pick<GameState, 'golfBalls'>, x: number, y: number, w: number, tile: number) {
+  const h = tile * 0.16;
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.fillRect(x, y + h, w, Math.max(1, tile * 0.025));
+  ctx.fillStyle = FRAME;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = FRAME_LIGHT;
+  ctx.fillRect(x, y, w, Math.max(1, tile * 0.025));
+  const cy = y + h * 0.55;
+  const r = Math.min(tile * 0.06, ((w / GOLF_BALLS.length) * 0.5) * 0.8);
+  const slots = golfRailSlots(x, w);
+  golfRailBalls(state).forEach((ball, i) => {
+    const cx = slots[i];
+    ctx.fillStyle = 'rgba(40,24,10,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + r * 0.2, r * 0.9, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (ball) drawGolfBall(ctx, cx, cy - r * 0.15, r, ball.look, { detail: r > 5 });
+  });
 }
