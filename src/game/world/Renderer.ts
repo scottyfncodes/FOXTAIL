@@ -14,7 +14,7 @@ import { scottHasJoint } from '../systems/scott';
 import { koiInPond, pondKoiAt, pondSize, riverKoi } from '../systems/koi';
 import { drawKoi, drawMarketSign, drawSteppingStonePiece } from './GardenArt';
 import { POND_DEFAULT } from '../data/shop';
-import { occupantOf, isRarerThanStandard } from '../systems/propagation';
+import { occupantOf, occupantsByPlace, isRarerThanStandard } from '../systems/propagation';
 import { STALL_ID, stallRect, yardFootprint, type YardPiece } from '../systems/yard';
 import { PLANTS, lookFor, specimenRarity, rarityRank } from '../data/plants';
 import { TOOL_PICKUPS } from '../data/toolPickups';
@@ -167,9 +167,16 @@ function hash2(x: number, y: number): number {
 
 type RGB = [number, number, number];
 
+const rgbOfHex = new Map<string, RGB>();
+/** Parsed once per colour: the same few hex colours are asked for every frame. Shared, so don't modify it. */
 function hexToRgb(hex: string): RGB {
-  const p = parseInt(hex.slice(1), 16);
-  return [(p >> 16) & 255, (p >> 8) & 255, p & 255];
+  let c = rgbOfHex.get(hex);
+  if (!c) {
+    const p = parseInt(hex.slice(1), 16);
+    c = [(p >> 16) & 255, (p >> 8) & 255, p & 255];
+    rgbOfHex.set(hex, c);
+  }
+  return c;
 }
 
 function mixRgb(a: RGB, b: RGB, t: number): RGB {
@@ -244,6 +251,62 @@ const NEIGHBORS: [number, number][] = [
 function fixtureRect(f: PlacedFurniture): LivingFixture {
   const fp = footprint(f.kind, f.x, f.y, 0);
   return { id: f.id, kind: f.kind as LivingFixture['kind'], x: fp.x, y: fp.y, w: fp.w, h: fp.h, solid: FURNITURE_DEFS[f.kind].layer === 'floor' };
+}
+
+type TileBounds = { minX: number; maxX: number; minY: number; maxY: number };
+type GroundWater = { tx: number; ty: number; sx: number; sy: number };
+interface GroundCache {
+  canvas: HTMLCanvasElement;
+  /** Zoom, view size, pixel ratio and look it was painted for. */
+  key: string;
+  lush: LushField | null;
+  /** The tiles painted. */
+  bounds: TileBounds;
+  /** Where the camera was, and where the layer's top-left sat on screen (CSS px). */
+  camX: number;
+  camY: number;
+  left: number;
+  top: number;
+  /** Water tiles, at their screen position as painted. */
+  water: GroundWater[];
+  /** The drawing state painting it left behind. */
+  end: { fillStyle: string | CanvasGradient | CanvasPattern; strokeStyle: string | CanvasGradient | CanvasPattern; lineWidth: number; lineCap: CanvasLineCap; alphaReset: boolean };
+}
+
+/** Whether the painted ground still serves: same look, and every tile that could show is in it. */
+export function groundCacheCovers(gc: Pick<GroundCache, 'key' | 'lush' | 'bounds'>, key: string, lush: LushField | null, need: TileBounds): boolean {
+  if (gc.key !== key || gc.lush !== lush) return false;
+  const b = gc.bounds;
+  return need.minX >= b.minX && need.maxX <= b.maxX && need.minY >= b.minY && need.maxY <= b.maxY;
+}
+
+/**
+ * Whether anything of a wild plant drawn at (x, y) — its shadow, its sprite
+ * (mirrored or not, swaying either way) and any sparkle over it — could
+ * land inside a view of w×h CSS px. Generous by a few pixels.
+ */
+export function wildPlantOnScreen(x: number, y: number, tile: number, spread: number, sprite: { w: number; h: number; oy: number } | null, sparkle: boolean, w: number, h: number): boolean {
+  // Shadow.
+  let minX = x - spread;
+  let maxX = x + spread;
+  let minY = y + tile * 0.04 - spread * 0.4;
+  let maxY = y + tile * 0.04 + spread * 0.4;
+  if (sprite) {
+    // Either way round, and leaning with the wind (a skew of at most 0.08 about its base).
+    const lean = sprite.h * 0.1;
+    const by = y + tile * 0.05;
+    minX = Math.min(minX, x - sprite.w - lean);
+    maxX = Math.max(maxX, x + sprite.w + lean);
+    minY = Math.min(minY, by - sprite.oy);
+    maxY = Math.max(maxY, by - sprite.oy + sprite.h);
+  }
+  if (sparkle) {
+    minX = Math.min(minX, x - tile * 0.4);
+    maxX = Math.max(maxX, x + tile * 0.4);
+    minY = Math.min(minY, y - tile * 0.65);
+  }
+  const m = 4;
+  return maxX > -m && minX < w + m && maxY > -m && minY < h + m;
 }
 
 /** Time constant for weather drifting in and out, in ms. */
@@ -646,7 +709,7 @@ export class Renderer {
       const lit = lanternsLit(oct.darkness) ? Math.min(1, oct.darkness * 1.3) : 0;
       STRING_LIGHTS.forEach((line, i) => {
         if (!line.some((p) => inView(p.x, p.y, 3))) return;
-        drawStringLights(this.ctx, line.map((p) => camera.worldToScreen(p.x * TILE_SIZE, p.y * TILE_SIZE)), tile, lit, now, i);
+        drawStringLights(this.ctx, line.map((p) => camera.worldToScreen(p.x * TILE_SIZE, p.y * TILE_SIZE)), tile, lit, now, i, { w: camera.viewW, h: camera.viewH });
       });
     }
     this.drawNightLights(camera, state, bounds, now);
@@ -774,8 +837,95 @@ export class Renderer {
    * soften the straight seams. Small per-zone detail (grass blades, leaf
    * litter, moss, pebbles) is batched into one path per layer.
    */
-  private drawGround(camera: Camera, bounds: { minX: number; maxX: number; minY: number; maxY: number }, now: number, lush: LushField | null) {
+  /**
+   * The ground as last painted: everything but the water holds still, so it's
+   * painted once into its own canvas a couple of tiles wider than the view
+   * and simply slid along under the camera, repainted when the view nears
+   * its edge or anything it shows changes (zoom, the overgrowth, the look).
+   */
+  private groundCache: GroundCache | null = null;
+
+  private drawGround(camera: Camera, bounds: TileBounds, now: number, lush: LushField | null) {
     const { ctx } = this;
+    const tile = TILE_SIZE * camera.zoom;
+    const size = Math.ceil(tile) + 1;
+    const key = `${tile}|${camera.viewW}|${camera.viewH}|${this.dpr}|${this.october ? 1 : 0}`;
+    let gc = this.groundCache;
+    if (!gc || !groundCacheCovers(gc, key, lush, camera.getViewportTileBounds(1))) gc = this.paintGroundCache(camera, bounds, lush, key);
+    if (!gc) {
+      // No offscreen canvas to be had: paint straight onto the screen, as ever.
+      const water: GroundWater[] = [];
+      this.paintGround(ctx, camera, bounds, lush, water);
+      return;
+    }
+    // How far the view has slid since the ground was painted, snapped to whole
+    // device pixels so the painted layer is never resampled (never blurred).
+    const dpr = this.dpr;
+    const dx = Math.round((gc.camX - camera.x) * camera.zoom * dpr) / dpr;
+    const dy = Math.round((gc.camY - camera.y) * camera.zoom * dpr) / dpr;
+    // The water ripples, so it's drawn fresh underneath, through the holes left for it.
+    for (const w of gc.water) {
+      const sx = w.sx + dx;
+      const sy = w.sy + dy;
+      if (sx > camera.viewW || sy > camera.viewH || sx + size < 0 || sy + size < 0) continue;
+      const wobble = Math.sin(now * 0.002 + w.tx * 0.6 + w.ty * 0.3) * 0.15 + 0.5;
+      ctx.fillStyle = lerpColor('#1c4650', '#3f7f86', wobble);
+      ctx.fillRect(sx, sy, size, size);
+    }
+    const m = ctx.getTransform();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(gc.canvas, Math.round(m.a * (gc.left + dx) + m.e), Math.round(m.d * (gc.top + dy) + m.f));
+    ctx.setTransform(m);
+    // Leave the brush exactly as painting the ground by hand would have: what's drawn next may lean on it.
+    const end = gc.end;
+    ctx.fillStyle = end.fillStyle;
+    ctx.strokeStyle = end.strokeStyle;
+    ctx.lineWidth = end.lineWidth;
+    ctx.lineCap = end.lineCap;
+    if (end.alphaReset) ctx.globalAlpha = 1;
+  }
+
+  /** Paints the ground for `bounds` into the offscreen layer, remembering where the water goes. */
+  private paintGroundCache(camera: Camera, bounds: TileBounds, lush: LushField | null, key: string): GroundCache | null {
+    const tile = TILE_SIZE * camera.zoom;
+    // Room for growth leaning past the outermost tiles.
+    const pad = Math.ceil(tile * 0.4) + 2;
+    const tl = camera.worldToScreen(bounds.minX * TILE_SIZE, bounds.minY * TILE_SIZE);
+    const br = camera.worldToScreen((bounds.maxX + 1) * TILE_SIZE, (bounds.maxY + 1) * TILE_SIZE);
+    const left = Math.floor(tl.x) - pad;
+    const top = Math.floor(tl.y) - pad;
+    const w = Math.ceil(br.x) + pad + 2 - left;
+    const h = Math.ceil(br.y) + pad + 2 - top;
+    const dpr = this.dpr;
+    const canvas = this.groundCache?.canvas ?? (typeof document !== 'undefined' ? document.createElement('canvas') : null);
+    if (!canvas) return null;
+    const cw = Math.ceil(w * dpr);
+    const ch = Math.ceil(h * dpr);
+    if (canvas.width !== cw || canvas.height !== ch) {
+      canvas.width = cw;
+      canvas.height = ch;
+    }
+    const g = canvas.getContext('2d');
+    if (!g) return null;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = 1;
+    g.clearRect(0, 0, cw, ch);
+    g.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
+    const water: GroundWater[] = [];
+    const alphaReset = this.paintGround(g, camera, bounds, lush, water);
+    const end = { fillStyle: g.fillStyle, strokeStyle: g.strokeStyle, lineWidth: g.lineWidth, lineCap: g.lineCap, alphaReset };
+    this.groundCache = { canvas, key, lush, bounds: { ...bounds }, camX: camera.x, camY: camera.y, left, top, water, end };
+    return this.groundCache;
+  }
+
+  /**
+   * The ground itself, tile by tile. Water tiles are left as holes (in the
+   * order they'd have been painted, so every seam lies the same way) and
+   * listed in `water` for the caller to fill. Returns whether it left
+   * globalAlpha set back to 1.
+   */
+  private paintGround(ctx: CanvasRenderingContext2D, camera: Camera, bounds: TileBounds, lush: LushField | null, water: GroundWater[]): boolean {
+    let alphaReset = false;
     const tile = TILE_SIZE * camera.zoom;
     const size = Math.ceil(tile) + 1;
     const dark = new Path2D();
@@ -803,9 +953,8 @@ export class Renderer {
         const sx = Math.floor(screen.x);
         const sy = Math.floor(screen.y);
         if (isWater(tx, ty)) {
-          const wobble = Math.sin(now * 0.002 + tx * 0.6 + ty * 0.3) * 0.15 + 0.5;
-          ctx.fillStyle = lerpColor('#1c4650', '#3f7f86', wobble);
-          ctx.fillRect(sx, sy, size, size);
+          water.push({ tx, ty, sx, sy });
+          ctx.clearRect(sx, sy, size, size);
           continue;
         }
 
@@ -894,6 +1043,7 @@ export class Renderer {
         ctx.drawImage(c, t.sx - pad, t.sy - pad, w, w);
       }
       ctx.globalAlpha = 1;
+      alphaReset = true;
     }
     ctx.lineWidth = Math.max(1, tile * 0.022);
     ctx.lineCap = 'round';
@@ -925,7 +1075,9 @@ export class Renderer {
         ctx.drawImage(c, t.sx - pad, t.sy - pad, Math.round(tile) + pad * 2, Math.round(tile) + pad * 2);
       }
       ctx.globalAlpha = 1;
+      alphaReset = true;
     }
+    return alphaReset;
   }
 
   /**
@@ -1513,6 +1665,11 @@ export class Renderer {
   private drawPlantSprite(x: number, y: number, unit: number, defId: string, variantId: string, sf: number, seed: number, mode: PlantMode, now: number, windy = false): boolean {
     const sprite = this.sprites.get(defId, variantId, sf, seed, unit, mode, this.dpr);
     if (!sprite) return false;
+    this.blitPlantSprite(sprite, x, y, seed, mode, now, windy);
+    return true;
+  }
+
+  private blitPlantSprite(sprite: { canvas: HTMLCanvasElement; ox: number; oy: number; w: number; h: number }, x: number, y: number, seed: number, mode: PlantMode, now: number, windy: boolean) {
     const { ctx } = this;
     const sway = Math.sin(now * 0.0015 + (seed % 97)) * (windy ? 0.07 : 0.03) + Math.sin(now * 0.0041 + seed) * 0.01;
     ctx.save();
@@ -1521,7 +1678,6 @@ export class Renderer {
     if (seed % 2 === 1) ctx.scale(-1, 1);
     ctx.drawImage(sprite.canvas, -sprite.ox, -sprite.oy, sprite.w, sprite.h);
     ctx.restore();
-    return true;
   }
 
   private drawWildPlant(camera: Camera, state: GameState, p: OwnedPlant, wx: number, wy: number, now: number) {
@@ -1531,6 +1687,14 @@ export class Renderer {
     const sf = stageFloat(p.growth);
     const look = lookFor(p.defId, p.variantId);
     const spread = tile * (0.12 + sf * 0.1) * look.size;
+    const sprite = this.sprites.get(p.defId, p.variantId, sf, p.seed, tile, 'ground', this.dpr);
+    // The valley's secret plants never sparkle: nothing marks them out but themselves.
+    const sparkle = !!p.unnoticed && !PLANTS[p.defId]?.secret;
+    if (!wildPlantOnScreen(s.x, s.y, tile, spread, sprite, sparkle, camera.viewW, camera.viewH)) {
+      // Wholly off the canvas: nothing it draws would land. Leave the brush as drawing it would have.
+      ctx.fillStyle = sparkle ? '#fff4c2' : 'rgba(10,24,8,0.22)';
+      return;
+    }
     ctx.fillStyle = 'rgba(10,24,8,0.22)';
     ctx.beginPath();
     ctx.ellipse(s.x, s.y + tile * 0.04, spread, spread * 0.4, 0, 0, Math.PI * 2);
@@ -1541,10 +1705,9 @@ export class Renderer {
     const dy = wy - state.player.y;
     const hides = dy > 0 && dy < 0.6 + sf * 0.3 && Math.abs(dx) < 0.5 + sf * 0.25;
     if (hides) ctx.globalAlpha = 0.45;
-    this.drawPlantSprite(s.x, s.y + tile * 0.05, tile, p.defId, p.variantId, sf, p.seed, 'ground', now, state.weather.condition === 'rain');
+    if (sprite) this.blitPlantSprite(sprite, s.x, s.y + tile * 0.05, p.seed, 'ground', now, state.weather.condition === 'rain');
     ctx.globalAlpha = 1;
-    // The valley's secret plants never sparkle: nothing marks them out but themselves.
-    if (p.unnoticed && !PLANTS[p.defId]?.secret) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, '#fff4c2', 3);
+    if (sparkle) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, '#fff4c2', 3);
   }
 
   /** A few twinkling points: something here is worth walking over to. */
@@ -4546,8 +4709,8 @@ export class Renderer {
       this.turnFurniture(camera, f, (p) => (p.kind === 'scoutBed' ? this.drawScoutBed(camera, p) : drawFixture(ctx, camera, fixtureRect(p), fc)));
     }
 
-    const plantIn = (kind: 'nursery' | 'display', id: string) =>
-      Object.values(state.plants).find((p) => (kind === 'nursery' ? p.location.kind === 'nursery' && p.location.bedId === id : p.location.kind === 'display' && p.location.slotId === id));
+    const occupants = occupantsByPlace(state);
+    const plantIn = (kind: 'nursery' | 'display', id: string) => (kind === 'nursery' ? occupants.beds : occupants.slots).get(id);
 
     const drawables: { y: number; draw: () => void }[] = [];
     const hanging: { piece: PlacedFurniture; slot: DisplaySlot }[] = [];
@@ -4663,8 +4826,8 @@ export class Renderer {
     // Paper bats turning on their threads, and string lights along the beams.
     drawHangingBats(ctx, at, [{ x: 19.5, y: 2.4 }, { x: 21.8, y: 3.1 }, { x: 24.2, y: 2.2 }, { x: 25.4, y: 4.6 }, { x: 5.5, y: 2.6 }, { x: 11.5, y: 2.2 }], tile, now);
     const glowLit = lanternsLit(oct.darkness) ? 1 : 0.6;
-    drawStringLights(ctx, [at(1, 0.95), at(6, 0.95), at(11, 0.95), at(16.5, 0.95)], tile, glowLit, now, 1);
-    drawStringLights(ctx, [at(PARTITION_X + 1, 0.95), at(22.5, 0.95), at(INTERIOR_W - 1, 0.95)], tile, glowLit, now, 2);
+    drawStringLights(ctx, [at(1, 0.95), at(6, 0.95), at(11, 0.95), at(16.5, 0.95)], tile, glowLit, now, 1, { w: camera.viewW, h: camera.viewH });
+    drawStringLights(ctx, [at(PARTITION_X + 1, 0.95), at(22.5, 0.95), at(INTERIOR_W - 1, 0.95)], tile, glowLit, now, 2, { w: camera.viewW, h: camera.viewH });
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const glow = (x: number, y: number, r: number, col: [number, number, number], a: number) => {

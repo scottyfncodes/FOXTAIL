@@ -21,7 +21,7 @@ export function hashString(s: string): number {
 }
 
 /** Picks an entry with probability proportional to its weight. */
-export function weightedPick<T>(items: T[], weight: (t: T) => number, rand: () => number): T | undefined {
+export function weightedPick<T>(items: readonly T[], weight: (t: T) => number, rand: () => number): T | undefined {
   const total = items.reduce((s, t) => s + Math.max(0, weight(t)), 0);
   if (total <= 0) return undefined;
   let r = rand() * total;

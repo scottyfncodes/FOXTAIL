@@ -19,10 +19,42 @@ function formatClock(totalMinutes: number): string {
   return `${h12}:${min.toString().padStart(2, '0')} ${ampm}`;
 }
 
+/** What the action button says for each kind of thing nearby. */
+const ACTION_VERBS: Record<string, string> = {
+  truck: 'RIDE',
+  spot: 'SNIP',
+  wildPlant: 'SNIP',
+  lantern: 'TAKE',
+  market: 'SHOP',
+  bed: 'OPEN',
+  display: 'OPEN',
+  foxFind: 'LOOK',
+  houseDoor: 'HOME',
+  greenhouseDoor: 'IN',
+  greenhouseExit: 'OUT',
+  frontDoor: 'OUT',
+  rock: 'CLEAR',
+  decor: 'MOVE',
+  setDown: 'DROP',
+  puttingMat: 'PUTT',
+  miniGame: 'PLAY',
+  plaque: 'LOOK',
+  pumpkin: 'CARVE',
+  ghost: 'WAVE',
+};
+
 const WEATHER_ICON: Record<string, string> = { clear: '☀', rain: '☔', overcast: '☁' };
 
 function setText(node: Node, text: string) {
   if (node.textContent !== text) node.textContent = text;
+}
+
+/** Writes an inline style or attribute only when it changes: the HUD is updated every frame. */
+function setStyle(node: HTMLElement, prop: 'display' | 'opacity', value: string) {
+  if (node.style[prop] !== value) node.style[prop] = value;
+}
+function setAttr(node: Element, name: string, value: string) {
+  if (node.getAttribute(name) !== value) node.setAttribute(name, value);
 }
 
 /** NEW GOLF BALL FOUND!, with the ball itself, its name and its rarity: small, and gone in a few seconds. */
@@ -181,8 +213,8 @@ export class HUD {
     setText(this.coinText, String(state.coins));
     const tools = this.game.tools.active;
     setText(this.toolBtn, tools ? '✕' : state.player.inGreenhouse ? '\u{1FA91}' : '\u{1F33F}');
-    this.truckBtn.style.display = this.game.riding() ? '' : 'none';
-    this.toolBtn.setAttribute('aria-label', tools ? 'Stop' : state.player.inGreenhouse ? 'Arrange the house' : 'Garden');
+    setStyle(this.truckBtn, 'display', this.game.riding() ? '' : 'none');
+    setAttr(this.toolBtn, 'aria-label', tools ? 'Stop' : state.player.inGreenhouse ? 'Arrange the house' : 'Garden');
     if (state.player.inGreenhouse && this.landMenuOpen) this.setLandMenu(false);
     this.root.classList.toggle('tool-active', tools);
     this.root.classList.toggle('arrange-active', this.game.tools.mode.kind === 'arrange' || this.game.tools.mode.kind === 'yard');
@@ -192,31 +224,9 @@ export class HUD {
 
     const n = tools ? null : this.game.nearest;
     this.interactionPrompt.classList.toggle('visible', !!n);
-    this.actionBtn.style.opacity = n ? '1' : '0.55';
+    setStyle(this.actionBtn, 'opacity', n ? '1' : '0.55');
     if (!n) return;
     setText(this.promptLabel, n.label);
-    const verbs: Record<string, string> = {
-      truck: 'RIDE',
-      spot: 'SNIP',
-      wildPlant: 'SNIP',
-      lantern: 'TAKE',
-      market: 'SHOP',
-      bed: 'OPEN',
-      display: 'OPEN',
-      foxFind: 'LOOK',
-      houseDoor: 'HOME',
-      greenhouseDoor: 'IN',
-      greenhouseExit: 'OUT',
-      frontDoor: 'OUT',
-      rock: 'CLEAR',
-      decor: 'MOVE',
-      setDown: 'DROP',
-      puttingMat: 'PUTT',
-      miniGame: 'PLAY',
-      plaque: 'LOOK',
-      pumpkin: 'CARVE',
-      ghost: 'WAVE',
-    };
-    setText(this.actionBtn, verbs[n.kind] ?? 'GO');
+    setText(this.actionBtn, ACTION_VERBS[n.kind] ?? 'GO');
   }
 }

@@ -77,6 +77,7 @@ import {
   setPot,
   creditGrown,
   occupantOf,
+  occupantsByPlace,
   crossBlockReason,
   crossPollinate,
   crossOf,
@@ -439,6 +440,7 @@ export class Game {
     this.bindPointer();
     window.addEventListener('resize', this.handleResize);
     document.addEventListener('visibilitychange', this.saveWhenHidden);
+    document.addEventListener('visibilitychange', this.pauseWhenHidden);
     window.addEventListener('pagehide', this.saveNow);
     this.handleResize();
   }
@@ -470,21 +472,42 @@ export class Game {
     if (this.isNew) {
       this.hint('start', 'Wild plants grow in patches all over the valley. Walk up and take a cutting.', 'important', () => this.outdoors() && Object.keys(this.state.collection).length === 0);
     }
-    const loop = (now: number) => {
-      const dtMs = Math.min(100, now - this.lastFrame);
-      this.lastFrame = now;
-      this.update(dtMs);
-      this.render(now);
-      this.onFrame?.();
-      this.rafId = requestAnimationFrame(loop);
-    };
-    this.rafId = requestAnimationFrame(loop);
+    this.rafId = requestAnimationFrame(this.loop);
   }
+
+  private loop = (now: number) => {
+    this.rafId = 0;
+    const dtMs = Math.min(100, now - this.lastFrame);
+    this.lastFrame = now;
+    this.update(dtMs);
+    this.render(now);
+    this.onFrame?.();
+    // Out of sight, nothing is drawn or stepped at all (the clock catches up
+    // from the wall clock on return, as it does after any time away).
+    if (!this.pausedHidden) this.rafId = requestAnimationFrame(this.loop);
+  };
+
+  /** Whether the frame loop is stood down because the page is hidden. */
+  private pausedHidden = false;
+
+  private pauseWhenHidden = () => {
+    if (!this.started) return;
+    if (document.visibilityState === 'hidden') {
+      this.pausedHidden = true;
+      if (this.rafId) cancelAnimationFrame(this.rafId);
+      this.rafId = 0;
+    } else if (this.pausedHidden) {
+      this.pausedHidden = false;
+      if (!this.rafId) this.rafId = requestAnimationFrame(this.loop);
+    }
+  };
 
   onToolsChanged: (() => void) | null = null;
 
   stop() {
     cancelAnimationFrame(this.rafId);
+    this.rafId = 0;
+    document.removeEventListener('visibilitychange', this.pauseWhenHidden);
     window.removeEventListener('keydown', this.onToolKey);
     window.removeEventListener('keydown', this.onZoomKey);
     this.input.destroy();
@@ -1248,13 +1271,14 @@ export class Game {
         consider({ kind: 'truck', id: 'truck', x: truck.x, y: truck.y, label: `Get in the truck${n ? ` · ${n} in the back` : ''}`, available: true }, truck.x, truck.y - 0.3, 1.7);
       }
     } else {
+      const occupants = occupantsByPlace(this.state);
       for (const bed of nurserySpots(this.state)) {
-        const plant = occupantOf(this.state, { bedId: bed.id });
+        const plant = occupants.beds.get(bed.id);
         const label = plant ? `${specimenName(plant.defId, plant.variantId)} — ${STAGE_LABEL[stageName(plant)]}` : 'Empty nursery bed';
         consider({ kind: 'bed', id: bed.id, x: bed.x, y: bed.y, label, available: true }, bed.x + 0.5, bed.y + 0.5);
       }
       for (const slot of displaySlots(this.state)) {
-        const plant = occupantOf(this.state, { slotId: slot.id });
+        const plant = occupants.slots.get(slot.id);
         const label = plant ? `${specimenName(plant.defId, plant.variantId)} — ${STAGE_LABEL[stageName(plant)]}` : 'Empty display spot';
         const cy = slot.kind === 'hanging' ? slot.y + 1.2 : slot.y + 0.5;
         consider({ kind: 'display', id: slot.id, x: slot.x, y: slot.y, label, available: true }, slot.x + 0.5, cy);

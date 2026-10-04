@@ -341,12 +341,18 @@ button {
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease;
+  /* Closed, it's not drawn at all (not just see-through): a full-screen blur
+     left waiting at opacity 0 over the ever-moving world still costs the GPU.
+     Visibility flips only once the fade-out has finished. */
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
 }
 
 .panel-backdrop.open {
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
+  transition: opacity 0.2s ease, visibility 0s;
 }
 
 @media (min-width: 720px) {
@@ -1420,13 +1426,17 @@ button {
   pointer-events: none;
   opacity: 0;
   transform: translateY(-6px);
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  /* Not drawn while closed (its blur would still be redone every frame), once the fade-out is done. */
+  visibility: hidden;
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s linear 0.16s;
 }
 
 .land-menu.open {
   opacity: 1;
   transform: none;
   pointer-events: auto;
+  visibility: visible;
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s;
 }
 
 .land-item {
@@ -1753,13 +1763,17 @@ button {
   pointer-events: none;
   opacity: 0;
   transform: translateY(-6px);
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  /* Not drawn while closed (its blur would still be redone every frame), once the fade-out is done. */
+  visibility: hidden;
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s linear 0.16s;
 }
 
 .music-menu.open {
   opacity: 1;
   transform: none;
   pointer-events: auto;
+  visibility: visible;
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s;
 }
 
 .music-head {
