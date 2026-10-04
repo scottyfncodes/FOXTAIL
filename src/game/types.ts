@@ -61,7 +61,8 @@ export type PlantForm =
   | 'clump' // a wide mound of broad, ribbed leaves on short stalks (hosta)
   | 'bamboo' // tall jointed canes with sprays of narrow leaves at the nodes (bamboo)
   | 'lilypad' // round notched pads floating flat on the water (water lily)
-  | 'cattail'; // a stand of tall blades with brown velvet seed heads on stiff stalks (cattail)
+  | 'cattail' // a stand of tall blades with brown velvet seed heads on stiff stalks (cattail)
+  | 'pumpkin'; // a sprawling vine of big lobed leaves round a pumpkin that ripens orange and, grown, is carved (pumpkin)
 
 /** How a mushroom's cap is shaped. */
 export type CapShape = 'dome' | 'flat' | 'funnel' | 'shaggy' | 'honeycomb' | 'nodding';
@@ -120,7 +121,14 @@ export interface PlantLook {
   tufts?: boolean;
   /** Clover: four leaflets to a stalk instead of three. */
   fourLeaf?: boolean;
+  /** Pumpkins: the face it's carved with once it's grown (the fruit's colour is the accent). */
+  carving?: PumpkinCarving;
+  /** Pumpkins: a candle inside, so the face shines (and glows after dark, with a glow variegation). */
+  candle?: boolean;
 }
+
+/** The faces a grown pumpkin can be carved with, plainest first. */
+export type PumpkinCarving = 'happy' | 'goofy' | 'surprised' | 'spooky' | 'verySpooky' | 'wink' | 'moon' | 'fox' | 'king';
 
 export interface VariantDef {
   id: string;

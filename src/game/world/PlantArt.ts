@@ -1,6 +1,7 @@
 import type { PlantForm, PlantLook } from '../types';
 import { PLANTS, lookFor } from '../data/plants';
 import { mulberry32 } from '../engine/Random';
+import { carveFace } from './PumpkinFaces';
 
 // Procedural houseplant art. Every species has its own silhouette (form),
 // every variant its own colouring and variegation, and every individual its
@@ -2943,6 +2944,111 @@ function drawCattail(p: Paint) {
   for (const l of front) withTransform(ctx, l.x, 0, 0, () => ribbon(p, l.dir, l.len * 0.9, width, l.up, 0));
 }
 
+/** One ribbed pumpkin of radius r with its base at (0, 0): green while it's young, ripening to the accent colour. */
+function pumpkinFruit(p: Paint, r: number, ripe: number) {
+  const { ctx, look } = p;
+  const mix = (a: number, b: number) => a + (b - a) * ripe;
+  const hue = mix(95, look.accentHue);
+  const sat = mix(45, look.accentSat ?? 85);
+  const light = mix(36, look.accentLight ?? 52);
+  const cy = -r * 0.72;
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.05, r * 1.15, r * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Lobes, the outer ones darker and further round.
+  const lobes = [-0.7, 0.7, -0.34, 0.34, 0];
+  lobes.forEach((o, i) => {
+    const edge = Math.abs(o);
+    ctx.fillStyle = hsl(hue, sat - edge * 10, light - edge * 12 + i * 1.5);
+    ctx.beginPath();
+    ctx.ellipse(o * r * 0.78, cy, r * (0.52 - edge * 0.12), r * 0.76, 0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.fillStyle = hsl(hue + 6, sat + 5, light + 22, 0.35);
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.25, cy - r * 0.38, r * 0.22, r * 0.12, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  // A thick, twisted stalk.
+  ctx.strokeStyle = hsl(look.hue - 30, 30, 26);
+  ctx.lineWidth = Math.max(1, r * 0.2);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, cy - r * 0.66);
+  ctx.quadraticCurveTo(r * 0.05, cy - r * 0.95, r * 0.24, cy - r * 1.02);
+  ctx.stroke();
+}
+
+/**
+ * A pumpkin vine: runners sprawling over the ground with big lobed leaves
+ * and curling tendrils, and in the middle the pumpkin itself — a green
+ * knob at first, swelling and ripening, and once it's grown, carved. The
+ * rarer the vine, the finer the jack-o'-lantern: the best have a candle in.
+ */
+function drawPumpkinVine(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const vineColor = stemColor(look, 4);
+  const runners = Math.min(4, 1 + Math.floor(sf));
+  const behind: { x: number; y: number; a: number; L: number }[] = [];
+  const front: { x: number; y: number; a: number; L: number }[] = [];
+  for (let k = 0; k < runners; k++) {
+    const side = k % 2 ? 1 : -1;
+    const len = S * (0.5 + sf * 0.2) * (0.8 + rand() * 0.3);
+    const dy = (rand() - 0.5) * S * 0.3;
+    const ex = side * len;
+    const ey = dy + (k > 1 ? S * 0.14 : -S * 0.04);
+    stroke(ctx, vineColor, Math.max(0.8, S * 0.035), () => {
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(ex * 0.5, ey - S * 0.12, ex, ey);
+    });
+    // A curl of tendril off the end.
+    stroke(ctx, vineColor, Math.max(0.5, S * 0.014), () => {
+      ctx.moveTo(ex, ey);
+      ctx.arc(ex + side * S * 0.05, ey - S * 0.04, S * 0.05, Math.PI, Math.PI * 2.6);
+    });
+    const n = Math.max(1, Math.round(1 + sf * 0.8));
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.7) / (n + 0.5);
+      const lx = ex * t;
+      const ly = ey * t - S * 0.12 * Math.sin(Math.PI * t) * 0.5;
+      const l = { x: lx, y: ly, a: side * (0.25 + rand() * 0.5), L: S * (0.26 + rand() * 0.08) };
+      (ly > S * 0.05 ? front : behind).push(l);
+    }
+  }
+  const leafAt = (l: { x: number; y: number; a: number; L: number }, dim: number) =>
+    withTransform(ctx, l.x, l.y, l.a, () => hostaLeaf(p, l.L, l.L * 0.62 * (look.leafWidth ?? 1), dim));
+  for (const l of behind) leafAt(l, 6);
+  for (const l of front) leafAt(l, 0);
+  // The pumpkin, sitting up in front of its leaves: on from a young plant, ripe and carved once it's large.
+  if (sf >= 1.1) {
+    const grow = Math.min(1, (sf - 1.1) / 2.2);
+    const r = S * (0.12 + 0.3 * grow);
+    const ripe = Math.min(1, Math.max(0, (sf - 1.6) / 1.4));
+    withTransform(ctx, 0, S * 0.06, 0, () => {
+      pumpkinFruit(p, r, ripe);
+      if (sf >= 3 && look.carving) {
+        const cy = -r * 0.72;
+        if (look.candle) {
+          const g = ctx.createRadialGradient(0, cy, 0, 0, cy, r * 1.3);
+          g.addColorStop(0, 'rgba(255,200,90,0.45)');
+          g.addColorStop(1, 'rgba(255,170,60,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(-r * 1.4, cy - r * 1.4, r * 2.8, r * 2.8);
+          // The cut edges first, dark, then the candle-light inside them.
+          ctx.fillStyle = 'rgba(70,26,6,0.9)';
+          carveFace(ctx, 0, cy + r * 0.025, r, look.carving);
+          const flame = look.variegationColor ?? [44, 100, 66];
+          ctx.fillStyle = flame[0] < 100 ? hsl(46, 100, 70) : hsl(flame[0], flame[1], Math.min(70, flame[2] - 6));
+          carveFace(ctx, 0, cy, r * 0.96, look.carving);
+        } else {
+          ctx.fillStyle = 'rgba(60,24,6,0.88)';
+          carveFace(ctx, 0, cy, r, look.carving);
+        }
+      }
+    });
+  }
+}
+
 const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   fern: drawFern,
   splitleaf: drawSplitleaf,
@@ -2981,6 +3087,7 @@ const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   bamboo: drawBamboo,
   lilypad: drawLilyPad,
   cattail: drawCattail,
+  pumpkin: drawPumpkinVine,
 };
 
 /**
@@ -3095,6 +3202,7 @@ function extent(form: PlantForm, mode: PlantMode): { w: number; up: number; down
   if (form === 'bamboo') return { w: 1.2, up: 3.1, down: 0.4 };
   if (form === 'lilypad') return { w: 1.4, up: 0.6, down: 0.6 };
   if (form === 'cattail') return { w: 1.3, up: 1.9, down: 0.4 };
+  if (form === 'pumpkin') return { w: 2.1, up: 1.3, down: 0.7 };
   return { w: 1.35, up: 1.6, down: 0.5 };
 }
 

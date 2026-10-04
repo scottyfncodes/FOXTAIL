@@ -2149,6 +2149,14 @@ export class Renderer {
     for (const p of Object.values(state.plants)) {
       if (p.location.kind !== 'wild') continue;
       const look = lookFor(p.defId, p.variantId);
+      // A grown jack-o'-lantern with a candle in: the face shines, and flickers.
+      if (look.candle && stageFloat(p.growth) >= 3) {
+        const f = look.variegationColor ?? [40, 100, 66];
+        const c: [number, number, number] = f[0] < 100 ? [255, 176, 72] : f[0] < 185 ? [120, 255, 205] : [190, 225, 255];
+        const flick = 0.82 + 0.18 * Math.sin(now * 0.017 + p.seed) * Math.sin(now * 0.0061 + p.seed * 2);
+        glow(p.location.x, p.location.y - 0.15, 1.1 + look.size * 1.2, c, 0.5 * flick);
+        continue;
+      }
       if (look.variegation !== 'glow' || !look.variegationColor) continue;
       const pulse = 0.8 + 0.2 * Math.sin(now * 0.002 + p.seed);
       const c = look.variegationColor[0] < 100 ? ([255, 170, 70] as [number, number, number]) : ([110, 190, 255] as [number, number, number]);
