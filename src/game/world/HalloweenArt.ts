@@ -10,8 +10,11 @@ type Ctx = CanvasRenderingContext2D;
 
 const BULBS = ['#ff8a2a', '#b06cff', '#ffb43a', '#8ad44a'];
 
-/** A string of bulbs sagging between points (screen coords). Lit, each bulb glows. */
-export function drawStringLights(ctx: Ctx, pts: { x: number; y: number }[], tile: number, lit: number, now: number, seed: number) {
+/**
+ * A string of bulbs sagging between points (screen coords). Lit, each bulb
+ * glows. Given the view's size, bulbs wholly off it aren't drawn at all.
+ */
+export function drawStringLights(ctx: Ctx, pts: { x: number; y: number }[], tile: number, lit: number, now: number, seed: number, view?: { w: number; h: number }) {
   if (pts.length < 2) return;
   const sag = tile * 0.22;
   const samples: { x: number; y: number }[] = [];
@@ -40,6 +43,16 @@ export function drawStringLights(ctx: Ctx, pts: { x: number; y: number }[], tile
     // A slow chase along the string, so it feels alive.
     const chase = 0.75 + 0.25 * Math.sin(now * 0.004 - i * 0.9);
     const r = tile * 0.045;
+    if (view && (p.x < -tile || p.x > view.w + tile || p.y < -tile || p.y > view.h + tile)) {
+      // Off screen. The last bulb still leaves the brush as drawing it would have.
+      if (i === samples.length - 1) {
+        if (lit > 0.05) {
+          if (glowSprite(color)) ctx.globalAlpha = 1;
+          ctx.fillStyle = `rgba(255,255,240,${0.7 * lit * chase})`;
+        } else ctx.fillStyle = shade(color);
+      }
+      return;
+    }
     if (lit > 0.05) {
       const sprite = glowSprite(color);
       if (sprite) {

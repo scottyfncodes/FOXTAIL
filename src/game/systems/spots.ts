@@ -31,9 +31,18 @@ function conditionMet(state: GameState, def: PlantDef): boolean {
   return true;
 }
 
-export function spotPool(spot: DiscoverySpot): PlantDef[] {
-  if (spot.pool) return spot.pool.map((id) => PLANTS[id]).filter(Boolean);
-  return PLANT_LIST.filter((p) => !p.foxOnly && !p.secret && !p.season && p.habitat.includes(spot.zone));
+// The plant list and the patches never change while the game runs, so each
+// patch's pool is worked out once: it's asked for every frame, for every patch.
+const poolCache = new WeakMap<DiscoverySpot, readonly PlantDef[]>();
+
+/** The species that can come up in a patch (shared: don't modify it). */
+export function spotPool(spot: DiscoverySpot): readonly PlantDef[] {
+  let pool = poolCache.get(spot);
+  if (!pool) {
+    pool = spot.pool ? spot.pool.map((id) => PLANTS[id]).filter(Boolean) : PLANT_LIST.filter((p) => !p.foxOnly && !p.secret && !p.season && p.habitat.includes(spot.zone));
+    poolCache.set(spot, pool);
+  }
+  return pool;
 }
 
 /**
@@ -79,7 +88,18 @@ export const SEASONAL_CHANCE = 0.14;
 /** The season's plants that could come up in this patch now (none outside October). */
 export function seasonalPool(state: GameState, spot: DiscoverySpot): PlantDef[] {
   if (!isOctober() || spot.foxLed || spot.pool) return [];
-  return PLANT_LIST.filter((p) => p.season === 'october' && !p.secret && p.habitat.includes(spot.zone) && conditionMet(state, p));
+  return octoberNatives(spot.zone).filter((p) => conditionMet(state, p));
+}
+
+const octoberByZone = new Map<OutdoorZoneId, readonly PlantDef[]>();
+/** October's own plants native to a zone, in list order (worked out once). */
+function octoberNatives(zone: OutdoorZoneId): readonly PlantDef[] {
+  let list = octoberByZone.get(zone);
+  if (!list) {
+    list = PLANT_LIST.filter((p) => p.season === 'october' && !p.secret && p.habitat.includes(zone));
+    octoberByZone.set(zone, list);
+  }
+  return list;
 }
 
 /**
@@ -102,8 +122,14 @@ function seasonalAt(state: GameState, spot: DiscoverySpot, epoch: number): SpotC
 export const WANDER_CHANCE = 0.3;
 
 /** Ordinary patches in a region that a wandering rare plant might come up in. */
-function wanderHosts(zone: OutdoorZoneId): DiscoverySpot[] {
-  return DISCOVERY_SPOTS.filter((s) => s.zone === zone && !s.foxLed && !s.pool);
+const hostsByZone = new Map<OutdoorZoneId, readonly DiscoverySpot[]>();
+function wanderHosts(zone: OutdoorZoneId): readonly DiscoverySpot[] {
+  let hosts = hostsByZone.get(zone);
+  if (!hosts) {
+    hosts = DISCOVERY_SPOTS.filter((s) => s.zone === zone && !s.foxLed && !s.pool);
+    hostsByZone.set(zone, hosts);
+  }
+  return hosts;
 }
 
 function rawWanderHost(origin: DiscoverySpot, epoch: number): number | null {

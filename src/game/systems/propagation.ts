@@ -192,6 +192,26 @@ export function occupantOf(state: GameState, where: { bedId?: string; slotId?: s
   );
 }
 
+/**
+ * What's in every nursery bed and display spot, for looking many of them up
+ * at once: `beds.get(id)` is `occupantOf(state, { bedId: id })`, and
+ * `slots.get(id)` is `occupantOf(state, { slotId: id })`.
+ */
+export function occupantsByPlace(state: GameState): { beds: Map<string, OwnedPlant>; slots: Map<string, OwnedPlant> } {
+  const beds = new Map<string, OwnedPlant>();
+  const slots = new Map<string, OwnedPlant>();
+  for (const p of Object.values(state.plants)) {
+    const loc = p.location;
+    // The first one found wins, as with occupantOf.
+    if (loc.kind === 'nursery') {
+      if (loc.bedId && !beds.has(loc.bedId)) beds.set(loc.bedId, p);
+    } else if (loc.kind === 'display') {
+      if (loc.slotId && !slots.has(loc.slotId)) slots.set(loc.slotId, p);
+    }
+  }
+  return { beds, slots };
+}
+
 /** Pots a cutting (or any carried plant) into a nursery bed. */
 export function potInNursery(state: GameState, uid: string, bedId: string, now: number): OwnedPlant | null {
   if (occupantOf(state, { bedId })) return null;
