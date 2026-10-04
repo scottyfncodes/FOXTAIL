@@ -133,6 +133,7 @@ const FORM_RADIUS: Record<string, number> = {
   fan: 0.62,
   palm: 0.6,
   cane: 0.5,
+  pumpkin: 0.75,
 };
 
 export function matureRadius(defId: string, variantId?: string): number {

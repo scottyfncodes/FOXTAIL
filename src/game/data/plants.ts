@@ -1659,6 +1659,31 @@ PLANTS.witchlight = {
   season: 'october',
 };
 
+PLANTS.pumpkin = {
+  id: 'pumpkin',
+  name: 'Pumpkin',
+  latin: 'Cucurbita pepo',
+  form: 'pumpkin',
+  rarity: 'common',
+  habitat: ['meadow', 'overgrownClearing'],
+  landscape: 'vine',
+  description: 'A sprawling vine of big rough leaves that sets one fat pumpkin in the middle of itself. Grown, it’s ready for a face, and the rarer the vine, the finer the jack-o’-lantern it turns into.',
+  hint: 'Big rough leaves sprawling over the ground, and something round underneath.',
+  look: { hue: 100, sat: 40, light: 36, accentHue: 26, accentSat: 88, accentLight: 52, variegation: 'none', size: 1, leafWidth: 1.15, ruffled: true, carving: 'happy' },
+  variants: [
+    { id: 'sugarPie', name: 'Sugar Pie', rarity: 'common', description: 'A small round pumpkin with a plain, cheerful face: two triangles and a smile.', look: { size: 0.9 } },
+    { id: 'howden', name: 'Howden', rarity: 'uncommon', description: 'A proper big carving pumpkin, cut with slanted eyes and a jagged grin.', look: { accentHue: 24, accentLight: 50, carving: 'spooky' } },
+    { id: 'toothyGrin', name: 'Toothy Grin', rarity: 'rare', description: 'A deep orange pumpkin with a grin full of teeth and a candle lit inside it. It glows after dark.', look: { accentHue: 22, accentSat: 92, accentLight: 48, carving: 'verySpooky', candle: true, size: 1.05 } },
+    { id: 'ghost', name: 'Ghost', rarity: 'veryRare', description: 'A pale white pumpkin, carved with crescent-moon eyes and a star. Its candle burns with a cold, pale light.', look: { accentHue: 45, accentSat: 22, accentLight: 88, carving: 'moon', candle: true, variegationColor: [200, 80, 82] } },
+    { id: 'pumpkinKing', name: 'Pumpkin King', rarity: 'extremelyRare', description: 'A huge, deep orange pumpkin with a crown cut across its brow and a grin from ear to ear. It lights up half the garden after dark.', look: { accentHue: 20, accentSat: 95, accentLight: 46, carving: 'king', candle: true, size: 1.3, variegationColor: [34, 100, 60] } },
+    { id: 'willOTheWisp', name: 'Will-o’-the-Wisp', rarity: 'unheardOf', sportOnly: true, description: 'A blue-grey pumpkin with a fox’s face cut in it, and a flame inside that burns blue-green and doesn’t flicker in the wind.', look: { hue: 170, sat: 22, light: 30, accentHue: 190, accentSat: 25, accentLight: 52, carving: 'fox', candle: true, variegationColor: [170, 100, 62] } },
+  ],
+  growthRate: 1.2,
+  spread: 0.35,
+  unlisted: true,
+  season: 'october',
+};
+
 PLANTS.foxfireBonnet = {
   id: 'foxfireBonnet',
   name: 'Foxfire Bonnet',
