@@ -1931,6 +1931,28 @@ button {
 .october-note-line + .october-note-line {
   margin-top: 4px;
 }
+.mystery-note {
+  margin-top: 10px;
+  font-style: italic;
+}
+.mystery-note + .october-note,
+.october-note + .mystery-note {
+  margin-top: 8px;
+}
+.mystery-reveal {
+  margin-top: 6px;
+  font-style: italic;
+  text-align: left;
+}
+.mystery-solution {
+  font-style: normal;
+  color: var(--ink);
+  border-top: 1px dashed var(--panel-border);
+  padding-top: 6px;
+}
+.october-face .variant-dots {
+  justify-content: center;
+}
 .october-faces,
 .october-plants {
   display: flex;

@@ -459,6 +459,22 @@ export interface GameState {
   regionTier: Partial<Record<OutdoorZoneId, number>>;
   /** October's pumpkins, and the strange things seen while it lasted. */
   october: OctoberLog;
+  /** Hints toward the last three forms nobody is shown the way to, by mystery id. */
+  mysteries: Record<string, MysteryRecord>;
+}
+
+/** How far the hints toward one of the valley's last mysteries have come (see systems/mysteries.ts). */
+export interface MysteryRecord {
+  /** Real seconds of play counted since the form before the last was found (slower while on the right track). */
+  played: number;
+  /** 0 (nothing yet) … 4 (the answer is in the journal to read). */
+  stage: number;
+  /** Real seconds left of going slow, after doing the right thing. */
+  onTrack: number;
+  /** The highest step already noticed out in the world (4: the answer has been pointed out). */
+  told: number;
+  /** The answer has been read. */
+  read: boolean;
 }
 
 export function newOctoberLog(): OctoberLog {
@@ -544,6 +560,7 @@ export function createNewGame(): GameState {
     regions: {},
     regionTier: {},
     october: newOctoberLog(),
+    mysteries: {},
     cat: {
       x: 21.95,
       y: 3.5,
