@@ -117,6 +117,7 @@ import {
   type OctoberView,
   type OctoberEventKind,
 } from '../systems/october';
+import { MYSTERIES, MYSTERY_IDS, ON_TRACK_CUTTING, markNudged, markOnTrack, mysteryStage, nudgeText, pendingNudge, solutionUnannounced, tickMysteries, type MysteryId, type NudgeContext } from '../systems/mysteries';
 
 export type InteractableKind =
   | 'plaque'
@@ -252,6 +253,9 @@ export interface WorldFlourish {
 }
 const INTERACT_RANGE = 1.3;
 const NOTICE_RANGE = 2.2;
+/** Real seconds between one of the last mysteries' observations and the next. */
+const MYSTERY_QUIET_SECONDS = 90;
+
 /** A secret plant has nothing about it to catch the eye: you have to walk right up to it. */
 const SECRET_NOTICE_RANGE = 1.0;
 const LUSH_REFRESH_MS = 1500;
@@ -940,6 +944,7 @@ export class Game {
     if (!playing) tickCat(this.state.cat, { dtSeconds, now: this.state.clock.totalMinutes, rand: Math.random, interests: this.catInterests, offset: this.fixtureOffset });
     if (isOctober()) this.tickOctober(dtSeconds);
     else this.octView = null;
+    this.tendMysteries(dtSeconds);
     const nowMs = performance.now();
     this.flourishes = this.flourishes.filter((f) => nowMs - f.start < 2600);
 
@@ -1391,6 +1396,7 @@ export class Game {
     if (block === 'recovering') return this.pushToast('It’s still recovering from the last cutting.', 'info');
     const res = takeCutting(this.state, plantId, now);
     if (!res) return;
+    this.cutForMystery(plant);
     this.actionAnimUntil = now + 0.5;
     if (res.failed || !res.item) {
       this.pushToast(`The cutting didn’t take. Give the ${specimenName(plant.defId, plant.variantId)} a day to recover, then try again.`, 'info');
@@ -1915,6 +1921,7 @@ export class Game {
   private carve(id: string) {
     const res = carvePumpkin(this.state, id, Math.random);
     if (!res) return;
+    markOnTrack(this.state, 'moonflower');
     this.actionAnimUntil = this.state.clock.totalMinutes + 0.5;
     const face = findFace(res.face)!;
     const lead = res.recarved ? 'A fresh pumpkin from the patch, and a new face:' : 'You carve it a face:';
@@ -1933,8 +1940,129 @@ export class Game {
       this.pushToast('It looks at you a long moment. Then it waves, and then it isn’t there. Where it sat, something small and pale is coming up.', 'discovery');
       this.audio.playSoftChime();
     } else {
+      markOnTrack(this.state, 'moonflower');
       this.pushToast('It tilts its head at you, and waves.', 'info');
     }
+  }
+
+  // ---- The last mysteries ----
+
+  /** Seconds until the world is next looked at for a moment to show a mystery's clue in. */
+  private mysteryLookAcc = 0;
+  /** Real seconds until another of the mysteries' observations may be shown: never two at once. */
+  private mysteryQuiet = 0;
+  /** Wild plants showing a mystery's clue right now, and how. */
+  mysteryCues = new Map<string, 'star' | 'eclipse'>();
+
+  /**
+   * The last three forms: counts play toward their hints, and when one has a
+   * step waiting, shows it the next time the player is somewhere it belongs.
+   */
+  private tendMysteries(dtSeconds: number) {
+    const s = this.state;
+    tickMysteries(s, dtSeconds);
+    this.mysteryQuiet -= dtSeconds;
+    this.mysteryLookAcc -= dtSeconds;
+    if (this.mysteryLookAcc > 0) return;
+    this.mysteryLookAcc = 1;
+    this.mysteryCues = this.computeMysteryCues();
+    if (this.mysteryQuiet > 0) return;
+    for (const id of MYSTERY_IDS) {
+      if (solutionUnannounced(s, id)) {
+        markNudged(s, id, 4);
+        this.pushToast(`You’ve written a guess about ${MYSTERIES[id].about} small at the bottom of a journal page. It’s there if you want it.`, 'info');
+        this.mysteryQuiet = MYSTERY_QUIET_SECONDS;
+        return;
+      }
+      const stage = pendingNudge(s, id);
+      if (!stage) continue;
+      const ctx = this.mysteryContext(id);
+      const text = ctx ? nudgeText(id, ctx, stage) : null;
+      if (!text) continue;
+      markNudged(s, id, stage);
+      this.pushToast(text, 'info');
+      this.mysteryQuiet = MYSTERY_QUIET_SECONDS;
+      return;
+    }
+  }
+
+  private darkNow(): number {
+    return 1 - daylightFactor(this.state.clock.totalMinutes);
+  }
+
+  /** Owned plants of this form, at least this big, near Ellen (outdoors) or under glass with her. */
+  private nearForm(defId: string, variantId: string, minStage: number, range = 4): boolean {
+    const p = this.state.player;
+    return Object.values(this.state.plants).some((pl) => {
+      if (pl.defId !== defId || pl.variantId !== variantId || stageIndexOf(pl.growth) < minStage) return false;
+      if (pl.location.kind === 'wild') return !p.inGreenhouse && Math.hypot(pl.location.x - p.x, pl.location.y - p.y) < range;
+      return p.inGreenhouse;
+    });
+  }
+
+  /** Where Ellen is, as far as each mystery's clue is concerned: somewhere it could be noticed, or null. */
+  private mysteryContext(id: MysteryId): NudgeContext | null {
+    const s = this.state;
+    const p = s.player;
+    const night = this.darkNow() > 0.5;
+    if (id === 'hoya') {
+      if (!night) return null;
+      if (this.nearForm('hoya', 'compacta', 3)) return 'plant';
+      if (this.nearForm('hoya', 'compacta', 1)) return 'smallPlant';
+      return null;
+    }
+    if (id === 'mooncap') {
+      if (!night) return null;
+      if (this.nearForm('mooncap', 'harvest', 1)) return 'plant';
+      if (!isOctober() || p.inGreenhouse) return null;
+      const view = this.camera.getViewportTileBounds(0);
+      const lantern = this.octDirector.events.some((e) => e.kind === 'lantern' && e.going === null && e.age > 1 && e.x > view.minX && e.x < view.maxX && e.y > view.minY && e.y < view.maxY);
+      if (lantern) return 'lantern';
+      const zone = zoneAt(Math.floor(p.x), Math.floor(p.y));
+      return zone === 'woodland' || zone === 'dampForest' || zone === 'creek' ? 'woods' : null;
+    }
+    // The moonflower's: only October has the pale thing and the pumpkins.
+    if (!isOctober() || p.inGreenhouse) return null;
+    const g = this.ghost;
+    const view = this.camera.getViewportTileBounds(0);
+    if (g.mode !== 'away' && g.mode !== 'greenhouse' && !g.going && g.shown > 0.6 && g.x > view.minX && g.x < view.maxX && g.y > view.minY && g.y < view.maxY) return 'ghost';
+    if (this.darkNow() < 0.4) return null;
+    const near = PUMPKINS.filter((pk) => Math.hypot(pk.x - p.x, pk.y - p.y) < 4);
+    if (!near.length) return null;
+    return near.some((pk) => s.october.carved[pk.id]) && lanternsLit(this.darkNow()) ? 'litPumpkin' : 'pumpkin';
+  }
+
+  /** A cutting from the form before a last one: the right thing to be doing, and a moment to notice something. */
+  private cutForMystery(plant: { defId: string; variantId: string; growth: number }) {
+    for (const id of MYSTERY_IDS) {
+      const m = MYSTERIES[id];
+      const want = ON_TRACK_CUTTING[id];
+      if (plant.defId !== m.defId || plant.variantId !== want.variantId) continue;
+      if (stageIndexOf(plant.growth) >= want.minStage) markOnTrack(this.state, id);
+      const stage = pendingNudge(this.state, id);
+      const ctx: NudgeContext | null = id === 'moonflower' ? null : id === 'hoya' && stageIndexOf(plant.growth) < 3 ? 'smallPlant' : 'plant';
+      const text = stage && ctx ? nudgeText(id, ctx, stage) : null;
+      if (text && this.mysteryQuiet <= 0) {
+        markNudged(this.state, id, stage);
+        this.pushToast(text, 'info');
+        this.mysteryQuiet = MYSTERY_QUIET_SECONDS;
+      }
+    }
+  }
+
+  /** After dark, the big Hindu Ropes glint and the Harvest mooncaps now and then go dark in the middle, once the hints have begun. */
+  private computeMysteryCues(): Map<string, 'star' | 'eclipse'> {
+    const out = new Map<string, 'star' | 'eclipse'>();
+    if (this.darkNow() < 0.5) return out;
+    const star = mysteryStage(this.state, 'hoya') >= 1;
+    const eclipse = mysteryStage(this.state, 'mooncap') >= 1;
+    if (!star && !eclipse) return out;
+    for (const pl of Object.values(this.state.plants)) {
+      if (pl.location.kind !== 'wild') continue;
+      if (star && pl.defId === 'hoya' && pl.variantId === 'compacta' && stageIndexOf(pl.growth) >= 3) out.set(pl.id, 'star');
+      else if (eclipse && pl.defId === 'mooncap' && pl.variantId === 'harvest' && stageIndexOf(pl.growth) >= 1) out.set(pl.id, 'eclipse');
+    }
+    return out;
   }
 
   /** The animals see it first: they turn and look, and hold still. */
@@ -1997,6 +2125,7 @@ export class Game {
       s.october.stray = { x: res.stray.x, y: res.stray.y, face: Math.random() < 0.6 ? 'spooky' : 'verySpooky', until: nextDawn(s.clock.totalMinutes) };
     }
     if (res.lanternFind && outdoors) {
+      markOnTrack(s, 'mooncap');
       const zone = zoneAt(Math.floor(res.lanternFind.x), Math.floor(res.lanternFind.y));
       const pick = zone !== 'greenhouse' ? pickLanternFind(s, zone, Math.random) : null;
       if (pick && zone !== 'greenhouse') leaveFind(s, res.lanternFind.x, res.lanternFind.y + 0.6, zone, pick.defId, pick.variantId, Math.random);
@@ -2588,7 +2717,7 @@ export class Game {
     this.camera.follow(focus.x, focus.y);
     const crouching = this.state.clock.totalMinutes < this.actionAnimUntil;
     this.frogSplashes = this.frogSplashes.filter((sp) => now - sp.start < 1200);
-    const scene = { gatorRide: this.gatorRide, frogsGone: this.frogsGone, frogSplashes: this.frogSplashes, tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss, october: isOctober() ? this.octView : null };
+    const scene = { gatorRide: this.gatorRide, frogsGone: this.frogsGone, frogSplashes: this.frogSplashes, tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss, october: isOctober() ? this.octView : null, mysteryCues: this.mysteryCues };
     if (this.state.player.inGreenhouse) {
       this.renderer.renderIndoor(this.sceneCamera(), this.state, now, crouching, scene);
     } else {

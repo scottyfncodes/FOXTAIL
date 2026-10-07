@@ -63,6 +63,7 @@ import { FIREFLY_AREAS, fireflies, fireflyStrength, alligatorAt, pondFrogs, pond
 import { drawAlligator, drawBaskingStone, drawFrog, drawTurtle } from './WildlifeArt';
 import type { OctoberView } from '../systems/october';
 import { lanternsLit } from '../systems/october';
+import { mysteryStage } from '../systems/mysteries';
 import { LANTERN_POSTS, OLD_THINGS, PORCH_LANTERN, BLACK_CAT_SPOT, STRING_LIGHTS, HALLOWEEN_DECOR } from '../data/october';
 import { drawStringLights, drawHalloweenDecor, DECOR_LIGHT, drawMoonInWater, drawBatSwarm, drawHangingBats, drawSkullCandle } from './HalloweenArt';
 import { isOctober } from '../season';
@@ -118,6 +119,8 @@ export interface SceneExtras {
   frogsGone?: Map<number, number>;
   /** Where frogs have just plopped into the creek. */
   frogSplashes?: { x: number; y: number; start: number }[];
+  /** Wild plants showing one of the last mysteries' clues after dark (plant id → how). */
+  mysteryCues?: Map<string, 'star' | 'eclipse'>;
 }
 
 const NO_EXTRAS: SceneExtras = { tools: { kind: 'play' }, flourishes: [], cleared: new Set(), fade: 0 };
@@ -328,6 +331,7 @@ export class Renderer {
   private grade = new Grade();
   /** Drawing October this frame (trees turn, and the rest). */
   private october: OctoberView | null = null;
+  private mysteryCues: Map<string, 'star' | 'eclipse'> | null = null;
 
   /** A tile's worth of foliage in the colour of what's growing there. Four patterns per look, so it never tiles visibly. */
   private carpetTile(ch: string, hue: number, sat: number, light: number, pale: number, dense: boolean, variant: number, tile: number): HTMLCanvasElement | null {
@@ -422,6 +426,7 @@ export class Renderer {
 
     const oct = extras.october ?? null;
     this.october = oct;
+    this.mysteryCues = extras.mysteryCues?.size ? extras.mysteryCues : null;
     this.drawGround(camera, bounds, now, lush);
     if (oct) {
       this.litter.drawWash(this.ctx, camera);
@@ -787,7 +792,7 @@ export class Renderer {
     if (g.mode !== 'away' && g.mode !== 'reflect' && g.mode !== 'greenhouse' && inView(g.x, g.y, 2)) {
       drawables.push({ y: g.y, draw: () => {
         const s = camera.worldToScreen(g.x * TILE_SIZE, g.y * TILE_SIZE);
-        drawGhostFigure(ctx, s.x, s.y, tile, g.shown, now, { looking: g.looking, waving: g.waving, seed: g.seed });
+        drawGhostFigure(ctx, s.x, s.y, tile, g.shown, now, { looking: g.looking, waving: g.waving, seed: g.seed, flower: mysteryStage(state, 'moonflower') >= 1 });
       } });
     }
     for (const e of oct.events) {
@@ -1708,6 +1713,56 @@ export class Renderer {
     if (sprite) this.blitPlantSprite(sprite, s.x, s.y + tile * 0.05, p.seed, 'ground', now, state.weather.condition === 'rain');
     ctx.globalAlpha = 1;
     if (sparkle) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, '#fff4c2', 3);
+    const cue = this.mysteryCues?.get(p.id);
+    if (cue === 'star') this.drawStarGlints(s.x, s.y - tile * (0.25 + sf * 0.12) * look.size, tile, now, p.seed);
+    else if (cue === 'eclipse') this.drawEclipse(s.x, s.y - tile * (0.14 + sf * 0.05) * look.size, tile * (0.08 + sf * 0.02) * look.size, now, p.seed);
+  }
+
+  /** Two or three points of light deep in a big plant's leaves, each there only for a moment. */
+  private drawStarGlints(x: number, y: number, tile: number, now: number, seed: number) {
+    const { ctx } = this;
+    ctx.save();
+    for (let i = 0; i < 3; i++) {
+      // Each one has its own slow cycle and is lit for only a sliver of it.
+      const ph = (now * 0.00021 + ((seed >> (i * 3)) % 97) / 97 + i * 0.37) % 1;
+      if (ph > 0.18) continue;
+      const a = Math.sin((ph / 0.18) * Math.PI);
+      const px = x + Math.cos(i * 2.3 + (seed % 7)) * tile * 0.2;
+      const py = y + Math.sin(i * 1.7 + (seed % 5)) * tile * 0.12;
+      const r = tile * 0.035 * (0.7 + a * 0.5);
+      ctx.globalAlpha = 0.8 * a;
+      ctx.fillStyle = '#fff6d8';
+      ctx.beginPath();
+      ctx.moveTo(px, py - r * 2.2);
+      ctx.lineTo(px + r * 0.4, py - r * 0.4);
+      ctx.lineTo(px + r * 2.2, py);
+      ctx.lineTo(px + r * 0.4, py + r * 0.4);
+      ctx.lineTo(px, py + r * 2.2);
+      ctx.lineTo(px - r * 0.4, py + r * 0.4);
+      ctx.lineTo(px - r * 2.2, py);
+      ctx.lineTo(px - r * 0.4, py - r * 0.4);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** Now and then, for a breath, the cap's light goes out in the middle and holds only round its rim. */
+  private drawEclipse(x: number, y: number, r: number, now: number, seed: number) {
+    const ph = (now / 11000 + (seed % 1000) / 1000) % 1;
+    if (ph > 0.16) return;
+    const a = Math.sin((ph / 0.16) * Math.PI);
+    const { ctx } = this;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(18,14,30,0.82)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 0.62, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,196,110,0.95)';
+    ctx.lineWidth = Math.max(1, r * 0.22);
+    ctx.stroke();
+    ctx.restore();
   }
 
   /** A few twinkling points: something here is worth walking over to. */

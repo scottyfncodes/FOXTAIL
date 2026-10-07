@@ -20,7 +20,7 @@ const LEGACY_KEYS = ['foxtrot-save-v3', 'foxtrot-save-v2', 'foxtrot-save-v1'];
 export const GROW_LAMP_REFUND = 150;
 const STRUCT_FIELDS = ['stall', 'player', 'clock', 'weather', 'tools', 'fox', 'scout', 'scott', 'cat', 'market', 'foxLog', 'putting', 'commissions'] as const;
 const ARRAY_FIELDS = ['basket', 'owned', 'bought', 'decor', 'pondStock', 'koi', 'hints', 'furniture', 'seededFixtures', 'seenShop', 'gardenBeds', 'paths', 'clearings', 'clearedObstacles', 'foxFinds'] as const;
-const RECORD_FIELDS = ['plants', 'collection', 'spots', 'decorStock', 'furnitureStock', 'curiosities', 'golfBalls', 'purchases', 'regions', 'regionTier', 'minigames'] as const;
+const RECORD_FIELDS = ['plants', 'collection', 'spots', 'decorStock', 'furnitureStock', 'curiosities', 'golfBalls', 'purchases', 'regions', 'regionTier', 'minigames', 'mysteries'] as const;
 
 /** Anything standing where the house now is gets moved out onto the lawn in front of it. */
 function inHouse(x: number, y: number): boolean {

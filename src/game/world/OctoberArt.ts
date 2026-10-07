@@ -947,7 +947,7 @@ export function drawMoth(ctx: Ctx, cx: number, cy: number, tile: number, now: nu
  * big and a little too far apart. A leaf has stuck to it. Looking at you, it
  * tilts its head.
  */
-export function drawGhostFigure(ctx: Ctx, x: number, y: number, tile: number, alpha: number, now: number, opts: { looking?: boolean; waving?: number; seed?: number } = {}) {
+export function drawGhostFigure(ctx: Ctx, x: number, y: number, tile: number, alpha: number, now: number, opts: { looking?: boolean; waving?: number; seed?: number; flower?: boolean } = {}) {
   if (alpha <= 0.01) return;
   const seed = opts.seed ?? 0;
   const bob = Math.sin(now * 0.0021 + seed) * tile * 0.05;
@@ -1001,11 +1001,41 @@ export function drawGhostFigure(ctx: Ctx, x: number, y: number, tile: number, al
   ctx.arc(-s * 0.45, -s * 0.13, s * 0.05, 0, Math.PI * 2);
   ctx.arc(s * 0.35, -s * 0.13, s * 0.05, 0, Math.PI * 2);
   ctx.fill();
-  // The leaf it's carrying around without knowing.
-  ctx.fillStyle = '#c25a26';
-  ctx.beginPath();
-  ctx.ellipse(s * 0.55, s * 0.75, s * 0.18, s * 0.09, 0.8, 0, Math.PI * 2);
-  ctx.fill();
+  if (opts.flower) {
+    // A moonflower, folded shut, held out at its side as if it were nothing much.
+    ctx.strokeStyle = 'rgba(70,120,70,0.95)';
+    ctx.lineWidth = Math.max(0.8, s * 0.07);
+    ctx.beginPath();
+    ctx.moveTo(s * 0.8, s * 0.85);
+    ctx.quadraticCurveTo(s * 1.15, s * 0.7, s * 1.25, s * 0.35);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(200,225,255,0.35)';
+    ctx.beginPath();
+    ctx.arc(s * 1.32, s * 0.08, s * 0.38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fbfcff';
+    ctx.strokeStyle = 'rgba(120,140,190,0.9)';
+    ctx.lineWidth = Math.max(0.6, s * 0.045);
+    ctx.beginPath();
+    ctx.moveTo(s * 1.25, s * 0.38);
+    ctx.quadraticCurveTo(s * 1.62, s * 0.1, s * 1.5, -s * 0.22);
+    ctx.lineTo(s * 1.14, -s * 0.12);
+    ctx.quadraticCurveTo(s * 1.1, s * 0.15, s * 1.25, s * 0.38);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // The twist where it's folded shut.
+    ctx.beginPath();
+    ctx.moveTo(s * 1.32, -s * 0.17);
+    ctx.quadraticCurveTo(s * 1.36, s * 0.1, s * 1.25, s * 0.32);
+    ctx.stroke();
+  } else {
+    // The leaf it's carrying around without knowing.
+    ctx.fillStyle = '#c25a26';
+    ctx.beginPath();
+    ctx.ellipse(s * 0.55, s * 0.75, s * 0.18, s * 0.09, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 

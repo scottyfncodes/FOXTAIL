@@ -15,6 +15,8 @@ import { golfBallPortrait, golfRarityBadge, note, portrait, rarityBadge } from '
 import { octoberNotes } from '../game/systems/october';
 import { findFace } from '../game/data/october';
 import { drawPumpkin } from '../game/world/OctoberArt';
+import { markSolutionRead, mysteryNotes, type MysteryId } from '../game/systems/mysteries';
+import { isOctober } from '../game/season';
 
 type Tab = 'plants' | 'regions' | 'curiosities' | 'golf' | 'october';
 
@@ -170,6 +172,7 @@ export class JournalPanel {
       vlist.appendChild(row);
     }
     body.appendChild(vlist);
+    if (defId === 'hoya') this.mysteryCard('hoya', 'In the margin', body);
 
     const c = speciesCounts(state, defId);
     body.appendChild(el('h4', 'section-head', 'Your plants'));
@@ -314,6 +317,12 @@ export class JournalPanel {
         const best = [...seen].sort((a, b) => rarityRank(findVariant(def.id, b)?.rarity ?? 'common') - rarityRank(findVariant(def.id, a)?.rarity ?? 'common'))[0];
         const cell = el('div', 'october-face');
         cell.append(portrait(def.id, best, 3, 4, 64), el('span', undefined, def.name));
+        // Which of its forms have turned up: the gaps are there to wonder about, as on the collection page.
+        if (def.variants.length > 1) {
+          const dots = el('div', 'variant-dots');
+          for (const v of def.variants) dots.appendChild(el('span', rec.variants.includes(v.id) ? 'vdot on' : 'vdot'));
+          cell.appendChild(dots);
+        }
         row.appendChild(cell);
       }
       sec.appendChild(row);
@@ -336,12 +345,40 @@ export class JournalPanel {
       sec.appendChild(row);
       body.appendChild(sec);
     }
+    this.mysteryCard('mooncap', 'The mooncaps', body);
+    this.mysteryCard('moonflower', 'The moonflowers', body);
     for (const n of octoberNotes(state)) {
       const card = el('div', `october-note${n.note.creature ? '' : ' strange'}`);
       card.appendChild(el('div', 'october-note-title', n.note.title));
       for (const line of n.lines) card.appendChild(el('div', 'october-note-line', line));
       body.appendChild(card);
     }
+  }
+
+  /**
+   * What Ellen has made of one of the last mysteries so far, in her own
+   * words; and at the very end, a guess written small, to read only if asked.
+   */
+  private mysteryCard(id: MysteryId, title: string, body: HTMLElement) {
+    const notes = mysteryNotes(this.game.state, id, isOctober());
+    if (!notes) return;
+    const card = el('div', 'october-note mystery-note');
+    card.dataset.mystery = id;
+    card.appendChild(el('div', 'october-note-title', title));
+    for (const line of notes.lines) card.appendChild(el('div', 'october-note-line', line));
+    if (notes.solution) {
+      if (notes.read) {
+        card.appendChild(el('div', 'october-note-line mystery-solution', notes.solution));
+      } else {
+        const reveal = el('button', 'back-link mystery-reveal', 'Something’s written small at the bottom of the page. Read it?');
+        reveal.addEventListener('click', () => {
+          markSolutionRead(this.game.state, id);
+          this.render();
+        });
+        card.appendChild(reveal);
+      }
+    }
+    body.appendChild(card);
   }
 
   /** A small field for what to call a region, prefilled with what it's turning into. */
