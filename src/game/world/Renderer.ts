@@ -28,7 +28,9 @@ import { spotContent } from '../systems/spots';
 import { hasFound } from '../systems/collection';
 import { stageFloat, stageIndexOf } from '../systems/growth';
 import type { LushField } from '../systems/wild';
-import { CHARACTERS } from '../systems/wild';
+import { CHARACTERS, coverCell } from '../systems/wild';
+import { COVER_KINDS } from '../systems/overgrowth';
+import { CoverTiles } from './GroundCoverArt';
 import { bedLiveliness } from '../systems/beds';
 import { PlantSpriteCache, type PlantMode } from './PlantArt';
 import { VergeTiles, type VergeLevel } from './VergeArt';
@@ -121,7 +123,22 @@ export interface SceneExtras {
   frogSplashes?: { x: number; y: number; start: number }[];
   /** Wild plants showing one of the last mysteries' clues after dark (plant id → how). */
   mysteryCues?: Map<string, 'star' | 'eclipse'>;
+  /** New growth to mark with drifting motes the first time it's on screen (the renderer sets seenAt). */
+  glints?: GrowthGlint[];
 }
+
+/** Where something has just grown: a seedling, a plant that grew a stage, a patch of ground cover. */
+export interface GrowthGlint {
+  x: number;
+  y: number;
+  /** performance.now() when it first came on screen; null until then. */
+  seenAt: number | null;
+  /** A plant (bigger, warmer motes) rather than a patch of ground cover. */
+  big: boolean;
+}
+
+/** How long a growth mark lasts once seen, in ms. */
+export const GLINT_MS = 7000;
 
 const NO_EXTRAS: SceneExtras = { tools: { kind: 'play' }, flourishes: [], cleared: new Set(), fade: 0 };
 
@@ -328,6 +345,8 @@ export class Renderer {
   private litter = new LeafLitter();
   /** The same undergrowth, with October's leaves fallen into it. */
   private autumnVerges = new VergeTiles(() => this.dpr, scatterLeaves);
+  /** The valley's own ground cover: moss, clover, ferns, mushrooms… (systems/overgrowth.ts). */
+  private coverTiles = new CoverTiles(() => this.dpr);
   private grade = new Grade();
   /** Drawing October this frame (trees turn, and the rest). */
   private october: OctoberView | null = null;
@@ -701,6 +720,7 @@ export class Renderer {
     }
     const nowMs = performance.now();
     for (const f of extras.flourishes) drawFlourish(this.ctx, camera, f, nowMs);
+    if (extras.glints?.length) this.drawGlints(camera, extras.glints, nowMs);
 
     this.drawPollinators(camera, state, bounds, now);
     this.drawAmbientParticles(camera, zoneHere, state.weather.condition, now);
@@ -945,6 +965,8 @@ export class Renderer {
     // Nature's own undergrowth on every open tile: thick in the gaps between
     // the player's plants, thinning out under a carpet of their foliage.
     const vergeTiles: { sx: number; sy: number; zone: ZoneId; level: VergeLevel; variant: number; shore: boolean; alpha: number }[] = [];
+    // Wild ground cover that has spread over the tile by itself, over the verge and under the carpet.
+    const coverTiles: { sx: number; sy: number; kind: number; level: number; variant: number; alpha: number }[] = [];
     const petalColors: Record<string, string> = {
       flower: 'rgba(250,244,236,0.85)',
       color: 'rgba(236,140,190,0.8)',
@@ -983,6 +1005,8 @@ export class Renderer {
           if (alpha > 0.05) {
             const shore = NEIGHBORS.some(([dx, dy]) => isWater(tx + dx, ty + dy));
             vergeTiles.push({ sx, sy, zone, level, variant: Math.floor(hash2(tx * 3.7, ty * 9.1) * 6), shore, alpha });
+            const cell = lush ? coverCell(lush.cover[li]) : null;
+            if (cell) coverTiles.push({ sx, sy, kind: cell.kind, level: cell.level, variant: Math.floor(hash2(tx * 5.3, ty * 2.9) * 4), alpha });
           }
         }
         if (lushHere >= CARPET_FROM && lush) {
@@ -1068,6 +1092,20 @@ export class Renderer {
     for (const [ch, path] of Object.entries(petals)) {
       ctx.fillStyle = petalColors[ch];
       ctx.fill(path);
+    }
+    if (coverTiles.length) {
+      const pad = CoverTiles.pad(tile);
+      const w = Math.round(tile) + pad * 2;
+      for (const t of coverTiles) {
+        const kind = COVER_KINDS[t.kind];
+        if (!kind) continue;
+        const c = this.coverTiles.get(kind, t.level, t.variant, tile);
+        if (!c) continue;
+        ctx.globalAlpha = t.alpha;
+        ctx.drawImage(c, t.sx - pad, t.sy - pad, w, w);
+      }
+      ctx.globalAlpha = 1;
+      alphaReset = true;
     }
     // The carpet goes on last, over the litter, in the colour of what grows there.
     if (lush && carpetTiles.length) {
@@ -2278,6 +2316,48 @@ export class Renderer {
    * Butterflies and bees drift around the player's flowering and colourful
    * plants — a living sign that what they planted is doing something.
    */
+  /**
+   * New growth, marked the first time it's on screen: a faint ring opening
+   * on the ground, then a few motes drifting up and fading. Gold over a
+   * plant, pale green over ground cover. Quiet on purpose: the growth itself
+   * is the thing to look at.
+   */
+  private drawGlints(camera: Camera, glints: GrowthGlint[], nowMs: number) {
+    const { ctx } = this;
+    const tile = TILE_SIZE * camera.zoom;
+    ctx.save();
+    for (const g of glints) {
+      const s = camera.worldToScreen(g.x * TILE_SIZE, g.y * TILE_SIZE);
+      if (s.x < -tile || s.y < -tile || s.x > camera.viewW + tile || s.y > camera.viewH + tile) continue;
+      if (g.seenAt === null) g.seenAt = nowMs;
+      const u = (nowMs - g.seenAt) / GLINT_MS;
+      if (u < 0 || u >= 1) continue;
+      const fade = u < 0.1 ? u / 0.1 : 1 - (u - 0.1) / 0.9;
+      const seed = Math.floor(g.x * 31 + g.y * 17);
+      // The ring, early on.
+      if (u < 0.35) {
+        const r = tile * (g.big ? 0.5 : 0.38) * (0.4 + u * 1.8);
+        ctx.strokeStyle = g.big ? `rgba(255,236,160,${0.45 * (1 - u / 0.35)})` : `rgba(210,250,190,${0.4 * (1 - u / 0.35)})`;
+        ctx.lineWidth = Math.max(1, tile * 0.025);
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, r, r * 0.45, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      const n = g.big ? 5 : 3;
+      for (let i = 0; i < n; i++) {
+        const phase = (u * 1.6 + i / n) % 1;
+        const ox = Math.sin(seed + i * 2.1 + phase * 3) * tile * 0.28;
+        const oy = -phase * tile * (g.big ? 0.9 : 0.55);
+        const a = fade * Math.sin(phase * Math.PI) * 0.85;
+        ctx.fillStyle = g.big ? `rgba(255,232,150,${a})` : `rgba(214,252,190,${a})`;
+        ctx.beginPath();
+        ctx.arc(s.x + ox, s.y + oy, Math.max(1, tile * (g.big ? 0.035 : 0.028)), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
   private drawPollinators(camera: Camera, state: GameState, bounds: { minX: number; maxX: number; minY: number; maxY: number }, now: number) {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;

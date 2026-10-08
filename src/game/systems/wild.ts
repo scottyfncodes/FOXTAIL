@@ -11,6 +11,7 @@ import { SpatialGrid } from './spatial';
 import { bedContains, onPath } from './landscape';
 import { bedLiveliness, LIVELY_TIER } from './beds';
 import { inPond } from './koi';
+import { coverStep, coverWorld, type CoverEvent, type CoverWorld } from './overgrowth';
 
 // Plants the player puts outdoors aren't decorations: once they're large
 // they start seeding, creeping and throwing out runners into the ground
@@ -22,7 +23,7 @@ import { inPond } from './koi';
 export const SPREAD_STEP = 60;
 export const WILD_ZONE_CAP = 140;
 /** No single species takes over a region completely: there's always room for the next thing. */
-export const WILD_SPECIES_ZONE_CAP = 55;
+export const WILD_SPECIES_ZONE_CAP = 40;
 export const WILD_TOTAL_CAP = 560;
 const SEEDLING_SPORT_CHANCE = 0.035;
 /**
@@ -51,9 +52,37 @@ export const SELF_SOW_CHANCE = 0.02;
 export const SELF_SOW_MAX = 5;
 /** Forms that run along the ground (or climb over it), so their seedlings come up a little further out. */
 const RUNNING_FORMS: PlantForm[] = ['trailing', 'beads', 'runner', 'climber', 'mat', 'moss', 'trefoil'];
-const MIN_SPACING = 0.85;
-const CROWD_RADIUS = 2;
-const CROWD_LIMIT = 7;
+/** Chance per spread step that a large plant of spread 1 throws a seedling or runner (scaled by its species' spread). */
+export const SPREAD_RATE = 0.024;
+/**
+ * A plant that came up by itself spreads at this fraction of the rate of
+ * one the player set out: the plants you chose drive the spread, and the
+ * colonies they found thicken more slowly, so growth compounds gently
+ * instead of running away.
+ */
+export const BORN_WILD_SPREAD = 0.5;
+/** A specimen spreads this much more readily than a plant that's only large. */
+export const SPECIMEN_SPREAD = 1.5;
+/**
+ * How fast spreading falls off as a region fills: the chance is scaled by
+ * (1 − plants in the region / WILD_ZONE_CAP) to this power. The first
+ * seedlings come easily; the last few room for, rarely.
+ */
+export const ZONE_ROOM_POWER = 2.5;
+/** No seedling comes up nearer than this to another plant. */
+export const MIN_SPACING = 1.0;
+const CROWD_RADIUS = 2.2;
+/** No seedling where this many plants already grow within CROWD_RADIUS: the ground cover fills the gaps instead. */
+export const CROWD_LIMIT = 4;
+/**
+ * A garden bed is the player's own, planted close on purpose: inside one,
+ * seedlings keep to the bed's old, closer spacing and nothing thins them
+ * out — a lively bed is meant to be thick with life.
+ */
+export const BED_SPACING = 0.85;
+export const BED_CROWD_LIMIT = 7;
+/** In a bed, the full rate the stage and species allow (the wild's SPREAD_RATE is gentler, to keep open ground readable). */
+export const BED_SPREAD_RATE = 0.03;
 
 export interface SpreadEvent {
   parentId: string;
@@ -68,13 +97,13 @@ function wildPlants(state: GameState): OwnedPlant[] {
   return Object.values(state.plants).filter((p) => p.location.kind === 'wild');
 }
 
-function tooClose(plants: OwnedPlant[] | SpatialGrid<OwnedPlant>, x: number, y: number): { tooClose: boolean; crowd: number } {
+function tooClose(plants: OwnedPlant[] | SpatialGrid<OwnedPlant>, x: number, y: number, spacing = MIN_SPACING): { tooClose: boolean; crowd: number } {
   let crowd = 0;
   let close = false;
   const check = (p: OwnedPlant) => {
     if (p.location.kind !== 'wild') return false;
     const d = Math.hypot(p.location.x - x, p.location.y - y);
-    if (d < MIN_SPACING) {
+    if (d < spacing) {
       close = true;
       return true;
     }
@@ -126,7 +155,12 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
     if (!def) continue;
     // Per spread step (an in-game hour): a vigorous large pothos throws out a
     // new plant every day or two of game time; a slow aroid far less often.
-    const chance = def.spread * 0.03 * (stage >= 4 ? 1.5 : 1);
+    // The fuller its region already is, the less room there is for another.
+    // (A garden bed is the player's to fill as thickly as they like: none of that applies inside one.)
+    const stageK = stage >= 4 ? SPECIMEN_SPREAD : 1;
+    const inBed = !!parent.location.bedId;
+    const room = inBed ? 1 : Math.max(0, 1 - (perZone[parent.location.zone] ?? 0) / WILD_ZONE_CAP) ** ZONE_ROOM_POWER;
+    const chance = inBed ? def.spread * BED_SPREAD_RATE * stageK : def.spread * SPREAD_RATE * stageK * room * (parent.bornWild ? BORN_WILD_SPREAD : 1);
     if (rand() >= chance) continue;
 
     // A plant in a garden bed spreads only within it; one outside never
@@ -158,8 +192,11 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
       }
       if ((perZone[zone] ?? 0) >= WILD_ZONE_CAP) continue;
       if ((perSpecies[`${zone}:${parent.defId}`] ?? 0) >= WILD_SPECIES_ZONE_CAP) continue;
-      const near = tooClose(grid, x, y);
-      if (near.tooClose || near.crowd >= CROWD_LIMIT) continue;
+      const near = tooClose(grid, x, y, bed ? BED_SPACING : MIN_SPACING);
+      if (near.tooClose || near.crowd >= (bed ? BED_CROWD_LIMIT : CROWD_LIMIT)) continue;
+      // Out in the open, the more neighbours a spot already has (beyond the
+      // parent), the less likely anything takes there: growth fills the gaps first.
+      if (!bed && near.crowd > 1 && rand() >= (1 - (near.crowd - 1) / CROWD_LIMIT) ** 2) continue;
 
       let defId = parent.defId;
       let variantId = parent.variantId;
@@ -263,6 +300,8 @@ export function selfSowStep(state: GameState, isOpenGround: GroundCheck, now: nu
 export interface WorldAdvance {
   ups: StageUp[];
   spreads: SpreadEvent[];
+  /** The valley's own ground cover coming up and thickening (only with `cover`). */
+  cover: CoverEvent[];
   /** Plants that came up wild by themselves, from no plant of the player's. */
   sown: string[];
   carry: number;
@@ -273,19 +312,36 @@ export interface WorldAdvance {
  * SPREAD_STEP chunks so a long absence plays out the same way as the same
  * time spent in-game: seedlings grow up and spread in their turn.
  */
+export interface AdvanceOptions {
+  /**
+   * How much of the clock the run covers, when it's less than `minutes`:
+   * a long absence grows the world by more than the clock moved (see
+   * Clock's ecologyMinutesFor), and anything born along the way is dated
+   * within the clock's own span.
+   */
+  clockSpan?: number;
+  /** Let the valley's own ground cover grow and spread too (systems/overgrowth.ts). */
+  cover?: boolean;
+}
+
 export function advanceWorld(
   state: GameState,
   minutes: number,
   carry: number,
   isOpenGround: GroundCheck,
-  rand: () => number = Math.random
+  rand: () => number = Math.random,
+  opts: AdvanceOptions = {}
 ): WorldAdvance {
   const ups: StageUp[] = [];
   const spreads: SpreadEvent[] = [];
   const sown: string[] = [];
+  const cover: CoverEvent[] = [];
   let left = minutes;
   let c = carry;
-  const startNow = state.clock.totalMinutes - minutes;
+  const span = Math.min(minutes, opts.clockSpan ?? minutes);
+  const startNow = state.clock.totalMinutes - span;
+  // Built only when an hourly step actually comes round: this runs every frame.
+  let world: CoverWorld | null = null;
   while (left > 1e-9) {
     const dt = Math.min(left, SPREAD_STEP - c);
     ups.push(...tickGrowth(state, dt));
@@ -293,13 +349,17 @@ export function advanceWorld(
     left -= dt;
     if (c >= SPREAD_STEP - 1e-9) {
       c = 0;
-      const at = startNow + (minutes - left);
+      const at = startNow + (span * (minutes - left)) / minutes;
       spreads.push(...spreadStep(state, isOpenGround, at, rand));
       const seedling = selfSowStep(state, isOpenGround, at, rand);
       if (seedling) sown.push(seedling.id);
+      if (opts.cover) {
+        world ??= coverWorld(state, isOpenGround);
+        cover.push(...coverStep(state, world, isOpenGround, at, rand));
+      }
     }
   }
-  return { ups, spreads, sown, carry: c };
+  return { ups, spreads, cover, sown, carry: c };
 }
 
 // ---------------------------------------------------------------- Lushness
@@ -318,6 +378,11 @@ export interface LushField {
    */
   leaf: Float32Array;
   pale: Float32Array;
+  /**
+   * The valley's own ground cover per tile (systems/overgrowth.ts): 0 for
+   * none, else kind × 4 + level (level 1–4). See coverCell.
+   */
+  cover: Uint8Array;
   /** 0…1 per region: share of it that's been overgrown. */
   zoneCover: Record<OutdoorZoneId, number>;
   /** Number of the player's plants per region. */
@@ -359,7 +424,8 @@ export function computeLushness(state: GameState): LushField {
     const def = PLANTS[p.defId];
     if (!def) continue;
     const look = lookFor(p.defId, p.variantId);
-    const sf = stageFloat(p.growth);
+    // A long-established plant fills out (see growth.ts), but its ground carpet stops growing a little past specimen.
+    const sf = Math.min(5, stageFloat(p.growth));
     const r = (0.7 + sf * 0.6) * Math.max(0.7, look.size);
     const w = 0.18 + sf * 0.16;
     const ci = CHARACTERS.indexOf(def.landscape);
@@ -452,7 +518,18 @@ export function computeLushness(state: GameState): LushField {
     const max = Math.max(...ws);
     if (max > 0) zoneCharacter[z] = CHARACTERS[ws.indexOf(max)];
   }
-  return { lush, character, leaf, pale, zoneCover, zoneCount, zoneCharacter };
+  const cover = new Uint8Array(n);
+  for (const p of state.ground?.patches ?? []) {
+    const [x, y, k, lv] = p;
+    if (x >= 0 && y >= 0 && x < GRID_W && y < GRID_H) cover[y * GRID_W + x] = k * 4 + lv;
+  }
+  return { lush, character, leaf, pale, cover, zoneCover, zoneCount, zoneCharacter };
+}
+
+/** Unpacks a LushField cover cell: null for bare ground, else the kind's index and the level. */
+export function coverCell(v: number): { kind: number; level: number } | null {
+  if (!v) return null;
+  return { kind: Math.floor((v - 1) / 4), level: ((v - 1) % 4) + 1 };
 }
 
 /** A few words describing what a region is turning into. */

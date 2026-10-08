@@ -70,6 +70,13 @@ export interface OwnedPlant {
   countedGrown?: boolean;
 }
 
+/**
+ * A patch of the valley's own ground cover on one tile (systems/overgrowth.ts):
+ * [tile x, tile y, kind (index into COVER_KINDS), level 1–4, game-minute it came up].
+ * Kept as a bare tuple: there can be well over a thousand of them in a save.
+ */
+export type GroundPatch = [number, number, number, number, number];
+
 /** A plant being carried: a fresh cutting (growth 0) or a potted plant lifted from somewhere. */
 export interface BasketItem {
   uid: string;
@@ -461,6 +468,8 @@ export interface GameState {
   october: OctoberLog;
   /** Hints toward the last three forms nobody is shown the way to, by mystery id. */
   mysteries: Record<string, MysteryRecord>;
+  /** The valley's own ground cover — moss, clover, ferns, mushrooms — spreading over open ground by itself. */
+  ground: { patches: GroundPatch[] };
 }
 
 /** How far the hints toward one of the valley's last mysteries have come (see systems/mysteries.ts). */
@@ -561,6 +570,7 @@ export function createNewGame(): GameState {
     regionTier: {},
     october: newOctoberLog(),
     mysteries: {},
+    ground: { patches: [] },
     cat: {
       x: 21.95,
       y: 3.5,

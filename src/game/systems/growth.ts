@@ -38,13 +38,31 @@ export function stageOf(growth: number): GrowthStage {
   return STAGES[stageIndexOf(growth)];
 }
 
-/** 0 (fresh cutting) … 4 (specimen), continuous, for drawing growth smoothly between stages. */
+/**
+ * Past specimen a plant never stops: it keeps filling out — more fronds,
+ * offshoots round its base, longer vines, a denser clump — easing toward
+ * MATURE_SF. MATURITY_K is how much more growth (effective game-minutes)
+ * that takes: about two thirds of the way after MATURITY_K, nearly all of
+ * it after three times that. A few days away is enough to see it.
+ */
+export const MATURE_SF = 6;
+export const MATURITY_K = 16000;
+
+/**
+ * 0 (fresh cutting) … 4 (specimen) … MATURE_SF (long-established and
+ * overgrown), continuous, for drawing growth smoothly between stages.
+ */
 export function stageFloat(growth: number): number {
   const i = stageIndexOf(growth);
-  if (i === STAGES.length - 1) return Math.min(4.6, 4 + (growth - STAGE_AT.specimen) / (STAGE_AT.specimen * 2));
+  if (i === STAGES.length - 1) return 4 + (MATURE_SF - 4) * (1 - Math.exp(-(growth - STAGE_AT.specimen) / MATURITY_K));
   const a = STAGE_AT[STAGES[i]];
   const b = STAGE_AT[STAGES[i + 1]];
   return i + (growth - a) / (b - a);
+}
+
+/** 0 at specimen, rising to 1 as a plant fills out into its fullest, overgrown self. */
+export function maturity(growth: number): number {
+  return Math.max(0, (stageFloat(growth) - 4) / (MATURE_SF - 4));
 }
 
 export function isRooted(growth: number): boolean {

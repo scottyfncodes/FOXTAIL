@@ -17,6 +17,31 @@ export const MINUTES_PER_DAY = 1440;
 // abandoned tab doesn't spin the world through weeks of growth at once.
 export const OFFLINE_CAP_MINUTES = 3 * MINUTES_PER_DAY;
 
+// The living things don't stop at that cap, though. The clock (and with it
+// the weather, the market's day, the request board) catches up at most
+// OFFLINE_CAP_MINUTES, but the plants, the spreading and the ground cover
+// get an extra "ecology" allowance for every real hour beyond it, tapering
+// off so a short absence shows small changes, a few days noticeable ones
+// and a long time away a much wilder valley, without ever running away.
+/** Extra growth-minutes for each doubling of the real time away past the cap. */
+export const ECOLOGY_PER_DOUBLING = 3600;
+/** Real hours past the cap that the first doubling is measured against. */
+export const ECOLOGY_TAPER_HOURS = 2;
+/** However long you're gone, the extra allowance stops here (about three weeks away). */
+export const ECOLOGY_MAX_EXTRA = 30000;
+
+/**
+ * Growth-minutes the living world gets for `realMs` away: the same as the
+ * clock up to the offline cap, then a tapering extra allowance.
+ */
+export function ecologyMinutesFor(realMs: number): number {
+  const full = Math.min((Math.max(0, realMs) / 1000) * GAME_MINUTES_PER_REAL_SECOND, OFFLINE_CAP_MINUTES);
+  const capMs = (OFFLINE_CAP_MINUTES / GAME_MINUTES_PER_REAL_SECOND) * 1000;
+  const beyondHours = Math.max(0, realMs - capMs) / 3_600_000;
+  const extra = Math.min(ECOLOGY_MAX_EXTRA, ECOLOGY_PER_DOUBLING * Math.log2(1 + beyondHours / ECOLOGY_TAPER_HOURS));
+  return full + extra;
+}
+
 export const DAWN = 5 * 60;
 export const DUSK = 20 * 60;
 
@@ -107,6 +132,10 @@ export function weatherDuration(cond: WeatherCondition, rand: () => number): num
 
 export interface ClockAdvanceResult {
   elapsedMinutes: number;
+  /** Growth-minutes for the living world: the same as elapsedMinutes, unless a long absence earned more (see ecologyMinutesFor). */
+  ecologyMinutes: number;
+  /** Real milliseconds since the clock last ran. */
+  realDeltaMs: number;
   wasOffline: boolean;
   weatherChanged: boolean;
 }
@@ -140,5 +169,6 @@ export function advanceClock(state: GameState, nowMs: number, rand: () => number
     state.weather.nextChangeAt = state.clock.totalMinutes + weatherDuration(state.weather.condition, rand);
   }
 
-  return { elapsedMinutes, wasOffline, weatherChanged };
+  const ecologyMinutes = wasOffline ? Math.max(elapsedMinutes, ecologyMinutesFor(realDeltaMs)) : elapsedMinutes;
+  return { elapsedMinutes, ecologyMinutes, realDeltaMs, wasOffline, weatherChanged };
 }

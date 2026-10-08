@@ -64,7 +64,9 @@ import { tickScott, tickChase, newChase, companySpots, truckSpots, CANNABIS } fr
 import type { ScottSpot } from '../data/scottSpots';
 import { tickCat } from '../systems/cat';
 import { spotContent, collectSpot } from '../systems/spots';
-import { advanceWorld, canPlantAt, computeLushness, type LushField } from '../systems/wild';
+import { advanceWorld, canPlantAt, computeLushness, type LushField, type WorldAdvance } from '../systems/wild';
+import { commonestCover, COVER_LABEL } from '../systems/overgrowth';
+import { GLINT_MS, type GrowthGlint } from '../world/Renderer';
 import { STAGE_LABEL, stageIndexOf, stageOf } from '../systems/growth';
 import { hasFound, recordFound, isEstablished, recordGrown } from '../systems/collection';
 import {
@@ -260,6 +262,9 @@ const MYSTERY_QUIET_SECONDS = 90;
 const SECRET_NOTICE_RANGE = 1.0;
 const LUSH_REFRESH_MS = 1500;
 
+/** The most growth marks waiting to be seen at once. */
+const GLINTS_MAX = 60;
+
 function spanText(gameMinutes: number): string {
   const hours = gameMinutes / 60;
   return hours >= 36 ? `${Math.round(hours / 24)} days` : hours >= 20 ? 'about a day' : hours >= 1.5 ? `${Math.round(hours)} hours` : 'a little while';
@@ -348,6 +353,8 @@ export class Game {
   private frogSplashes: { x: number; y: number; start: number }[] = [];
   private autosaveAcc = 0;
   private spreadCarry = 0;
+  /** New growth to mark with a few motes the first time it's on screen (see markNewGrowth). */
+  glints: GrowthGlint[] = [];
   private lushAcc = 0;
   private lushDirty = true;
   private started = false;
@@ -688,12 +695,17 @@ export class Game {
     if (this.flourishes.length > 6) this.flourishes.shift();
   }
 
-  /** Advances the living world by `elapsed` game-minutes and reports what changed. */
-  private simulate(elapsed: number, offline: boolean) {
-    const result = advanceWorld(this.state, elapsed, this.spreadCarry, this.isOpenGround);
+  /**
+   * Advances the living world by `elapsed` game-minutes of clock and
+   * `ecology` growth-minutes (more than `elapsed` after a long absence: see
+   * Clock's ecologyMinutesFor) and reports what changed.
+   */
+  private simulate(elapsed: number, offline: boolean, ecology = elapsed) {
+    const result = advanceWorld(this.state, ecology, this.spreadCarry, this.isOpenGround, Math.random, { clockSpan: elapsed, cover: true });
     this.spreadCarry = result.carry;
     const now = this.state.clock.totalMinutes;
-    if (result.ups.length || result.spreads.length || result.sown.length) this.lushDirty = true;
+    if (result.ups.length || result.spreads.length || result.sown.length || result.cover.length) this.lushDirty = true;
+    this.markNewGrowth(result, offline);
     // A find only goes in the journal once it's been grown: a plant of it rooted in your care.
     for (const g of recordGrown(this.state, now)) {
       if (!offline) this.pushToast(`${specimenName(g.defId, g.variantId)} took — it’s in your field journal now.`, 'discovery');
@@ -752,12 +764,58 @@ export class Game {
     if (offline) {
       const zones = [...new Set(result.spreads.map((s) => this.state.plants[s.childId]).filter((p) => p?.location.kind === 'wild').map((p) => (p!.location as { zone: string }).zone))];
       const parts: string[] = [];
-      if (grew.size > 0) parts.push(grew.size === 1 ? 'one of your plants grew' : `${grew.size} of your plants grew`);
-      if (result.spreads.length > 0) parts.push(`${result.spreads.length} new seedling${result.spreads.length === 1 ? '' : 's'} came up in ${listZones(zones, this.state)}`);
-      const body = parts.length ? `: ${parts.join(', and ')}` : '';
-      this.pushToast(`Welcome back — ${spanText(elapsed)} passed${body}.`, 'info', 'important');
+      if (grew.size > 0) parts.push(grew.size === 1 ? 'one of your plants grew' : 'your plants grew');
+      // Specimens don't change stage any more, but they keep filling out.
+      else if (Object.keys(this.state.plants).length > 0 && ecology >= 600) parts.push('your plants filled out');
+      if (result.spreads.length > 0) parts.push(`${result.spreads.length === 1 ? 'a seedling' : `${result.spreads.length} seedlings`} came up in ${listZones(zones, this.state)}`);
+      // The ground cover is described, not counted: where it went, and what it was.
+      const newCover = result.cover.filter((e) => e.kind === 'new');
+      if (newCover.length > 0) {
+        const byZone = new Map<string, number>();
+        for (const e of newCover) byZone.set(zoneAt(e.x, e.y), (byZone.get(zoneAt(e.x, e.y)) ?? 0) + 1);
+        const where = [...byZone.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([z]) => z);
+        const kinds = commonestCover(this.state, 2).map((k) => COVER_LABEL[k]);
+        parts.push(`${kinds.join(' and ') || 'moss'} ${newCover.length < 6 ? 'started to creep into' : 'spread through'} ${listZones(where, this.state)}`);
+      }
+      const body = parts.length ? `: ${parts.slice(0, -1).join(', ')}${parts.length > 1 ? ', and ' : ''}${parts[parts.length - 1]}` : '';
+      this.pushToast(`While you were away, ${spanText(elapsed)} passed${body}.`, 'info', 'important');
       if (sports.length > 0) this.pushToast(`And something you’ve never seen before is growing among them. Go and look.`, 'discovery');
     }
+  }
+
+  /**
+   * Remembers where new growth just appeared — seedlings, plants that grew
+   * a stage, ground cover that came up or thickened — so the renderer can
+   * mark it with a few drifting motes the first time it's on screen. After
+   * an absence that's what shows you what changed; in play, just a hint.
+   */
+  private markNewGrowth(result: WorldAdvance, offline: boolean) {
+    const p = this.state.player;
+    const near = (x: number, y: number) => offline || Math.hypot(x - p.x, y - p.y) < 14;
+    const add: GrowthGlint[] = [];
+    for (const s of result.spreads) {
+      const c = this.state.plants[s.childId];
+      if (c?.location.kind === 'wild' && !PLANTS[c.defId]?.secret && near(c.location.x, c.location.y)) add.push({ x: c.location.x, y: c.location.y, seenAt: null, big: true });
+    }
+    for (const u of result.ups) {
+      const c = this.state.plants[u.plantId];
+      // The valley's secret plants are never marked out, growing or not.
+      if (c?.location.kind === 'wild' && !PLANTS[c.defId]?.secret && near(c.location.x, c.location.y)) add.push({ x: c.location.x, y: c.location.y - 0.2, seenAt: null, big: true });
+    }
+    // Ground cover: only patches that came up (or, after an absence, any change), and only the latest of each tile.
+    const seen = new Set<number>();
+    for (let i = result.cover.length - 1; i >= 0; i--) {
+      const e = result.cover[i];
+      const key = e.y * 1000 + e.x;
+      if (seen.has(key) || (!offline && e.kind !== 'new') || !near(e.x + 0.5, e.y + 0.5)) continue;
+      seen.add(key);
+      add.push({ x: e.x + 0.5, y: e.y + 0.5, seenAt: null, big: false });
+    }
+    if (!add.length) return;
+    // Nearest first, and only so many: it's a hint of change, not fireworks.
+    add.sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
+    this.glints.push(...add.slice(0, offline ? GLINTS_MAX : 12));
+    if (this.glints.length > GLINTS_MAX) this.glints.splice(0, this.glints.length - GLINTS_MAX);
   }
 
   private update(dtMs: number) {
@@ -765,7 +823,12 @@ export class Game {
     // Wall-clock time, not the rAF timestamp: rAF time restarts near zero on
     // every page load, so it can't measure how long the player was away.
     const clockResult = advanceClock(this.state, Date.now());
-    if (clockResult.elapsedMinutes > 0) this.simulate(clockResult.elapsedMinutes, clockResult.wasOffline);
+    if (clockResult.elapsedMinutes > 0) this.simulate(clockResult.elapsedMinutes, clockResult.wasOffline, clockResult.ecologyMinutes);
+    // Growth marks fade a while after they were first seen.
+    if (this.glints.length) {
+      const t = performance.now();
+      this.glints = this.glints.filter((g) => g.seenAt === null || t - g.seenAt < GLINT_MS);
+    }
     if (tickCommissions(this.state, this.state.clock.totalMinutes)) {
       this.onStateTouched?.();
       // The board is the way to find out what's wanted; only the very first request is pointed at.
@@ -2717,7 +2780,7 @@ export class Game {
     this.camera.follow(focus.x, focus.y);
     const crouching = this.state.clock.totalMinutes < this.actionAnimUntil;
     this.frogSplashes = this.frogSplashes.filter((sp) => now - sp.start < 1200);
-    const scene = { gatorRide: this.gatorRide, frogsGone: this.frogsGone, frogSplashes: this.frogSplashes, tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss, october: isOctober() ? this.octView : null, mysteryCues: this.mysteryCues };
+    const scene = { gatorRide: this.gatorRide, frogsGone: this.frogsGone, frogSplashes: this.frogSplashes, tools: this.tools.mode, flourishes: this.flourishes, cleared: this.cleared, fade: Math.max(0, 1 - (now - this.fadeFrom) / FADE_MS), kiss: this.chase.kiss, october: isOctober() ? this.octView : null, mysteryCues: this.mysteryCues, glints: this.glints };
     if (this.state.player.inGreenhouse) {
       this.renderer.renderIndoor(this.sceneCamera(), this.state, now, crouching, scene);
     } else {
