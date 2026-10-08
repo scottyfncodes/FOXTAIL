@@ -215,6 +215,63 @@ grow in patches all over it.
   keeps an eye out for it. When a new seedling shows, he drops what he's
   doing, walks out to it and waves you over.
 
+## Overgrowth
+
+The valley keeps living while you're away, and you can see it.
+
+- **Plants never stop filling out.** Past *specimen*, a plant keeps
+  maturing toward its fullest self (`MATURE_SF` in `systems/growth.ts`):
+  ferns gather new crowns round their base, spider plants put out
+  plantlets, mushrooms come up in denser clusters, moss spreads into more
+  cushions, and potted or hanging vines (pothos, string of pearls…) keep
+  getting longer. Indoors and out.
+- **Large plants reproduce, within limits.** Outdoors, large plants and
+  specimens throw seedlings and runners nearby. A seedling never comes up
+  closer than a tile to anything else, it gets less likely the more
+  neighbours a spot already has, and the fuller a region gets, the rarer
+  new arrivals become (`systems/wild.ts`). Garden beds keep their own,
+  closer planting.
+- **The wild ground greens over by itself.** Moss, clover, young ferns,
+  mushrooms, leaf litter, ivy, wildflowers, sedge and lichen, each suited
+  to its region, start beside trees, bushes, rocks, water and your
+  plantings, then creep tile by tile across open ground and thicken from a
+  scrap to a carpet (`systems/overgrowth.ts`, drawn by
+  `world/GroundCoverArt.ts`). Never into a bed, never down the middle of
+  a path, never a solid sheet; a path, bed or clearing scrapes it back.
+  The journal's Regions page says how far it's got: bare → greening →
+  established → overgrown.
+- **Time away counts.** The clock still catches up at most three game days,
+  but the living world gets an extra, tapering allowance for every real
+  hour beyond that: a short break shows small changes, a few days
+  noticeable ones, a week or more a much wilder valley. It never runs away.
+  When you come back, a note says what happened, and new growth is marked
+  with a few drifting motes the first time it's on screen.
+- **No coins needed.** All of it happens on its own. The stall's
+  Leaf-Mould Mulch (180 coins) speeds the ground cover up, and plants you
+  set out nurture the cover around them.
+
+### Balancing knobs
+
+| What | Where | Value |
+| --- | --- | --- |
+| Growth past specimen (time to most of the way) | `growth.ts` `MATURITY_K` / `MATURE_SF` | 16000 growth-min / sf 6 |
+| Extra growth per doubling of real time away | `Clock.ts` `ECOLOGY_PER_DOUBLING` / `ECOLOGY_TAPER_HOURS` | 3600 / 2 h |
+| Most extra growth from one absence | `Clock.ts` `ECOLOGY_MAX_EXTRA` | 30000 |
+| Wild seedling rate (per in-game hour, × species spread) | `wild.ts` `SPREAD_RATE` (beds `BED_SPREAD_RATE`) | 0.024 (0.03) |
+| Specimen spread boost | `wild.ts` `SPECIMEN_SPREAD` | 1.5× |
+| Region-fullness falloff | `wild.ts` `ZONE_ROOM_POWER` | 2.5 |
+| Seedling spacing / crowding | `wild.ts` `MIN_SPACING` / `CROWD_LIMIT` | 1.0 tile / 4 within 2.2 |
+| Wild plant caps | `wild.ts` `WILD_ZONE_CAP` / `WILD_SPECIES_ZONE_CAP` / `WILD_TOTAL_CAP` | 140 / 40 / 560 |
+| New cover patches per in-game hour | `overgrowth.ts` `NUCLEATE_PER_STEP` | 1.1 |
+| Cover thickening / spreading | `overgrowth.ts` `COVER_GROW_CHANCE` / `COVER_SPREAD_CHANCE` | 0.04 / 0.008–0.018 |
+| Cover caps | `overgrowth.ts` `ZONE_COVER_MAX` / `COVER_TOTAL_CAP` / `NEIGHBOUR_LIMIT` | 45% / 1600 / 6 of 8 |
+| Nurture and mulch boosts | `overgrowth.ts` `NURTURE_BOOST` / `MULCH_BOOST` | 1.8× / 1.5× |
+| Phase thresholds | `overgrowth.ts` `PHASE_AT` | 2% / 20% / 55% |
+
+At these values: about 45 patches of cover after a first 20-minute
+session, "established" after a session and a couple of days away,
+"overgrown" after about a week.
+
 ## October
 
 The 🎵 button's popover also has a **Season** switch: **Classic**, or

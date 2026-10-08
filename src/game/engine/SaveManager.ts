@@ -9,6 +9,7 @@ import { HOUSE_FOOTPRINT, HOUSE_DOOR } from '../data/worldMap';
 import { CURIOSITY_SPECIES } from '../data/curiosities';
 import { recordFound } from '../systems/collection';
 import { findGolfBall, GOLF_BALL_CURIOSITY } from '../data/golfBalls';
+import { sanitizeCover } from '../systems/overgrowth';
 
 // Older builds stored each schema version under its own key; they're read
 // once as a fallback so those players' progress is recovered, not lost.
@@ -70,6 +71,8 @@ export function migrateSave(raw: unknown): GameState | null {
   }
   // October's log: anything malformed is put back to fresh; what's sound is kept.
   merged.october = migrateOctober(raw.october);
+  // The valley's ground cover: anything malformed or doubled up on a tile is dropped.
+  merged.ground = sanitizeCover(raw.ground);
   // Anything malformed in the little games' records is dropped: it's only a best score.
   const minigames = merged.minigames as Loose;
   for (const [id, r] of Object.entries(minigames)) {

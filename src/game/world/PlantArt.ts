@@ -18,7 +18,8 @@ export type PlantMode = 'ground' | 'pot' | 'hanging' | 'climb';
 const STAGE_SCALE = [0.42, 0.62, 0.86, 1.1, 1.34];
 
 export function stageScale(sf: number): number {
-  if (sf >= 4) return STAGE_SCALE[4] + Math.min(0.6, sf - 4) * 0.25;
+  // Past specimen it keeps getting a little bigger as it fills out (see growth.ts MATURE_SF).
+  if (sf >= 4) return STAGE_SCALE[4] + Math.min(0.6, sf - 4) * 0.25 + Math.max(0, sf - 4.6) * 0.08;
   const i = Math.floor(Math.max(0, sf));
   const f = Math.max(0, sf) - i;
   return STAGE_SCALE[i] + (STAGE_SCALE[i + 1] - STAGE_SCALE[i]) * f;
@@ -414,7 +415,8 @@ function drawTrailing(p: Paint) {
   const vineN = Math.min(9, Math.round(2 + sf * 1.6));
   const vines: { pts: [number, number][] }[] = [];
   for (let i = 0; i < vineN; i++) {
-    const len = S * (0.45 + sf * 0.28) * (0.7 + rand() * 0.45) * (mode === 'hanging' ? 1.35 : 1);
+    // Potted or hung, an old vine just keeps getting longer; on the ground it roots and runs (wild.ts) instead.
+    const len = S * (0.45 + (mode === 'ground' ? Math.min(sf, 4.4) : sf) * 0.28) * (0.7 + rand() * 0.45) * (mode === 'hanging' ? 1.35 : 1);
     const pts: [number, number][] = [];
     if (mode === 'ground') {
       const a = rand() * Math.PI * 2;
@@ -3090,20 +3092,69 @@ const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   pumpkin: drawPumpkinVine,
 };
 
+/** Where filling out begins: a specimen a little past its first flush. */
+const MATURE_FROM = 4.35;
+/** The highest growth drawn (growth.ts MATURE_SF). */
+const SF_MAX = 6;
+
+/** 0 until a specimen starts filling out, rising to 1 at its fullest. */
+export function overgrowthOf(sf: number): number {
+  return Math.max(0, Math.min(1, (sf - MATURE_FROM) / (SF_MAX - MATURE_FROM)));
+}
+
+/**
+ * How many offshoots each form gathers round its base at its fullest: a
+ * spider plant's plantlets, a fern's new crowns, a denser clump of
+ * mushrooms, more cushions of moss. Vines mostly just get longer instead.
+ */
+const OFFSHOOTS: Partial<Record<PlantForm, number>> = {
+  fern: 3, strappy: 4, spiky: 3, rosette: 4, globe: 3, stones: 4, mushroom: 5, coral: 3, moss: 4, mat: 3, trefoil: 4, runner: 3,
+  spear: 3, clump: 2, bloom: 2, palm: 2, cattail: 3, bamboo: 2, patterned: 2, heart: 2, splitleaf: 1, coin: 3, dew: 3, trap: 3,
+  pitcher: 3, palmate: 2, fan: 2, cane: 1, paddle: 2, column: 2, jade: 1, fig: 1, trailing: 1, beads: 1, climber: 1, cups: 1,
+  lilypad: 3, pumpkin: 0,
+};
+
 /**
  * Draws a plant with its base at (0,0) of the current transform.
  * `unit` is pixels per tile.
  */
-export function paintPlant(ctx: CanvasRenderingContext2D, defId: string, variantId: string, sf: number, seed: number, unit: number, mode: PlantMode) {
+export function paintPlant(ctx: CanvasRenderingContext2D, defId: string, variantId: string, sf: number, seed: number, unit: number, mode: PlantMode, offshoot = false) {
   const def = PLANTS[defId];
   if (!def) return;
   const look = lookFor(defId, variantId);
   const S = unit * look.size * stageScale(sf) * 0.62;
   const p: Paint = { ctx, look, rand: mulberry32(seed * 7919 + 13), unit, S, sf, mode };
+  // A long-established plant fills out: offshoots come up round it.
+  const kids = offshoot || mode === 'climb' || mode === 'hanging' ? [] : offshootsOf(def.form, sf, seed, S, mode);
   ctx.save();
+  for (const k of kids) if (k.y <= 0) withTransform(ctx, k.x, k.y, 0, () => paintPlant(ctx, defId, variantId, k.sf, k.seed, unit, mode, true));
   if (mode === 'climb') drawClimbingVine(p, def.form);
   else FORM_DRAW[def.form](p);
+  for (const k of kids) if (k.y > 0) withTransform(ctx, k.x, k.y, 0, () => paintPlant(ctx, defId, variantId, k.sf, k.seed, unit, mode, true));
   ctx.restore();
+}
+
+/** Where a mature plant's offshoots stand round its base, and how grown each is (younger the further out). */
+function offshootsOf(form: PlantForm, sf: number, seed: number, S: number, mode: PlantMode): { x: number; y: number; sf: number; seed: number }[] {
+  const over = overgrowthOf(sf);
+  const most = OFFSHOOTS[form] ?? 2;
+  if (over <= 0 || most <= 0) return [];
+  const potted = mode === 'pot';
+  const n = Math.min(potted ? 2 : most, Math.round(over * most + 0.3));
+  if (n <= 0) return [];
+  const rand = mulberry32(seed * 104729 + 77);
+  const out: { x: number; y: number; sf: number; seed: number }[] = [];
+  const e = extent(form, mode);
+  for (let i = 0; i < n; i++) {
+    const side = i % 2 === 0 ? 1 : -1;
+    const reach = potted ? S * (0.22 + rand() * 0.12) : S * e.w * (0.42 + rand() * 0.28) * (0.75 + over * 0.35);
+    const x = side * reach * (0.6 + (i / Math.max(1, n)) * 0.4);
+    const y = potted ? S * 0.02 : (rand() - 0.45) * S * 0.36;
+    // Each newer offshoot younger than the last; all of them grow on as the parent does.
+    const kidSf = potted ? 0.8 + rand() * 0.6 : 1.1 + over * 1.5 - (i / most) * 0.8 + rand() * 0.4;
+    out.push({ x, y, sf: Math.max(0.6, kidSf), seed: seed * 31 + i * 7 + 3 });
+  }
+  return out;
 }
 
 /**
@@ -3171,6 +3222,15 @@ function drawClimbingVine(p: Paint, form: PlantForm) {
   }
 }
 
+/** Bounding box (in units of S) each form needs around its base, with room for a mature plant's offshoots and longer vines. */
+function extentFor(form: PlantForm, mode: PlantMode, sf: number): { w: number; up: number; down: number } {
+  const e = extent(form, mode);
+  const over = overgrowthOf(sf);
+  if (over <= 0) return e;
+  const wide = mode === 'ground' && (OFFSHOOTS[form] ?? 2) > 0 ? 0.75 : 0.25;
+  return { w: e.w * (1 + over * wide), up: e.up * (1 + over * 0.2), down: e.down * (1 + over * 0.3) };
+}
+
 /** Bounding box (in units of S) each form needs around its base. */
 function extent(form: PlantForm, mode: PlantMode): { w: number; up: number; down: number } {
   if (mode === 'climb') return { w: 1.8, up: 3.6, down: 0.6 };
@@ -3231,7 +3291,7 @@ export class PlantSpriteCache {
   get(defId: string, variantId: string, sf: number, seed: number, unit: number, mode: PlantMode, dpr: number): PlantSprite | null {
     const def = PLANTS[defId];
     if (!def) return null;
-    const sfB = Math.round(Math.min(4.6, sf) * 3) / 3;
+    const sfB = Math.round(Math.min(SF_MAX, sf) * 3) / 3;
     const seedB = seed % 5;
     const unitB = Math.max(8, Math.round(unit / 4) * 4);
     // Match the world canvas density exactly; a lower-res sprite stretched up reads as blur.
@@ -3258,7 +3318,7 @@ export class PlantSpriteCache {
 
     const look = lookFor(defId, variantId);
     const S = unitB * look.size * stageScale(sfB) * 0.62;
-    const e = extent(def.form, mode);
+    const e = extentFor(def.form, mode, sfB);
     const pad = 4;
     const w = Math.ceil(S * e.w * 2 + pad * 2);
     const h = Math.ceil(S * (e.up + e.down) + pad * 2);
@@ -3311,7 +3371,7 @@ export function drawPortrait(canvas: HTMLCanvasElement, defId: string, variantId
   // bigger, so it reads as a small plant rather than filling the card.
   const unit = 90;
   const look = lookFor(defId, variantId);
-  const e = extent(def.form, 'ground');
+  const e = extentFor(def.form, 'ground', sf);
   const S = unit * look.size * stageScale(sf) * 0.62;
   const Sref = unit * look.size * stageScale(Math.max(sf, 1.6)) * 0.62;
   const w = Math.ceil(Sref * e.w * 2 + 20);

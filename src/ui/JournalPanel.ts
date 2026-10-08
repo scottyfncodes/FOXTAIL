@@ -10,6 +10,7 @@ import { ZONES } from '../game/data/zones';
 import type { OutdoorZoneId } from '../game/types';
 import { collectionTotals, speciesCounts, isEstablished, ESTABLISH_THRESHOLD } from '../game/systems/collection';
 import { describeRegion } from '../game/systems/wild';
+import { coverFill, coverPhase, PHASE_LABEL } from '../game/systems/overgrowth';
 import { canName, NAME_MAX, regionLabel } from '../game/systems/regions';
 import { golfBallPortrait, golfRarityBadge, note, portrait, rarityBadge } from './common';
 import { octoberNotes } from '../game/systems/october';
@@ -406,6 +407,8 @@ export class JournalPanel {
     const lush = this.game.lush;
     const body = this.panel.body;
     body.appendChild(note('What your plants are doing to the valley. Plants grow fastest in their own kind of country.'));
+    // And what the valley is doing by itself, whether or not you plant a thing.
+    body.appendChild(note(PHASE_LABEL[coverPhase(coverFill(this.game.state, this.game.isOpenGround))]));
     const list = el('div', 'entry-list');
     for (const z of REGIONS) {
       const cover = lush.zoneCover[z] ?? 0;

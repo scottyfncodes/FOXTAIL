@@ -157,6 +157,20 @@ export function wildGrid(state: GameState): SpatialGrid<OwnedPlant> {
   return grid;
 }
 
+// ---------------------------------------------------------------- ground cover
+
+/**
+ * Takes the valley's own ground cover (systems/overgrowth.ts) off wherever
+ * the player works the ground: under a new bed, path or clearing it's
+ * scraped back to soil with everything else.
+ */
+function scrapeCover(state: GameState, gone: (x: number, y: number) => boolean) {
+  const list = state.ground?.patches;
+  if (!list?.length) return;
+  const keep = list.filter((p) => !gone(p[0] + 0.5, p[1] + 0.5));
+  if (keep.length !== list.length) state.ground.patches = keep;
+}
+
 // ---------------------------------------------------------------- beds
 
 export const BED_MIN = 1.5;
@@ -277,6 +291,7 @@ export function createBed(state: GameState, spec: Omit<GardenBed, 'id' | 'create
   const bed: GardenBed = { id: makeUid('bed'), ...spec, createdAt: now, paid };
   state.gardenBeds.push(bed);
   const cleared = clearScrubUnder(state, bed, world);
+  scrapeCover(state, (x, y) => bedContains(bed, x, y, -0.3));
   let adopted = 0;
   for (const p of Object.values(state.plants)) {
     if (p.location.kind !== 'wild' || p.location.bedId) continue;
@@ -566,6 +581,7 @@ export function createPath(state: GameState, points: number[], world: LandscapeW
   for (const key of [...preview.scrub, ...preview.trees, ...preview.rocks]) if (!state.clearedObstacles.includes(key)) state.clearedObstacles.push(key);
   const path: GardenPath = { id: makeUid('path'), points: [...points], width: PATH_WIDTH, createdAt: now };
   state.paths.push(path);
+  scrapeCover(state, (x, y) => distToRoute(points, x, y) < PATH_WIDTH / 2 + 0.25);
   return { path, dugUp: preview.plants.length, cleared: preview.scrub.length, trees: preview.trees.length, rocks: preview.rocks.length, cost: preview.cost };
 }
 
@@ -705,6 +721,7 @@ export function createClearing(state: GameState, spec: ClearingSpec, world: Land
   for (const p of preview.plants) delete state.plants[p.id];
   state.coins -= preview.cost;
   for (const key of [...preview.scrub, ...preview.trees, ...preview.rocks]) if (!state.clearedObstacles.includes(key)) state.clearedObstacles.push(key);
+  scrapeCover(state, (x, y) => inClearing(spec, x, y, -0.2) && !state.gardenBeds.some((b) => bedContains(b, x, y)));
   let cut = 0;
   state.paths = state.paths.flatMap((p) => {
     const trimmed = trimPathByClearing(p, spec);

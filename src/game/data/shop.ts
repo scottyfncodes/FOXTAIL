@@ -111,6 +111,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   // Equipment
   { id: 'basketMedium', name: 'Collector’s Satchel', category: 'equipment', price: 80, description: 'Carry up to 10 plants.' },
   { id: 'basketLarge', name: 'Field Pack', category: 'equipment', price: 340, after: 'basketMedium', description: 'Carry up to 16 plants.' },
+  { id: 'leafMould', name: 'Leaf-Mould Mulch', category: 'equipment', price: 180, description: 'Sacks of crumbly leaf mould and spore-rich forest soil, scattered through the valley. The moss, clover, ferns and mushrooms that spread over open ground by themselves — they do that anyway — creep out half again as fast.' },
   { id: 'rootingKit', name: 'Rooting Kit', category: 'equipment', price: 260, description: 'Hormone powder and sharp snips. Plants recover twice as fast after you take a cutting, and cuttings throw sports (mutations) more often.' },
   { id: 'rockHammer', name: 'Rock Hammer', category: 'equipment', price: 150, description: 'A sledge and a pry bar. Needed before any rock can be broken up and hauled away — for a single rock, or for a path that runs through one.' },
   { id: 'chainsaw', name: 'Chainsaw', category: 'equipment', price: 420, after: 'rockHammer', description: 'Needed before a tree can be felled or a bush grubbed out — one at a time, or for a path that runs through trees.' },
