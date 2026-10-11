@@ -52,6 +52,8 @@ export const SELF_SOW_MAX = 5;
 /** Forms that run along the ground (or climb over it), so their seedlings come up a little further out. */
 const RUNNING_FORMS: PlantForm[] = ['trailing', 'beads', 'runner', 'climber', 'mat', 'moss', 'trefoil'];
 const MIN_SPACING = 0.85;
+/** The player can plant closer than anything seeds itself (see landscape.ts checkPlanting). */
+const PLANT_SPACING = 0.5;
 const CROWD_RADIUS = 2;
 const CROWD_LIMIT = 7;
 
@@ -68,13 +70,13 @@ function wildPlants(state: GameState): OwnedPlant[] {
   return Object.values(state.plants).filter((p) => p.location.kind === 'wild');
 }
 
-function tooClose(plants: OwnedPlant[] | SpatialGrid<OwnedPlant>, x: number, y: number): { tooClose: boolean; crowd: number } {
+function tooClose(plants: OwnedPlant[] | SpatialGrid<OwnedPlant>, x: number, y: number, spacing = MIN_SPACING): { tooClose: boolean; crowd: number } {
   let crowd = 0;
   let close = false;
   const check = (p: OwnedPlant) => {
     if (p.location.kind !== 'wild') return false;
     const d = Math.hypot(p.location.x - x, p.location.y - y);
-    if (d < MIN_SPACING) {
+    if (d < spacing) {
       close = true;
       return true;
     }
@@ -94,7 +96,7 @@ export function canPlantAt(state: GameState, x: number, y: number, isOpenGround:
   if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return false;
   if (zoneAt(tx, ty) === 'greenhouse' || isWater(tx, ty)) return false;
   if (!isOpenGround(tx, ty)) return false;
-  return !tooClose(wildPlants(state), x, y).tooClose;
+  return !tooClose(wildPlants(state), x, y, PLANT_SPACING).tooClose;
 }
 
 /** One spread check across every outdoor plant. */

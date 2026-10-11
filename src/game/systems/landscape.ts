@@ -758,6 +758,17 @@ export interface PlantingCheck {
 }
 
 /**
+ * How close the player can plant to what's already there: never nearer than
+ * PLANT_ROOM_MIN tiles, and further for a big neighbour (its current
+ * spread × PLANT_ROOM_THEIRS) or a species that grows big itself (its
+ * mature spread × PLANT_ROOM_MINE). Set tight on purpose: a planting can
+ * be close-packed.
+ */
+export const PLANT_ROOM_MIN = 0.35;
+export const PLANT_ROOM_THEIRS = 0.38;
+export const PLANT_ROOM_MINE = 0.24;
+
+/**
  * Whether a plant of this species could be planted exactly at (x, y).
  * Plants can go close together — right between two others, if there's
  * physically room for a young one — but not on top of one another.
@@ -787,11 +798,11 @@ export function checkPlanting(
     if (world.isSpot(tx, ty)) return { block: 'spot', zone: oz };
     if (state.decor.some((d) => Math.hypot(d.x - x, d.y - y) < 0.55) || inPond(state, x, y)) return { block: 'decor', zone: oz };
   }
-  const mine = matureRadius(defId) * 0.4;
+  const mine = matureRadius(defId) * PLANT_ROOM_MINE;
   let blocker: OwnedPlant | undefined;
   const test = (p: OwnedPlant) => {
     if (p.id === opts.ignoreId || p.location.kind !== 'wild') return false;
-    const need = Math.max(0.55, currentRadius(p) * 0.62 + mine);
+    const need = Math.max(PLANT_ROOM_MIN, currentRadius(p) * PLANT_ROOM_THEIRS + mine);
     if (Math.hypot(p.location.x - x, p.location.y - y) < need) {
       blocker = p;
       return true;

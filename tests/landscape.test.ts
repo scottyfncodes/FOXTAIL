@@ -69,9 +69,9 @@ describe('precise outdoor planting', () => {
   it('leaves more room around a plant as it grows', () => {
     const state = createNewGame();
     const m = wild(state, 'm', 55, 28, STAGE_AT.young, 'monstera', 'deliciosa');
-    expect(checkPlanting(state, 'fittonia', 55.8, 28, world(), 0).block).toBeNull();
+    expect(checkPlanting(state, 'fittonia', 55.45, 28, world(), 0).block).toBeNull();
     m.growth = STAGE_AT.specimen;
-    expect(checkPlanting(state, 'fittonia', 55.8, 28, world(), 0).block).toBe('crowded');
+    expect(checkPlanting(state, 'fittonia', 55.45, 28, world(), 0).block).toBe('crowded');
   });
 
   it('refuses water, trees, wild patches and garden decor — but not a wildflower, nor a path', () => {
