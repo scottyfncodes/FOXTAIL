@@ -662,7 +662,8 @@ export class Game {
       if (segmentHitsRect(GREENHOUSE_FOOTPRINT, p.x, p.y, x, y) || segmentHitsRect(HOUSE_FOOTPRINT, p.x, p.y, x, y)) continue;
       if ((p.x < 42) !== (x < 42)) continue;
       const c = pickCuriosity(st, zone, { night: isNight(now), rain: st.weather.condition === 'rain' }, Math.random);
-      if (!c) continue;
+      // Nothing (or only something she's shown you before, and passed over): no scent this time.
+      if (!c) return;
       const find = { id: makeUid('find'), kind: 'curiosity' as const, x, y, zone, seed: Math.floor(Math.random() * 1e9), curiosityId: c.id, createdAt: now, expiresAt: now + FOX_FIND_LIFETIME };
       st.foxFinds.push(find);
       sc.leadTo = { x, y, findId: find.id };

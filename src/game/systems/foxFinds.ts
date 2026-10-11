@@ -60,6 +60,13 @@ export function pickFoxPlant(state: GameState, zone: OutdoorZoneId, rand: () => 
   return pick ? { defId: pick.def.id, variantId: pick.variantId } : null;
 }
 
+/**
+ * A curiosity you've already noted only turns up again now and then: this
+ * share of the time after the first find, then less each time after
+ * (REPEAT_KEEP / times found). Otherwise the trail leads somewhere else.
+ */
+export const REPEAT_KEEP = 0.25;
+
 export function pickCuriosity(state: GameState, zone: OutdoorZoneId, cond: FindConditions, rand: () => number): CuriosityDef | null {
   const eligible = CURIOSITIES.filter((c) => {
     if (!c.zones.includes(zone)) return false;
@@ -71,7 +78,11 @@ export function pickCuriosity(state: GameState, zone: OutdoorZoneId, cond: FindC
   // Something not yet noted is twice as likely. A lost golf ball is a rare
   // turn-up whatever's been found: they're a treat, not what most scents lead to.
   const weight = (c: CuriosityDef) => (c.id === GOLF_BALL_CURIOSITY ? RARITY_WEIGHT[c.rarity] * GOLF_BALL_WEIGHT : RARITY_WEIGHT[c.rarity] * (state.curiosities[c.id] ? 1 : 2));
-  return weightedPick(eligible, weight, rand) ?? null;
+  const c = weightedPick(eligible, weight, rand) ?? null;
+  // Once you've seen a split geode, another one is only so exciting.
+  const seen = c && c.id !== GOLF_BALL_CURIOSITY ? state.curiosities[c.id]?.count ?? 0 : 0;
+  if (seen > 0 && rand() >= REPEAT_KEEP / seen) return null;
+  return c;
 }
 
 /** Leaves something at the end of a trail. Returns what was left (possibly several plants, for a grove). */
