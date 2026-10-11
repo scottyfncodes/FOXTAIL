@@ -28,9 +28,7 @@ import { spotContent } from '../systems/spots';
 import { hasFound } from '../systems/collection';
 import { stageFloat, stageIndexOf } from '../systems/growth';
 import type { LushField } from '../systems/wild';
-import { CHARACTERS, coverCell } from '../systems/wild';
-import { COVER_KINDS } from '../systems/overgrowth';
-import { CoverTiles } from './GroundCoverArt';
+import { CHARACTERS } from '../systems/wild';
 import { bedLiveliness } from '../systems/beds';
 import { PlantSpriteCache, type PlantMode } from './PlantArt';
 import { VergeTiles, type VergeLevel } from './VergeArt';
@@ -127,7 +125,7 @@ export interface SceneExtras {
   glints?: GrowthGlint[];
 }
 
-/** Where something has just grown: a seedling, a plant that grew a stage, a patch of ground cover. */
+/** Where something has just grown: a seedling or a plant that grew a stage. */
 export interface GrowthGlint {
   x: number;
   y: number;
@@ -345,8 +343,6 @@ export class Renderer {
   private litter = new LeafLitter();
   /** The same undergrowth, with October's leaves fallen into it. */
   private autumnVerges = new VergeTiles(() => this.dpr, scatterLeaves);
-  /** The valley's own ground cover: moss, clover, ferns, mushrooms… (systems/overgrowth.ts). */
-  private coverTiles = new CoverTiles(() => this.dpr);
   private grade = new Grade();
   /** Drawing October this frame (trees turn, and the rest). */
   private october: OctoberView | null = null;
@@ -965,8 +961,6 @@ export class Renderer {
     // Nature's own undergrowth on every open tile: thick in the gaps between
     // the player's plants, thinning out under a carpet of their foliage.
     const vergeTiles: { sx: number; sy: number; zone: ZoneId; level: VergeLevel; variant: number; shore: boolean; alpha: number }[] = [];
-    // Wild ground cover that has spread over the tile by itself, over the verge and under the carpet.
-    const coverTiles: { sx: number; sy: number; kind: number; level: number; variant: number; alpha: number }[] = [];
     const petalColors: Record<string, string> = {
       flower: 'rgba(250,244,236,0.85)',
       color: 'rgba(236,140,190,0.8)',
@@ -1005,8 +999,6 @@ export class Renderer {
           if (alpha > 0.05) {
             const shore = NEIGHBORS.some(([dx, dy]) => isWater(tx + dx, ty + dy));
             vergeTiles.push({ sx, sy, zone, level, variant: Math.floor(hash2(tx * 3.7, ty * 9.1) * 6), shore, alpha });
-            const cell = lush ? coverCell(lush.cover[li]) : null;
-            if (cell) coverTiles.push({ sx, sy, kind: cell.kind, level: cell.level, variant: Math.floor(hash2(tx * 5.3, ty * 2.9) * 4), alpha });
           }
         }
         if (lushHere >= CARPET_FROM && lush) {
@@ -1092,20 +1084,6 @@ export class Renderer {
     for (const [ch, path] of Object.entries(petals)) {
       ctx.fillStyle = petalColors[ch];
       ctx.fill(path);
-    }
-    if (coverTiles.length) {
-      const pad = CoverTiles.pad(tile);
-      const w = Math.round(tile) + pad * 2;
-      for (const t of coverTiles) {
-        const kind = COVER_KINDS[t.kind];
-        if (!kind) continue;
-        const c = this.coverTiles.get(kind, t.level, t.variant, tile);
-        if (!c) continue;
-        ctx.globalAlpha = t.alpha;
-        ctx.drawImage(c, t.sx - pad, t.sy - pad, w, w);
-      }
-      ctx.globalAlpha = 1;
-      alphaReset = true;
     }
     // The carpet goes on last, over the litter, in the colour of what grows there.
     if (lush && carpetTiles.length) {
