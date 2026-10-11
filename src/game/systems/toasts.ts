@@ -43,6 +43,16 @@ export const MOMENT_MS = 2500;
 /** At most this many messages on screen at once — a phone is small. */
 export const MAX_VISIBLE = 2;
 
+/**
+ * Whether the screen is too short to stack messages without them reaching
+ * Ellen (who stands mid-screen) or the patch at her feet: an iPhone SE-sized
+ * phone upright, or any phone on its side but the roomiest. There, messages
+ * take turns, one at a time, rather than stacking.
+ */
+export function compactToasts(viewW: number, viewH: number): boolean {
+  return (viewH <= 740 && viewH > viewW) || viewH <= 420;
+}
+
 export function toastDuration(text: string, sig: Significance): number {
   const extra = Math.max(0, text.length - GLANCE_CHARS) * PER_CHAR_MS[sig];
   return Math.min(MAX_MS[sig], BASE_MS[sig] + extra);
@@ -85,6 +95,8 @@ export interface ToastChanges<T> {
 }
 
 export class ToastScheduler<T> {
+  /** How many may be up at once; the HUD drops it to one on a short screen (see compactToasts). */
+  maxVisible = MAX_VISIBLE;
   private visible: Entry<T>[] = [];
   private queue: Entry<T>[] = [];
   private holdUntil = 0;
@@ -127,8 +139,8 @@ export class ToastScheduler<T> {
       if (next.sig === 'major') {
         // Clear the chatter; anything important already up may stay beside it.
         for (const e of [...this.visible]) if (RANK[e.sig] < RANK.important) this.remove(e, out);
-        if (this.visible.length >= MAX_VISIBLE) break;
-      } else if (this.visible.length >= MAX_VISIBLE) {
+        if (this.visible.length >= this.maxVisible) break;
+      } else if (this.visible.length >= this.maxVisible) {
         // Make room only by retiring something no more important than the newcomer.
         const victim = this.visible.find((e) => RANK[e.sig] <= Math.min(RANK[next.sig], RANK.normal));
         if (!victim) break;

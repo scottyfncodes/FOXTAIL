@@ -5,7 +5,7 @@ import { regionLabel } from '../game/systems/regions';
 import { zoneAt } from '../game/data/worldMap';
 import { isNight, minuteOfDay } from '../game/engine/Clock';
 import { ModeBar } from './ModeBar';
-import { ToastScheduler } from '../game/systems/toasts';
+import { ToastScheduler, MAX_VISIBLE, compactToasts } from '../game/systems/toasts';
 import { coin, golfBallPortrait, golfRarityBadge, portrait } from './common';
 import { specimenName } from '../game/data/plants';
 import { findGolfBall } from '../game/data/golfBalls';
@@ -215,6 +215,8 @@ export class HUD {
   }
 
   private pumpToasts() {
+    // On a short screen, one message at a time: stacked, they'd reach Ellen.
+    this.toasts.maxVisible = compactToasts(window.innerWidth, window.innerHeight) ? 1 : MAX_VISIBLE;
     const { show, hide } = this.toasts.tick(performance.now());
     for (const node of hide) {
       node.classList.add('leaving');
