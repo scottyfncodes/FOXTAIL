@@ -1,5 +1,5 @@
 import type { GameState, MysteryRecord } from '../state';
-import { hasFound } from './collection';
+import { hasFound, hasGrown } from './collection';
 
 // The valley's last mysteries: three forms that a player can reach the end
 // of everything else without ever having been shown the way to. Nothing here
@@ -60,7 +60,7 @@ export const MYSTERIES: Record<MysteryId, MysteryDef> = {
       'Every form comes from the one before. Cuttings from a Harvest mooncap, again and again (the bigger the plant, the likelier something different comes up). And when a lantern drifts away into the dark, follow it all the way to where it stops.',
     ],
     solution:
-      'The last mooncap is Eclipse, and it comes after Harvest. Three ways to it. Take a cutting from a Harvest mooncap each time it has recovered: now and then one comes out Eclipse, more often from a bigger plant, and twice as often with a rooting kit. On an October night, when a lantern starts drifting off, stay within a few steps of it until it stops: half the time it leaves something of the season there, most often a form you haven’t found. And after dark in October, mooncaps come up wild in patches in the woods, the damp forest and along the creek, very occasionally as Eclipse.',
+      'The last mooncap is Eclipse, and it comes after Harvest. Three ways to it. Take a cutting from a Harvest mooncap each time it has recovered: now and then one comes out Eclipse, more often from a bigger plant, and twice as often with a rooting kit. On an October night, when a lantern starts drifting off (while there’s a darker mooncap still to find, they come out far more often than usual), stay within a few steps of it until it stops: half the time it leaves something of the season there, most often a form you haven’t found. And after dark in October, mooncaps come up wild in patches in the woods, the damp forest and along the creek, very occasionally as Eclipse.',
     classicNote: 'The lanterns and the wild mooncaps only come in the October look (Season, under the ♪ button). Cuttings work in either.',
   },
   moonflower: {
@@ -76,7 +76,7 @@ export const MYSTERIES: Record<MysteryId, MysteryDef> = {
       'Some things can’t be found, only given. If it sits by a jack-o’-lantern again after dark, I won’t chase it. I’ll just go and sit with it. (Or a big old Silver Edge might throw something like it, the way big plants do.)',
     ],
     solution:
-      'The moonflower nobody planted is the Pale Visitor. Carve one of the pumpkins round the house (on the porch, by the greenhouse, by the stall or in the patch) and stay near it after full dark. Every few minutes the small pale thing turns up, and often it sits down beside a lit jack-o’-lantern and doesn’t run. Walk right up to it and say hello. Once a night it leaves a Pale Visitor coming up where it sat; pick it before it fades, in a day or so. Or grow a Silver Edge moonflower to Large and take cuttings from it: now and then one comes out Pale Visitor.',
+      'The moonflower nobody planted is the Pale Visitor. Carve one of the pumpkins round the house (on the porch, by the greenhouse, by the stall or in the patch) and stay near it after full dark. Most nights the small pale thing turns up, and often it sits down beside a lit jack-o’-lantern and doesn’t run. Walk right up to it and say hello. Once a night it leaves a Pale Visitor coming up where it sat; pick it before it fades, in a day or so. Or grow a Silver Edge moonflower to Large and take cuttings from it: now and then one comes out Pale Visitor.',
     classicNote: 'The pumpkins and the small pale thing only come in the October look (Season, under the ♪ button). The Silver Edge cuttings work in either.',
   },
   hoya: {
@@ -98,10 +98,14 @@ export const MYSTERIES: Record<MysteryId, MysteryDef> = {
 
 export const MYSTERY_IDS = Object.keys(MYSTERIES) as MysteryId[];
 
-/** The form before the last has been found, and the last one hasn't. */
+/**
+ * The form before the last has been found, and the last one isn't in the
+ * journal yet. The journal counts what's been grown, so a last form that was
+ * only picked (and then sold, or lost) keeps the hints going.
+ */
 export function mysteryOpen(state: GameState, id: MysteryId): boolean {
   const m = MYSTERIES[id];
-  return hasFound(state, m.defId, m.before) && !hasFound(state, m.defId, m.target);
+  return hasFound(state, m.defId, m.before) && !hasGrown(state, m.defId, m.target);
 }
 
 export function mysteryRecord(state: GameState, id: MysteryId): MysteryRecord {

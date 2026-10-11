@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ToastScheduler, toastDuration, KIND_SIGNIFICANCE, MAX_VISIBLE, MOMENT_MS } from '../src/game/systems/toasts';
+import { ToastScheduler, toastDuration, KIND_SIGNIFICANCE, MAX_VISIBLE, MOMENT_MS, compactToasts } from '../src/game/systems/toasts';
 
 describe('message duration', () => {
   it('gives more significant messages more time', () => {
@@ -144,5 +144,55 @@ describe('message scheduling', () => {
     s.push('b', 'Your basket is full.', 'minor', 10);
     expect(s.tick(10).show).toEqual([]);
     expect(s.showing).toEqual(['a']);
+  });
+});
+
+describe('short screens: messages take turns instead of stacking over Ellen', () => {
+  it('treats an iPhone SE upright and phones on their side as compact, and roomier screens not', () => {
+    expect(compactToasts(375, 667)).toBe(true);
+    expect(compactToasts(667, 375)).toBe(true);
+    expect(compactToasts(844, 390)).toBe(true);
+    expect(compactToasts(390, 844)).toBe(false);
+    expect(compactToasts(430, 932)).toBe(false);
+    expect(compactToasts(1280, 800)).toBe(false);
+  });
+
+  it('shows the startup burst one at a time, and every message still gets its turn', () => {
+    const s = new ToastScheduler<string>();
+    s.maxVisible = 1;
+    const a = 'Wild plants grow in patches all over the valley. Walk up and take a cutting.';
+    const b = 'Someone has pinned a request on the board by the stall.';
+    const shown: string[] = [];
+    s.push('a', a, 'important', 0);
+    s.push('b', b, 'important', 0);
+    for (let t = 0; t <= 30000; t += 100) {
+      const { show } = s.tick(t);
+      shown.push(...show);
+      expect(s.showing.length).toBeLessThanOrEqual(1);
+    }
+    expect(shown).toEqual(['a', 'b']);
+    expect(s.pending).toBe(0);
+  });
+
+  it('still stacks up to the usual number on a roomy screen', () => {
+    const s = new ToastScheduler<string>();
+    s.push('a', 'One thing.', 'important', 0);
+    s.push('b', 'Another thing.', 'important', 0);
+    s.tick(0);
+    expect(s.showing.length).toBe(MAX_VISIBLE);
+  });
+
+  it('lets a major moment wait its turn rather than pile on, and still shows it', () => {
+    const s = new ToastScheduler<string>();
+    s.maxVisible = 1;
+    s.push('hint', 'Walk up and take a cutting.', 'important', 0);
+    s.tick(0);
+    s.push('moment', 'Species complete.', 'major', 100);
+    const shown: string[] = [];
+    for (let t = 100; t <= 20000; t += 100) {
+      shown.push(...s.tick(t).show);
+      expect(s.showing.length).toBeLessThanOrEqual(1);
+    }
+    expect(shown).toEqual(['moment']);
   });
 });

@@ -2224,3 +2224,363 @@ body.theme-october .start-bat {
   letter-spacing: 0;
   font-size: 8px;
 }
+
+/* ---------- Art direction pass: one visual language for news, the journal and the controls ---------- */
+
+/* A new form in the journal: the plant pressed into a little paper frame beside its name. */
+.toast.journal-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 9px 16px 9px 10px;
+}
+.journal-toast-frame {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, #fbf3dc, #e9d9b0);
+  box-shadow: inset 0 0 0 1px rgba(90, 66, 34, 0.25), 0 2px 6px rgba(0, 0, 0, 0.25);
+  animation: journal-press 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.25);
+}
+@keyframes journal-press {
+  from {
+    opacity: 0;
+    transform: scale(0.6) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+.journal-toast-head {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.journal-toast-name {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 14px;
+}
+.journal-toast-forms {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+}
+.journal-toast-forms .vdot {
+  border-color: rgba(244, 236, 216, 0.5);
+}
+.journal-toast-forms .vdot.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.journal-toast-count {
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.75;
+}
+/* Every form of a species: gold, and a slow glow. */
+.toast.journal-toast.complete {
+  border-color: #e8c66a;
+  color: #f2d98a;
+  box-shadow: var(--shadow), 0 0 26px rgba(240, 200, 110, 0.4);
+}
+.toast.journal-toast.complete .journal-toast-frame {
+  box-shadow: inset 0 0 0 2px #d9b350, 0 0 14px rgba(240, 200, 110, 0.6);
+}
+.toast.journal-toast.complete .vdot.on {
+  background: #e8c66a;
+  border-color: #e8c66a;
+}
+
+/* A found-but-not-grown form, wherever forms are dotted: ringed, half-there. */
+.vdot.seen {
+  border-color: var(--leaf);
+  background: radial-gradient(circle, var(--leaf) 0 35%, transparent 40%);
+}
+
+/* The journal's collection: how far along at a glance, and a way to see only what's left. */
+.collection-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.collection-meter {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(90, 66, 34, 0.12);
+  overflow: hidden;
+}
+.collection-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--leaf), #7ea04f);
+  transition: width 0.6s ease;
+}
+.collection-filters {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.filter-chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--paper-border);
+  background: rgba(255, 252, 240, 0.5);
+  color: var(--ink-dim);
+  font-size: 12.5px;
+}
+.filter-chip.active {
+  background: var(--leaf-soft);
+  border-color: var(--leaf);
+  color: var(--leaf-strong);
+  font-weight: 600;
+}
+.filter-count {
+  font-size: 11px;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(90, 66, 34, 0.1);
+  text-align: center;
+}
+
+/* Card states: unknown (dashed silhouette), found (solid, leaf-tinted, not yet grown), grown, complete. */
+.collection-card {
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.collection-card.seen {
+  border-style: solid;
+  border-color: rgba(76, 107, 56, 0.45);
+  background: rgba(236, 244, 220, 0.55);
+}
+.collection-card.seen .card-hint {
+  color: var(--leaf-strong);
+  font-style: normal;
+  font-weight: 600;
+}
+.collection-card.found {
+  box-shadow: 0 1px 0 rgba(90, 66, 34, 0.12);
+}
+.collection-card.clickable:active {
+  transform: scale(0.97);
+}
+@media (hover: hover) and (pointer: fine) {
+  .collection-card.clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(60, 40, 20, 0.14);
+  }
+}
+.collection-card.complete {
+  border-color: #c9a243;
+  background: linear-gradient(180deg, rgba(255, 247, 214, 0.95), rgba(250, 236, 190, 0.85));
+}
+.card-flag.complete {
+  color: #8a6418;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.collection-card.complete .vdot.on {
+  background: #c9a243;
+  border-color: #c9a243;
+}
+
+/* The action button wakes when something's in reach, and nods when it's something new. */
+.action-btn {
+  transition: opacity 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+.action-btn.ready {
+  background: radial-gradient(circle at 40% 35%, rgba(240, 160, 100, 0.55), rgba(214, 122, 61, 0.35) 70%);
+  box-shadow: var(--shadow), 0 0 0 3px rgba(214, 122, 61, 0.18);
+  letter-spacing: 0.04em;
+}
+.action-btn.nod {
+  animation: action-nod 0.35s ease;
+}
+@keyframes action-nod {
+  40% {
+    transform: scale(1.08);
+  }
+}
+
+/* The prompt: clear of the joystick's top edge, never wider than the screen, and no keyboard key on a touch screen. */
+.interaction-prompt {
+  bottom: calc(var(--safe-bottom) + 158px);
+  max-width: calc(100% - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toast-stack {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 212px);
+}
+@media (pointer: coarse) {
+  .interaction-prompt kbd {
+    display: none;
+  }
+}
+
+/* Touch targets: at least 44px for the HUD's buttons. */
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  transition: transform 0.12s ease;
+}
+.icon-btn:active,
+.panel-tab:active,
+.filter-chip:active {
+  transform: scale(0.95);
+}
+
+/* Short screens (a phone on its side): news goes low, between the joystick and the button, and never over Ellen. */
+@media (max-height: 500px) {
+  /* The prompt sits at the very bottom between the two controls, and news just above it. */
+  .interaction-prompt {
+    bottom: calc(var(--safe-bottom) + 14px);
+    max-width: calc(100% - var(--safe-left) - var(--safe-right) - 330px);
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+  .toast-stack {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 60px);
+    left: calc(env(safe-area-inset-left, 0px) + 170px);
+    right: calc(env(safe-area-inset-right, 0px) + 130px);
+  }
+  .toast {
+    font-size: 12.5px;
+    padding: 6px 12px;
+    max-width: 100%;
+  }
+  .toast.sig-major {
+    font-size: 13.5px;
+    padding: 8px 14px;
+  }
+  .journal-toast-frame {
+    width: 40px;
+    height: 40px;
+  }
+  .journal-toast-frame canvas {
+    width: 36px !important;
+    height: 36px !important;
+  }
+}
+
+/* A phone on its side: the journal's header, tabs and filters shrink so there's room for the cards. */
+@media (max-height: 500px) {
+  .panel {
+    max-height: 94vh;
+  }
+  .panel-header {
+    padding: 8px 16px 7px;
+  }
+  .panel-header h2 {
+    font-size: 16px;
+  }
+  .panel-tabs {
+    padding: 6px 12px 0;
+  }
+  .panel-tab {
+    padding: 5px 11px;
+  }
+  .panel-body {
+    padding: 8px 16px 14px;
+  }
+  .collection-summary {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .collection-meter {
+    flex: 1;
+  }
+  .collection-filters {
+    margin-bottom: 8px;
+  }
+  .filter-chip {
+    min-height: 32px;
+    padding: 4px 11px;
+  }
+}
+
+/* Short phones upright (iPhone SE, 667px tall): Ellen stands only ~330px down, so news and the prompt sit lower and smaller. */
+@media (max-height: 740px) and (orientation: portrait) {
+  .interaction-prompt {
+    bottom: calc(var(--safe-bottom) + 152px);
+    padding: 7px 14px;
+    font-size: 12.5px;
+  }
+  .toast-stack {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 196px);
+    gap: 4px;
+  }
+  .toast {
+    font-size: 12.5px;
+    padding: 6px 12px;
+  }
+  .toast.sig-major {
+    font-size: 13.5px;
+    padding: 8px 14px;
+  }
+}
+
+/* The smallest phones on their side (iPhone SE: 375px tall): use every pixel between the controls, smaller type. */
+@media (max-height: 420px) {
+  .toast-stack {
+    left: calc(env(safe-area-inset-left, 0px) + 150px);
+    right: calc(env(safe-area-inset-right, 0px) + 110px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 56px);
+    gap: 4px;
+  }
+  .toast {
+    font-size: 12px;
+    line-height: 1.3;
+    padding: 5px 10px;
+  }
+  .interaction-prompt {
+    max-width: calc(100% - var(--safe-left) - var(--safe-right) - 290px);
+    font-size: 12.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journal-toast-frame,
+  .action-btn.nod {
+    animation: none;
+  }
+}
+
+/* October paints the button orange whether or not anything is in reach: dim it right down when nothing is. */
+body.theme-october .action-btn:not(.ready) {
+  filter: saturate(0.3) brightness(0.75);
+}
+body.theme-october .action-btn.ready {
+  box-shadow: var(--shadow), 0 0 0 3px rgba(255, 150, 60, 0.22), 0 0 18px rgba(255, 140, 40, 0.4);
+}
+
+/* October's journal: the filters and the progress bar in the season's colours, like its tabs. */
+body.theme-october .filter-chip.active {
+  background: rgba(255, 140, 50, 0.18);
+  border-color: #c0601c;
+  color: #8a3a10;
+}
+body.theme-october .collection-meter-fill {
+  background: linear-gradient(90deg, #c8641e, #e89a3c);
+}

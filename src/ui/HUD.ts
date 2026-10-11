@@ -5,8 +5,9 @@ import { regionLabel } from '../game/systems/regions';
 import { zoneAt } from '../game/data/worldMap';
 import { isNight, minuteOfDay } from '../game/engine/Clock';
 import { ModeBar } from './ModeBar';
-import { ToastScheduler } from '../game/systems/toasts';
-import { coin, golfBallPortrait, golfRarityBadge } from './common';
+import { ToastScheduler, MAX_VISIBLE, compactToasts } from '../game/systems/toasts';
+import { coin, golfBallPortrait, golfRarityBadge, portrait } from './common';
+import { specimenName } from '../game/data/plants';
 import { findGolfBall } from '../game/data/golfBalls';
 import { MusicControl } from './MusicControl';
 
@@ -74,6 +75,26 @@ function golfBallToast(t: ToastEvent): HTMLElement {
   return node;
 }
 
+/** IN YOUR FIELD JOURNAL: the plant itself, pressed onto the page, and its species' forms so far. */
+function journalToast(t: ToastEvent): HTMLElement {
+  const j = t.journal!;
+  const complete = j.grown >= j.total && j.total > 1;
+  const node = el('div', `toast ${t.kind} sig-${t.significance} journal-toast${complete ? ' complete' : ''}`);
+  node.setAttribute('aria-label', t.text);
+  const frame = el('div', 'journal-toast-frame');
+  frame.append(portrait(j.defId, j.variantId, 3, 4, 44));
+  const info = el('div', 'journal-toast-info');
+  info.append(el('div', 'journal-toast-head', complete ? 'Species complete' : 'In your field journal'), el('div', 'journal-toast-name', specimenName(j.defId, j.variantId)));
+  if (j.total > 1) {
+    const dots = el('div', 'journal-toast-forms');
+    for (let i = 0; i < j.total; i++) dots.appendChild(el('span', i < j.grown ? 'vdot on' : 'vdot'));
+    dots.appendChild(el('span', 'journal-toast-count', `${j.grown} of ${j.total} forms`));
+    info.append(dots);
+  }
+  node.append(frame, info);
+  return node;
+}
+
 export class HUD {
   root = el('div', 'hud');
   private zoneChip = el('div', 'hud-chip');
@@ -101,6 +122,7 @@ export class HUD {
   private joystickZone = el('div', 'joystick-zone');
   private joystickThumb = el('div', 'joystick-thumb');
   private actionBtn = el('button', 'action-btn', 'SNIP');
+  private lastVerb = '';
 
   onJournal: (() => void) | null = null;
   onBasket: (() => void) | null = null;
@@ -186,13 +208,15 @@ export class HUD {
   }
 
   private showToast(t: ToastEvent) {
-    const node = t.golfBall ? golfBallToast(t) : el('div', `toast ${t.kind} sig-${t.significance}`, t.text);
+    const node = t.golfBall ? golfBallToast(t) : t.journal ? journalToast(t) : el('div', `toast ${t.kind} sig-${t.significance}`, t.text);
     node.setAttribute('role', 'status');
     this.toasts.push(node, t.text, t.significance, performance.now(), t.opts);
     this.pumpToasts();
   }
 
   private pumpToasts() {
+    // On a short screen, one message at a time: stacked, they'd reach Ellen.
+    this.toasts.maxVisible = compactToasts(window.innerWidth, window.innerHeight) ? 1 : MAX_VISIBLE;
     const { show, hide } = this.toasts.tick(performance.now());
     for (const node of hide) {
       node.classList.add('leaving');
@@ -225,8 +249,19 @@ export class HUD {
     const n = tools ? null : this.game.nearest;
     this.interactionPrompt.classList.toggle('visible', !!n);
     setStyle(this.actionBtn, 'opacity', n ? '1' : '0.55');
+    // Something in reach: the button wakes up, and gives a small nod each time it's something new.
+    const verb = n ? ACTION_VERBS[n.kind] ?? 'GO' : '';
+    if (verb !== this.lastVerb) {
+      this.actionBtn.classList.toggle('ready', !!n);
+      if (n) {
+        this.actionBtn.classList.remove('nod');
+        void this.actionBtn.offsetWidth;
+        this.actionBtn.classList.add('nod');
+      }
+      this.lastVerb = verb;
+    }
     if (!n) return;
     setText(this.promptLabel, n.label);
-    setText(this.actionBtn, ACTION_VERBS[n.kind] ?? 'GO');
+    setText(this.actionBtn, verb);
   }
 }
