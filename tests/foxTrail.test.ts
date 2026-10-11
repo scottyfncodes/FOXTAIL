@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createNewGame, type GameState } from '../src/game/state';
 import { tickFox, nextLeg, rollTrailReward, STARTLE_DIST, LOSE_DIST, type FoxTickContext } from '../src/game/systems/fox';
-import { createFoxFinds, collectFoxFind, expireFoxFinds, pickFoxPlant, FOX_FIND_LIFETIME } from '../src/game/systems/foxFinds';
+import { createFoxFinds, collectFoxFind, expireFoxFinds, pickFoxPlant, pickCuriosity, FOX_FIND_LIFETIME } from '../src/game/systems/foxFinds';
 import { DISCOVERY_SPOTS } from '../src/game/data/discoveryPoints';
 import { PLANTS, rarityRank } from '../src/game/data/plants';
 import { mulberry32 } from '../src/game/engine/Random';
@@ -163,5 +163,40 @@ describe('what the fox leads you to', () => {
     createFoxFinds(state, 20, 20, 'woodland', 'plant', { night: false, rain: false }, 0, mulberry32(2));
     expect(expireFoxFinds(state, FOX_FIND_LIFETIME - 1)).toBe(0);
     expect(expireFoxFinds(state, FOX_FIND_LIFETIME + 1)).toBe(1);
+  });
+});
+
+describe('repeat curiosities', () => {
+  it('something already noted turns up again only now and then, and less each time', () => {
+    const rate = (count: number) => {
+      const state = createNewGame();
+      if (count) state.curiosities.splitGeode = { foundAt: 0, count };
+      const rand = mulberry32(5);
+      let hits = 0;
+      for (let i = 0; i < 6000; i++) if (pickCuriosity(state, 'rockyClearing', { night: true, rain: false }, rand)?.id === 'splitGeode') hits++;
+      return hits;
+    };
+    const fresh = rate(0);
+    const once = rate(1);
+    const many = rate(4);
+    expect(once).toBeLessThan(fresh * 0.3);
+    expect(many).toBeLessThan(once * 0.5);
+    expect(once).toBeGreaterThan(0);
+  });
+
+  it('a trail that would have led to a repeat leads to a plant instead', () => {
+    const state = createNewGame();
+    for (const id of ['splitGeode', 'lostGolfBall', 'jewelBeetle']) state.curiosities[id] = { foundAt: 0, count: 50 };
+    const rand = mulberry32(9);
+    let curios = 0;
+    let plants = 0;
+    for (let i = 0; i < 400; i++) {
+      state.foxFinds = [];
+      const out = createFoxFinds(state, 20, 20, 'rockyClearing', 'curiosity', { night: true, rain: false }, 0, rand);
+      if (out[0]?.kind === 'curiosity' && out[0].curiosityId !== 'lostGolfBall') curios++;
+      else if (out[0]?.kind === 'plant') plants++;
+    }
+    expect(curios).toBeLessThan(10);
+    expect(plants).toBeGreaterThan(240);
   });
 });
