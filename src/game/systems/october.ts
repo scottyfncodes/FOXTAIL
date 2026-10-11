@@ -172,6 +172,12 @@ export interface OctoberContext {
   houseWindowInView: boolean;
   strayOut: boolean;
   isOpen: (x: number, y: number) => boolean;
+  /**
+   * What the valley is drawing the player toward just now: each kind's
+   * weight is multiplied by this, and its usual gap divided by it. Only the
+   * lantern uses it, while there's a mooncap still to be led to.
+   */
+  drawn?: Partial<Record<OctoberEventKind, number>>;
 }
 
 export interface DirectorResult {
@@ -222,7 +228,7 @@ export function eligible(kind: OctoberEventKind, c: OctoberContext, d: OctoberDi
   const r = EVENT_RULES[kind];
   if (r.where === 'out' ? c.where !== 'out' : r.where === 'in' ? c.where === 'out' : r.where !== c.where) return false;
   if (r.dark !== undefined && c.darkness < r.dark) return false;
-  if (r.gap !== undefined && (d.since[kind] ?? Infinity) < r.gap) return false;
+  if (r.gap !== undefined && (d.since[kind] ?? Infinity) < r.gap / (c.drawn?.[kind] ?? 1)) return false;
   if (r.needs && !r.needs(c, d)) return false;
   return true;
 }
@@ -334,11 +340,12 @@ export function placeEvent(kind: OctoberEventKind, c: OctoberContext, d: October
 
 function pickKind(c: OctoberContext, d: OctoberDirector): OctoberEventKind | null {
   const kinds = (Object.keys(EVENT_RULES) as OctoberEventKind[]).filter((k) => eligible(k, c, d));
-  const total = kinds.reduce((s, k) => s + EVENT_RULES[k].weight, 0);
+  const weight = (k: OctoberEventKind) => EVENT_RULES[k].weight * (c.drawn?.[k] ?? 1);
+  const total = kinds.reduce((s, k) => s + weight(k), 0);
   if (total <= 0) return null;
   let r = c.rand() * total;
   for (const k of kinds) {
-    r -= EVENT_RULES[k].weight;
+    r -= weight(k);
     if (r < 0) return k;
   }
   return kinds[kinds.length - 1];
@@ -795,18 +802,26 @@ export function leaveFind(state: GameState, x: number, y: number, zone: OutdoorZ
   return f;
 }
 
+/** How often a lantern's find is one of the forms not yet found, when any is left to find. */
+export const LANTERN_UNFOUND_CHANCE = 0.7;
+
+/** How strongly the lanterns come looking for you while a darker mooncap is still to be found (see systems/mysteries). */
+export const LANTERN_DRAW = 12;
+
 /** What a lantern leads you to, when it leads you anywhere: something of the season, the next form along its line. */
 export function pickLanternFind(state: GameState, zone: OutdoorZoneId, rand: () => number): { defId: string; variantId: string } | null {
-  const options: { defId: string; variantId: string; w: number }[] = [];
+  const options: { defId: string; variantId: string; w: number; unfound: boolean }[] = [];
   for (const def of PLANT_LIST) {
     if (def.season !== 'october' || def.secret) continue;
     for (const v of def.variants) {
       if (v.sportOnly || !variantAllowed(state, def.id, v.id)) continue;
-      let w = (def.habitat.includes(zone) ? 3 : 1) / (1 + rarityRank(v.rarity));
-      if (!hasFound(state, def.id, v.id)) w *= 3;
-      options.push({ defId: def.id, variantId: v.id, w });
+      const w = (def.habitat.includes(zone) ? 3 : 1) / (1 + rarityRank(v.rarity));
+      options.push({ defId: def.id, variantId: v.id, w, unfound: !hasFound(state, def.id, v.id) });
     }
   }
-  const pick = weightedPick(options, (o) => o.w, rand);
+  // Most often, a form you haven't found yet (when there is one to be led to).
+  const unfound = options.filter((o) => o.unfound);
+  const pool = unfound.length && rand() < LANTERN_UNFOUND_CHANCE ? unfound : options;
+  const pick = weightedPick(pool, (o) => o.w, rand);
   return pick ? { defId: pick.defId, variantId: pick.variantId } : null;
 }

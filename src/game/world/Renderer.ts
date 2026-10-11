@@ -101,6 +101,7 @@ import {
   DISTANT_LIGHTS,
   distantLightLevel,
 } from './OctoberArt';
+import { ClassicLight } from './LightArt';
 
 /** Everything the scene needs beyond the game state: what the player is doing with their hands, and passing effects. */
 export interface SceneExtras {
@@ -177,6 +178,104 @@ const CARPET_LEAF: Record<string, { w: number; h: number; count: number; frond?:
   color: { w: 0.12, h: 0.085, count: 5, petal: 'rgba(236,140,190,0.85)' },
   strange: { w: 0.12, h: 0.085, count: 5, petal: 'rgba(200,170,255,0.8)' },
 };
+
+/** What a wild patch's plant is to the player: never had, found but not yet grown (not in the journal), or known. */
+export type SpotMark = 'new' | 'ungrown' | 'known';
+
+export function spotMark(state: Pick<GameState, 'collection'>, defId: string, variantId: string): SpotMark {
+  const rec = state.collection[defId];
+  if (!rec || !rec.variants.includes(variantId)) return 'new';
+  return (rec.grownVariants ?? []).includes(variantId) ? 'known' : 'ungrown';
+}
+
+/** The ring of light on a patch's ground: gold and breathing for something new, a steady green for something the journal still waits on. */
+function drawPatchRing(ctx: CanvasRenderingContext2D, x: number, y: number, tile: number, mark: SpotMark, now: number, seed: number) {
+  const breathe = mark === 'new' ? 0.5 + 0.5 * Math.sin(now * 0.0025 + seed) : 0.6;
+  const rx = tile * (0.4 + breathe * 0.04);
+  const ry = rx * 0.4;
+  ctx.save();
+  ctx.lineWidth = Math.max(1, tile * 0.03);
+  ctx.strokeStyle = mark === 'new' ? `rgba(255,232,150,${0.35 + breathe * 0.35})` : 'rgba(186,232,150,0.5)';
+  if (mark === 'ungrown') ctx.setLineDash([tile * 0.07, tile * 0.05]);
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A patch picked this season: raked earth, a snipped stem and one new leaf coming. */
+function drawRestingPatch(ctx: CanvasRenderingContext2D, x: number, y: number, tile: number, seed: number) {
+  ctx.fillStyle = 'rgba(70,48,26,0.28)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + tile * 0.02, tile * 0.3, tile * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(40,26,12,0.35)';
+  ctx.lineWidth = Math.max(1, tile * 0.018);
+  ctx.beginPath();
+  for (let i = -1; i <= 1; i++) {
+    ctx.moveTo(x - tile * 0.18, y + i * tile * 0.045);
+    ctx.lineTo(x + tile * 0.18, y + i * tile * 0.045 - tile * 0.01);
+  }
+  ctx.stroke();
+  const lean = (seed % 2 ? 1 : -1) * tile * 0.03;
+  ctx.strokeStyle = '#6f9a48';
+  ctx.lineWidth = Math.max(1, tile * 0.025);
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.quadraticCurveTo(x + lean * 0.4, y - tile * 0.07, x + lean, y - tile * 0.12);
+  ctx.stroke();
+  ctx.fillStyle = '#8cbf5a';
+  ctx.beginPath();
+  ctx.ellipse(x + lean + tile * 0.035, y - tile * 0.125, tile * 0.04, tile * 0.02, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/**
+ * Gives every water tile in a soil field (alpha 0) the colour of the land
+ * beside it, so the soil's blend never runs blue-black into the banks.
+ */
+export function fillFieldHoles(data: Uint8ClampedArray, w: number, h: number) {
+  for (let pass = 0; pass < 3; pass++) {
+    let left = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (data[i + 3] === 255) continue;
+        let r = 0, g = 0, b = 0, n = 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const j = (ny * w + nx) * 4;
+          if (data[j + 3] !== 255) continue;
+          r += data[j];
+          g += data[j + 1];
+          b += data[j + 2];
+          n++;
+        }
+        if (!n) {
+          left++;
+          continue;
+        }
+        data[i] = r / n;
+        data[i + 1] = g / n;
+        data[i + 2] = b / n;
+        // Marked filled for the next pass, not this one, so the fill grows evenly outward.
+        data[i + 3] = 254;
+      }
+    }
+    for (let i = 3; i < data.length; i += 4) if (data[i] === 254) data[i] = 255;
+    if (!left) break;
+  }
+  // Anything still empty (a view that's all water) is the creek bed's colour.
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 255) continue;
+    data[i] = 52;
+    data[i + 1] = 72;
+    data[i + 2] = 60;
+    data[i + 3] = 255;
+  }
+}
 
 function hash2(x: number, y: number): number {
   const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
@@ -344,6 +443,10 @@ export class Renderer {
   /** The same undergrowth, with October's leaves fallen into it. */
   private autumnVerges = new VergeTiles(() => this.dpr, scatterLeaves);
   private grade = new Grade();
+  /** Classic's light: the hour's colour and a soft fall-off toward the edges. */
+  private light = new ClassicLight();
+  /** One pixel per ground tile, stretched smooth under the undergrowth so the soil never reads as a chequerboard. */
+  private groundField: HTMLCanvasElement | null | undefined;
   /** Drawing October this frame (trees turn, and the rest). */
   private october: OctoberView | null = null;
   private mysteryCues: Map<string, 'star' | 'eclipse'> | null = null;
@@ -722,6 +825,7 @@ export class Renderer {
     this.drawAmbientParticles(camera, zoneHere, state.weather.condition, now);
     if (oct) drawDriftingLeaves(this.ctx, camera, zoneHere, now, state.weather.condition === 'clear' ? 1 : 2);
     this.drawWeatherOverlay(camera, state, now);
+    if (!oct) this.light.draw(this.ctx, camera, gm, this.cloudMix);
     if (oct) {
       this.litter.drawFog(this.ctx, camera, bounds, oct.darkness, now);
       this.grade.draw(this.ctx, camera, oct.darkness);
@@ -939,6 +1043,22 @@ export class Renderer {
     return this.groundCache;
   }
 
+  private groundFieldCanvas(w: number, h: number): HTMLCanvasElement | null {
+    if (this.groundField === undefined) {
+      const c = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+      // No 2D context to be had (tests, very old browsers): the ground is painted tile by tile instead.
+      this.groundField = c && c.getContext('2d') ? c : null;
+    }
+    const c = this.groundField;
+    if (!c) return null;
+    // Exactly the size of the field: a stale pixel past its edge would bleed into the blend.
+    if (c.width !== w || c.height !== h) {
+      c.width = w;
+      c.height = h;
+    }
+    return c;
+  }
+
   /**
    * The ground itself, tile by tile. Water tiles are left as holes (in the
    * order they'd have been painted, so every seam lies the same way) and
@@ -967,6 +1087,13 @@ export class Renderer {
       strange: 'rgba(190,150,255,0.7)',
       arid: 'rgba(200,210,170,0.6)',
     };
+
+    // The soil's colour, one pixel a tile, blended smoothly from tile to tile when it's drawn.
+    const fw = bounds.maxX - bounds.minX + 1;
+    const fh = bounds.maxY - bounds.minY + 1;
+    const fieldCanvas = this.groundFieldCanvas(fw, fh);
+    const fieldCtx = fieldCanvas?.getContext('2d') ?? null;
+    const field = fieldCtx ? fieldCtx.createImageData(fw, fh) : null;
 
     for (let ty = bounds.minY; ty <= bounds.maxY; ty++) {
       for (let tx = bounds.minX; tx <= bounds.maxX; tx++) {
@@ -1029,8 +1156,16 @@ export class Renderer {
             }
           }
         }
-        ctx.fillStyle = rgbCss(color);
-        ctx.fillRect(sx, sy, size, size);
+        if (field) {
+          const fi = ((ty - bounds.minY) * fw + (tx - bounds.minX)) * 4;
+          field.data[fi] = color[0];
+          field.data[fi + 1] = color[1];
+          field.data[fi + 2] = color[2];
+          field.data[fi + 3] = 255;
+        } else {
+          ctx.fillStyle = rgbCss(color);
+          ctx.fillRect(sx, sy, size, size);
+        }
 
         const detail = lushHere > 0.55 ? undefined : GROUND_DETAIL[zone];
         const d = hash2(tx * 3.1, ty * 1.7);
@@ -1053,6 +1188,18 @@ export class Renderer {
       }
     }
 
+    if (field && fieldCanvas && fieldCtx) {
+      fillFieldHoles(field.data, fw, fh);
+      fieldCtx.putImageData(field, 0, 0);
+      const o = camera.worldToScreen(bounds.minX * TILE_SIZE, bounds.minY * TILE_SIZE);
+      const smooth = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(fieldCanvas, 0, 0, fw, fh, o.x, o.y, fw * tile, fh * tile);
+      ctx.imageSmoothingEnabled = smooth;
+      // The water is left as holes, as before, for the ripples underneath.
+      for (const w of water) ctx.clearRect(w.sx, w.sy, size, size);
+    }
     // The verge goes down first, straight onto the soil; litter and the carpet lie over it.
     if (vergeTiles.length) {
       const pad = VergeTiles.pad(tile);
@@ -1809,17 +1956,26 @@ export class Renderer {
 
   /**
    * A wild patch shows the actual plant growing there — the plant itself
-   * is the clue. Things you've never seen get a curious sparkle; rarer
-   * finds shimmer more.
+   * is the clue. Its ground says what it is to you at a glance: a pale gold
+   * ring that breathes for a form you've never had in your hands (with a
+   * curious sparkle; rarer ones shimmer more), a quiet green ring for one
+   * you've found but not yet grown (the journal is still waiting on it), and
+   * just soft earth for one already in the journal. A patch you've snipped
+   * this season shows its raked earth and a sprout, so you know it'll be back.
    */
   private drawSpot(camera: Camera, state: GameState, spot: DiscoverySpot, now: number) {
     const { ctx } = this;
-    const content = spotContent(state, spot);
-    if (!content) return;
     const tile = TILE_SIZE * camera.zoom;
     const s = camera.worldToScreen((spot.x + 0.5) * TILE_SIZE, (spot.y + 0.65) * TILE_SIZE);
+    const content = spotContent(state, spot);
+    if (!content) {
+      // Resting: picked this season. The fox's secret patches leave nothing behind.
+      if (spot.foxLed || state.spots[spot.id]?.collectedEpoch === undefined) return;
+      drawRestingPatch(ctx, s.x, s.y, tile, spot.x * 7 + spot.y);
+      return;
+    }
     const rank = rarityRank(specimenRarity(content.defId, content.variantId));
-    const unseen = !hasFound(state, content.defId, content.variantId);
+    const mark = spotMark(state, content.defId, content.variantId);
     // A water plant's patch is a little pool; anything else's is soft, disturbed earth.
     if (PLANTS[content.defId]?.water === 'only') {
       ctx.fillStyle = 'rgba(63,127,134,0.85)';
@@ -1827,14 +1983,19 @@ export class Renderer {
       ctx.ellipse(s.x, s.y + tile * 0.02, tile * 0.42, tile * 0.18, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    // Soft disturbed-earth patch so it reads as "something's growing here".
-    ctx.fillStyle = 'rgba(58,40,22,0.35)';
+    // Soft disturbed earth, darker in the middle, so it reads as "something's growing here".
+    ctx.fillStyle = 'rgba(58,40,22,0.22)';
     ctx.beginPath();
-    ctx.ellipse(s.x, s.y + tile * 0.02, tile * 0.3, tile * 0.12, 0, 0, Math.PI * 2);
+    ctx.ellipse(s.x, s.y + tile * 0.02, tile * 0.38, tile * 0.16, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.fillStyle = 'rgba(46,30,16,0.32)';
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y + tile * 0.02, tile * 0.24, tile * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (mark !== 'known') drawPatchRing(ctx, s.x, s.y + tile * 0.02, tile, mark, now, spot.x + spot.y * 3);
     if (rank >= 2) this.glowMarker(s.x, s.y - tile * 0.2, tile, rank >= 3 ? '#f0d27a' : '#bfe6d4', now);
     this.drawPlantSprite(s.x, s.y + tile * 0.04, tile, content.defId, content.variantId, 1.5, content.seed, 'ground', now);
-    if (unseen) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, rank >= 3 ? '#ffe28a' : '#ffffff', 2 + Math.min(3, rank));
+    if (mark === 'new') this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, rank >= 3 ? '#ffe28a' : '#ffffff', 2 + Math.min(3, rank));
   }
 
   /** A small wooden plaque on a post, with the name Ellen gave the place. */
@@ -4740,7 +4901,8 @@ export class Renderer {
     const { ctx } = this;
     const daylight = daylightFactor(state.clock.totalMinutes);
     const darkness = 1 - daylight;
-    if (darkness > 0.02) {
+    // Classic's night is laid by its light (darker at the edges than round Ellen); October keeps its own flat dusk under its grade.
+    if (darkness > 0.02 && this.october) {
       ctx.fillStyle = `rgba(8,16,28,${darkness * 0.55})`;
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     }

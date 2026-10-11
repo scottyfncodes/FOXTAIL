@@ -102,3 +102,10 @@ export function collectionTotals(state: GameState) {
   }
   return { species, totalSpecies: listed.length, variants, totalVariants };
 }
+
+/** How far along a species' forms are in the journal, for news of a new one. */
+export function journalEntryNews(state: Pick<GameState, 'collection'>, defId: string, variantId: string) {
+  const def = PLANTS[defId];
+  const grown = state.collection[defId]?.grownVariants ?? [];
+  return { defId, variantId, grown: def ? def.variants.filter((v) => grown.includes(v.id)).length : grown.length, total: def?.variants.length ?? grown.length };
+}

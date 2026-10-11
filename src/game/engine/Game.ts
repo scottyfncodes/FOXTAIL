@@ -67,7 +67,7 @@ import { spotContent, collectSpot } from '../systems/spots';
 import { advanceWorld, canPlantAt, computeLushness, type LushField, type WorldAdvance } from '../systems/wild';
 import { GLINT_MS, type GrowthGlint } from '../world/Renderer';
 import { STAGE_LABEL, stageIndexOf, stageOf } from '../systems/growth';
-import { hasFound, recordFound, isEstablished, recordGrown } from '../systems/collection';
+import { hasFound, recordFound, isEstablished, recordGrown, journalEntryNews } from '../systems/collection';
 import {
   takeCutting,
   cuttingBlockReason,
@@ -117,8 +117,9 @@ import {
   type GhostState,
   type OctoberView,
   type OctoberEventKind,
+  LANTERN_DRAW,
 } from '../systems/october';
-import { MYSTERIES, MYSTERY_IDS, ON_TRACK_CUTTING, markNudged, markOnTrack, mysteryStage, nudgeText, pendingNudge, solutionUnannounced, tickMysteries, type MysteryId, type NudgeContext } from '../systems/mysteries';
+import { MYSTERIES, MYSTERY_IDS, ON_TRACK_CUTTING, markNudged, markOnTrack, mysteryOpen, mysteryStage, nudgeText, pendingNudge, solutionUnannounced, tickMysteries, type MysteryId, type NudgeContext } from '../systems/mysteries';
 
 export type InteractableKind =
   | 'plaque'
@@ -162,6 +163,16 @@ export interface ToastEvent {
   opts?: ToastOptions;
   /** A new kind of golf ball: shown with the ball itself. */
   golfBall?: string;
+  /** A new form in the field journal: shown with the plant itself, and how far along its species is. */
+  journal?: JournalEntryNews;
+}
+
+export interface JournalEntryNews {
+  defId: string;
+  variantId: string;
+  /** Forms of this species grown, now including this one, and how many it has. */
+  grown: number;
+  total: number;
 }
 
 /**
@@ -708,7 +719,13 @@ export class Game {
     this.markNewGrowth(result, offline);
     // A find only goes in the journal once it's been grown: a plant of it rooted in your care.
     for (const g of recordGrown(this.state, now)) {
-      if (!offline) this.pushToast(`${specimenName(g.defId, g.variantId)} took — it’s in your field journal now.`, 'discovery');
+      if (offline) continue;
+      const news = journalEntryNews(this.state, g.defId, g.variantId);
+      const complete = news.grown >= news.total && news.total > 1;
+      const text = complete
+        ? `${specimenName(g.defId, g.variantId)} took. Every form of ${PLANTS[g.defId]?.name ?? 'it'} is in your field journal now.`
+        : `${specimenName(g.defId, g.variantId)} took — it’s in your field journal now.`;
+      this.onToast?.({ id: makeUid('toast'), text, kind: 'discovery', significance: complete ? 'major' : 'important', journal: news });
     }
 
     const grew = new Set<string>();
@@ -2159,6 +2176,8 @@ export class Game {
       houseWindowInView: outdoors && inView(72.5, 37.5) && near(72.5, 37.5, 13),
       strayOut: !!strayPumpkin(s),
       isOpen: (x, y) => this.isOpenGround(Math.floor(x), Math.floor(y)) && !isBlockedOutdoor(x, y, this.blockingSet, stallRect(s)),
+      // Nights are short: while the darker mooncap is still to be had, the lanterns come out often enough to be followed.
+      drawn: mysteryOpen(s, 'mooncap') ? { lantern: LANTERN_DRAW } : undefined,
     });
     for (const kind of res.seen) noteSeen(s, kind);
     for (const e of res.begun) {

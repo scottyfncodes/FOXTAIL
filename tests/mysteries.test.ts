@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { createNewGame, type GameState, type OwnedPlant } from '../src/game/state';
 import { migrateSave } from '../src/game/engine/SaveManager';
 import { PLANTS } from '../src/game/data/plants';
-import { recordFound, hasFound } from '../src/game/systems/collection';
+import { recordFound, recordGrown, hasFound } from '../src/game/systems/collection';
 import { takeCutting } from '../src/game/systems/propagation';
 import { STAGE_AT } from '../src/game/systems/growth';
 import { meetGhost, newGhost, leaveFind, pickLanternFind } from '../src/game/systems/october';
@@ -201,12 +201,16 @@ describe('the last mysteries: when the hints come', () => {
     expect(mysteryNotes(s, 'moonflower', true)!.read).toBe(true);
   });
 
-  it('everything goes quiet once the last form is found', () => {
+  it('everything goes quiet once the last form is in the journal (grown)', () => {
     const s = createNewGame();
     openUp(s, 'hoya');
     play(s, STAGE_AFTER[4]);
     expect(mysteryStage(s, 'hoya')).toBe(4);
     recordFound(s, 'hoya', 'starCluster', 0);
+    // Only picked: the journal doesn't count it yet, so neither do the hints.
+    expect(mysteryStage(s, 'hoya')).toBe(4);
+    plant(s, 'hoya', 'starCluster', STAGE_AT.young);
+    recordGrown(s, 0);
     expect(mysteryStage(s, 'hoya')).toBe(0);
     expect(mysteryNotes(s, 'hoya', true)).toBeNull();
     expect(solutionUnannounced(s, 'hoya')).toBe(false);
@@ -269,6 +273,7 @@ describe('the last mysteries: every one is reachable from a fresh game', () => {
       expect(hasFound(s, 'hoya', next)).toBe(true);
       p = plant(s, 'hoya', next, STAGE_AT.large);
     }
+    recordGrown(s, 0);
     expect(mysteryOpen(s, 'hoya')).toBe(false);
   });
 
@@ -303,6 +308,10 @@ describe('the last mysteries: every one is reachable from a fresh game', () => {
     openUp(s, 'mooncap');
     const p = plant(s, 'mooncap', 'harvest', STAGE_AT.young);
     expect(cutUntil(s, p, 'eclipse', mulberry32(5))).toBeGreaterThan(0);
+    // The cutting has to take before the journal (and the hints) count it.
+    expect(mysteryOpen(s, 'mooncap')).toBe(true);
+    plant(s, 'mooncap', 'eclipse', STAGE_AT.young);
+    recordGrown(s, 0);
     expect(mysteryOpen(s, 'mooncap')).toBe(false);
   });
 

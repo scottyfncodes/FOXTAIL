@@ -32,6 +32,7 @@ export class JournalPanel {
   panel = new Panel('Field Journal', { tabs: true });
   private tab: Tab = 'plants';
   private detail: string | null = null;
+  private filter: 'all' | 'started' | 'missing' = 'all';
   private golfDetail: string | null = null;
 
   constructor(private game: Game) {
@@ -94,22 +95,51 @@ export class JournalPanel {
   private renderCollection() {
     const state = this.game.state;
     const totals = collectionTotals(state);
-    this.panel.body.appendChild(
-      el('div', 'collection-summary', `${totals.species} of ${totals.totalSpecies} species · ${totals.variants} of ${totals.totalVariants} variants`)
-    );
-    const grid = el('div', 'collection-grid');
+    const summary = el('div', 'collection-summary');
+    const meter = el('div', 'collection-meter');
+    const fill = el('div', 'collection-meter-fill');
+    fill.style.width = `${totals.totalVariants ? (100 * totals.variants) / totals.totalVariants : 0}%`;
+    meter.appendChild(fill);
+    summary.append(el('div', 'collection-summary-text', `${totals.species} of ${totals.totalSpecies} species · ${totals.variants} of ${totals.totalVariants} variants`), meter);
+    this.panel.body.appendChild(summary);
     const sorted = PLANT_LIST.filter((p) => !p.unlisted).sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity));
+    // What's on the page: everything, the species still missing forms, or the ones not yet grown at all.
+    const stateOf = (defId: string) => {
+      const grown = (state.collection[defId]?.grownVariants ?? []).length;
+      const total = PLANTS[defId].variants.length;
+      return grown === 0 ? 'missing' : grown >= total ? 'complete' : 'started';
+    };
+    const filters = el('div', 'collection-filters');
+    for (const [id, label] of [
+      ['all', 'All'],
+      ['started', 'Missing forms'],
+      ['missing', 'Not grown'],
+    ] as [typeof this.filter, string][]) {
+      const n = id === 'all' ? sorted.length : sorted.filter((d) => stateOf(d.id) === id).length;
+      const chip = el('button', `filter-chip${this.filter === id ? ' active' : ''}`);
+      chip.append(el('span', undefined, label), el('span', 'filter-count', String(n)));
+      chip.addEventListener('click', () => {
+        this.filter = id;
+        this.render();
+      });
+      filters.appendChild(chip);
+    }
+    this.panel.body.appendChild(filters);
+    const grid = el('div', 'collection-grid');
     for (const def of sorted) {
+      if (this.filter !== 'all' && stateOf(def.id) !== this.filter) continue;
       const rec = state.collection[def.id];
       // Only what's been successfully grown counts as discovered.
       const grown = rec?.grownVariants ?? [];
-      const card = el('div', `collection-card${grown.length ? ' found clickable' : ''}`);
+      const complete = grown.length > 0 && def.variants.every((v) => grown.includes(v.id));
+      const card = el('div', `collection-card${grown.length ? ' found clickable' : rec ? ' seen' : ''}${complete ? ' complete' : ''}`);
+      if (complete) card.appendChild(el('div', 'card-stamp', 'Complete'));
       if (rec && grown.length) {
         // Show off the rarest variant grown.
         const best = [...grown].sort((a, b) => rarityRank(findVariant(def.id, b)!.rarity) - rarityRank(findVariant(def.id, a)!.rarity))[0] ?? def.variants[0].id;
         card.append(portrait(def.id, best, 3, 4, 76), el('div', 'card-name', def.name));
         const dots = el('div', 'variant-dots');
-        for (const v of def.variants) dots.appendChild(el('span', grown.includes(v.id) ? 'vdot on' : 'vdot'));
+        for (const v of def.variants) dots.appendChild(el('span', grown.includes(v.id) ? 'vdot on' : rec.variants.includes(v.id) ? 'vdot seen' : 'vdot'));
         card.appendChild(dots);
         if (isEstablished(state, def.id)) card.appendChild(el('div', 'card-flag', 'Established'));
         card.addEventListener('click', () => {
@@ -320,7 +350,9 @@ export class JournalPanel {
         // Which of its forms have turned up: the gaps are there to wonder about, as on the collection page.
         if (def.variants.length > 1) {
           const dots = el('div', 'variant-dots');
-          for (const v of def.variants) dots.appendChild(el('span', rec.variants.includes(v.id) ? 'vdot on' : 'vdot'));
+          // Filled once grown (what the journal counts), ringed while it's only been found.
+          const grown = rec.grownVariants ?? [];
+          for (const v of def.variants) dots.appendChild(el('span', grown.includes(v.id) ? 'vdot on' : rec.variants.includes(v.id) ? 'vdot seen' : 'vdot'));
           cell.appendChild(dots);
         }
         row.appendChild(cell);
