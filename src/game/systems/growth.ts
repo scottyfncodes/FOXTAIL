@@ -119,11 +119,12 @@ export interface StageUp {
 }
 
 /** Advances every owned plant by `minutes` of game time. Nothing ever dies or shrinks. */
-export function tickGrowth(state: GameState, minutes: number): StageUp[] {
+export function tickGrowth(state: GameState, minutes: number, only?: (plant: OwnedPlant) => boolean): StageUp[] {
   const ups: StageUp[] = [];
   if (minutes <= 0) return ups;
   const ctx = growthContext(state);
   for (const plant of Object.values(state.plants)) {
+    if (only && !only(plant)) continue;
     const before = stageIndexOf(plant.growth);
     const grown = plant.growth + minutes * growthMultiplier(state, plant, ctx);
     plant.growth = grown;

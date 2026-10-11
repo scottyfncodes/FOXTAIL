@@ -17,12 +17,13 @@ export const MINUTES_PER_DAY = 1440;
 // abandoned tab doesn't spin the world through weeks of growth at once.
 export const OFFLINE_CAP_MINUTES = 3 * MINUTES_PER_DAY;
 
-// The living things don't stop at that cap, though. The clock (and with it
-// the weather, the market's day, the request board) catches up at most
-// OFFLINE_CAP_MINUTES, but the plants, the spreading and the ground cover
-// get an extra "ecology" allowance for every real hour beyond it, tapering
-// off so a short absence shows small changes, a few days noticeable ones
-// and a long time away a much wilder valley, without ever running away.
+// The plants you set out don't stop at that cap, though. The clock (and with
+// it the weather, the market's day, the request board, the wild's own
+// spreading) catches up at most OFFLINE_CAP_MINUTES, but your plants get an
+// extra "ecology" allowance of growth for every real hour beyond it,
+// tapering off so a short absence shows small changes, a few days
+// noticeable ones and a long time away much fuller plants, without ever
+// running away.
 /** Extra growth-minutes for each doubling of the real time away past the cap. */
 export const ECOLOGY_PER_DOUBLING = 3600;
 /** Real hours past the cap that the first doubling is measured against. */
