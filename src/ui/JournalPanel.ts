@@ -133,7 +133,6 @@ export class JournalPanel {
       const grown = rec?.grownVariants ?? [];
       const complete = grown.length > 0 && def.variants.every((v) => grown.includes(v.id));
       const card = el('div', `collection-card${grown.length ? ' found clickable' : rec ? ' seen' : ''}${complete ? ' complete' : ''}`);
-      if (complete) card.appendChild(el('div', 'card-stamp', 'Complete'));
       if (rec && grown.length) {
         // Show off the rarest variant grown.
         const best = [...grown].sort((a, b) => rarityRank(findVariant(def.id, b)!.rarity) - rarityRank(findVariant(def.id, a)!.rarity))[0] ?? def.variants[0].id;
@@ -141,7 +140,9 @@ export class JournalPanel {
         const dots = el('div', 'variant-dots');
         for (const v of def.variants) dots.appendChild(el('span', grown.includes(v.id) ? 'vdot on' : rec.variants.includes(v.id) ? 'vdot seen' : 'vdot'));
         card.appendChild(dots);
-        if (isEstablished(state, def.id)) card.appendChild(el('div', 'card-flag', 'Established'));
+        // Every form grown says so in gold, in place of the quieter "Established".
+        if (complete) card.appendChild(el('div', 'card-flag complete', '★ Complete'));
+        else if (isEstablished(state, def.id)) card.appendChild(el('div', 'card-flag', 'Established'));
         card.addEventListener('click', () => {
           this.detail = def.id;
           this.render();
@@ -343,7 +344,9 @@ export class JournalPanel {
       const row = el('div', 'october-plants');
       for (const def of plants) {
         const rec = state.collection[def.id];
-        const seen = rec.variants.length ? rec.variants : [def.variants[0].id];
+        // Its picture is the finest form actually grown (what the journal counts), or, before any is, the first found.
+        const grownForms = rec.grownVariants ?? [];
+        const seen = grownForms.length ? grownForms : rec.variants.length ? rec.variants.slice(0, 1) : [def.variants[0].id];
         const best = [...seen].sort((a, b) => rarityRank(findVariant(def.id, b)?.rarity ?? 'common') - rarityRank(findVariant(def.id, a)?.rarity ?? 'common'))[0];
         const cell = el('div', 'october-face');
         cell.append(portrait(def.id, best, 3, 4, 64), el('span', undefined, def.name));

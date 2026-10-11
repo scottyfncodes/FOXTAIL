@@ -8,6 +8,11 @@ import { mulberry32 } from '../src/game/engine/Random';
 import { setTheme } from '../src/game/season';
 import { clockRate, daylightFactor, DAWN } from '../src/game/engine/Clock';
 import { STAGE_AT } from '../src/game/systems/growth';
+import { collectSpot, spotContent } from '../src/game/systems/spots';
+import { DISCOVERY_SPOTS, SPOT_EPOCH_MINUTES } from '../src/game/data/discoveryPoints';
+import { sellItem } from '../src/game/systems/market';
+import { migrateSave } from '../src/game/engine/SaveManager';
+import { spotMark } from '../src/game/world/Renderer';
 
 // The three last forms of the collection (Mooncap Eclipse, Moonflower Pale
 // Visitor, Wax Plant Star Cluster): the journal counts what's grown, and an
@@ -159,5 +164,79 @@ describe('a new form in the journal says how far along its species is', () => {
     }
     recordGrown(s, 0);
     expect(journalEntryNews(s, 'hoya', 'starCluster').grown).toBe(4);
+  });
+});
+
+describe('found, grown, sold, regrown, completed: the journal only ever counts what has been grown', () => {
+  const meadow = DISCOVERY_SPOTS.find((s) => s.id === 'sp-meadow-1')!;
+
+  it('a find is "ungrown" until it roots, and selling the cutting never credits it', () => {
+    const s = createNewGame();
+    const res = collectSpot(s, meadow, s.clock.totalMinutes);
+    expect(res.ok).toBe(true);
+    const { defId, variantId } = res.content!;
+    expect(spotMark(s, defId, variantId)).toBe('ungrown');
+    expect(hasGrown(s, defId, variantId)).toBe(false);
+    expect(sellItem(s, s.basket[0].uid, s.clock.totalMinutes)).not.toBeNull();
+    recordGrown(s, s.clock.totalMinutes);
+    expect(hasGrown(s, defId, variantId)).toBe(false);
+    expect(spotMark(s, defId, variantId)).toBe('ungrown');
+  });
+
+  it('a grown form stays in the journal after its plant is sold, and is marked known on its patch', () => {
+    const s = createNewGame();
+    const p = own(s, 'hoya', 'carnosa', STAGE_AT.young);
+    recordFound(s, 'hoya', 'carnosa', 0);
+    expect(recordGrown(s, 0)).toEqual([{ defId: 'hoya', variantId: 'carnosa' }]);
+    delete s.plants[p.id];
+    expect(hasGrown(s, 'hoya', 'carnosa')).toBe(true);
+    expect(spotMark(s, 'hoya', 'carnosa')).toBe('known');
+  });
+
+  it('a patch that regrows and is picked again, and a second plant of the same form, never credit it twice', () => {
+    const s = createNewGame();
+    const first = collectSpot(s, meadow, s.clock.totalMinutes);
+    const { defId, variantId } = first.content!;
+    own(s, defId, variantId, STAGE_AT.young);
+    expect(recordGrown(s, 0)).toHaveLength(1);
+    // Picked this season: nothing there until the next.
+    expect(spotContent(s, meadow)).toBeNull();
+    s.clock.totalMinutes += SPOT_EPOCH_MINUTES;
+    expect(spotContent(s, meadow)).not.toBeNull();
+    collectSpot(s, meadow, s.clock.totalMinutes);
+    const second = own(s, defId, variantId, STAGE_AT.young);
+    second.id = 'second';
+    s.plants.second = second;
+    expect(recordGrown(s, 0)).toHaveLength(0);
+    expect(s.collection[defId].grownVariants!.filter((v) => v === variantId)).toHaveLength(1);
+    expect(journalEntryNews(s, defId, variantId).grown).toBe(1);
+  });
+
+  it('a species is complete only when every form is grown, not merely found', () => {
+    const s = createNewGame();
+    for (const v of PLANTS.mooncap.variants) recordFound(s, 'mooncap', v.id, 0);
+    expect(journalEntryNews(s, 'mooncap', 'eclipse').grown).toBe(0);
+    for (const v of PLANTS.mooncap.variants) {
+      const p = own(s, 'mooncap', v.id, STAGE_AT.young);
+      p.id = `m-${v.id}`;
+      s.plants[p.id] = p;
+    }
+    recordGrown(s, 0);
+    const news = journalEntryNews(s, 'mooncap', 'eclipse');
+    expect(news.grown).toBe(news.total);
+    expect(news.total).toBe(3);
+  });
+
+  it('the hints, the journal and a picked patch all survive a save and reload', () => {
+    const s = createNewGame();
+    openUp(s, 'hoya', 'compacta');
+    for (let i = 0; i < STAGE_AFTER[2] + 1; i++) tickMysteries(s, 1);
+    recordFound(s, 'hoya', 'starCluster', 0);
+    collectSpot(s, meadow, s.clock.totalMinutes);
+    const loaded = migrateSave(JSON.parse(JSON.stringify(s)))!;
+    expect(mysteryOpen(loaded, 'hoya')).toBe(true);
+    expect(mysteryStage(loaded, 'hoya')).toBe(2);
+    expect(hasGrown(loaded, 'hoya', 'starCluster')).toBe(false);
+    expect(spotContent(loaded, meadow)).toBeNull();
   });
 });

@@ -24,8 +24,7 @@ import { DISCOVERY_SPOTS } from '../data/discoveryPoints';
 import { findPotStyle, RAISED_BED } from '../data/shop';
 import { ELLEN_APPEARANCE, SCOUT_APPEARANCE, SCOTT_APPEARANCE, CAT_APPEARANCE, CHARACTER_SCALE } from '../data/character';
 import { daylightFactor, isNight } from '../engine/Clock';
-import { spotContent } from '../systems/spots';
-import { hasFound } from '../systems/collection';
+import { spotContent, spotEpoch } from '../systems/spots';
 import { stageFloat, stageIndexOf } from '../systems/growth';
 import type { LushField } from '../systems/wild';
 import { CHARACTERS } from '../systems/wild';
@@ -188,46 +187,58 @@ export function spotMark(state: Pick<GameState, 'collection'>, defId: string, va
   return (rec.grownVariants ?? []).includes(variantId) ? 'known' : 'ungrown';
 }
 
-/** The ring of light on a patch's ground: gold and breathing for something new, a steady green for something the journal still waits on. */
+/** The ring of light on a patch's ground: gold and breathing for something new, a steady dashed green for something the journal still waits on. */
 function drawPatchRing(ctx: CanvasRenderingContext2D, x: number, y: number, tile: number, mark: SpotMark, now: number, seed: number) {
   const breathe = mark === 'new' ? 0.5 + 0.5 * Math.sin(now * 0.0025 + seed) : 0.6;
   const rx = tile * (0.4 + breathe * 0.04);
   const ry = rx * 0.4;
+  const lw = Math.max(1, tile * 0.03);
   ctx.save();
-  ctx.lineWidth = Math.max(1, tile * 0.03);
-  ctx.strokeStyle = mark === 'new' ? `rgba(255,232,150,${0.35 + breathe * 0.35})` : 'rgba(186,232,150,0.5)';
-  if (mark === 'ungrown') ctx.setLineDash([tile * 0.07, tile * 0.05]);
   ctx.beginPath();
   ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  // A thin shadow under the ring keeps it legible on bright grass and pale rock alike.
+  ctx.lineWidth = lw * 2.2;
+  ctx.strokeStyle = 'rgba(16,28,10,0.28)';
+  ctx.stroke();
+  ctx.lineWidth = lw;
+  if (mark === 'new') {
+    ctx.strokeStyle = `rgba(255,228,140,${0.5 + breathe * 0.4})`;
+  } else {
+    ctx.strokeStyle = 'rgba(214,246,168,0.9)';
+    ctx.setLineDash([tile * 0.08, tile * 0.06]);
+  }
   ctx.stroke();
   ctx.restore();
 }
 
-/** A patch picked this season: raked earth, a snipped stem and one new leaf coming. */
+/** A patch picked this season: a turned-over mound of earth with one bright new shoot, so it plainly comes back. */
 function drawRestingPatch(ctx: CanvasRenderingContext2D, x: number, y: number, tile: number, seed: number) {
-  ctx.fillStyle = 'rgba(70,48,26,0.28)';
+  ctx.fillStyle = 'rgba(70,46,24,0.34)';
   ctx.beginPath();
-  ctx.ellipse(x, y + tile * 0.02, tile * 0.3, tile * 0.12, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y + tile * 0.02, tile * 0.26, tile * 0.11, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(40,26,12,0.35)';
-  ctx.lineWidth = Math.max(1, tile * 0.018);
+  // The turned soil catches the light along its top.
+  ctx.fillStyle = 'rgba(150,112,70,0.3)';
   ctx.beginPath();
-  for (let i = -1; i <= 1; i++) {
-    ctx.moveTo(x - tile * 0.18, y + i * tile * 0.045);
-    ctx.lineTo(x + tile * 0.18, y + i * tile * 0.045 - tile * 0.01);
-  }
-  ctx.stroke();
-  const lean = (seed % 2 ? 1 : -1) * tile * 0.03;
-  ctx.strokeStyle = '#6f9a48';
-  ctx.lineWidth = Math.max(1, tile * 0.025);
+  ctx.ellipse(x - tile * 0.03, y - tile * 0.005, tile * 0.16, tile * 0.05, 0, Math.PI, Math.PI * 2);
+  ctx.fill();
+  const lean = (seed % 2 ? 1 : -1) * tile * 0.02;
+  const top = { x: x + lean, y: y - tile * 0.14 };
+  ctx.strokeStyle = '#5f8f3a';
+  ctx.lineWidth = Math.max(1, tile * 0.028);
+  ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(x, y);
-  ctx.quadraticCurveTo(x + lean * 0.4, y - tile * 0.07, x + lean, y - tile * 0.12);
+  ctx.quadraticCurveTo(x + lean * 0.3, y - tile * 0.08, top.x, top.y);
   ctx.stroke();
-  ctx.fillStyle = '#8cbf5a';
-  ctx.beginPath();
-  ctx.ellipse(x + lean + tile * 0.035, y - tile * 0.125, tile * 0.04, tile * 0.02, -0.5, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.lineCap = 'butt';
+  // Two seed leaves, opening.
+  ctx.fillStyle = '#9bd067';
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(top.x + side * tile * 0.045, top.y - tile * 0.01, tile * 0.05, tile * 0.024, side * -0.45, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 /**
@@ -825,7 +836,10 @@ export class Renderer {
     this.drawAmbientParticles(camera, zoneHere, state.weather.condition, now);
     if (oct) drawDriftingLeaves(this.ctx, camera, zoneHere, now, state.weather.condition === 'clear' ? 1 : 2);
     this.drawWeatherOverlay(camera, state, now);
-    if (!oct) this.light.draw(this.ctx, camera, gm, this.cloudMix);
+    if (!oct) {
+      const at = camera.worldToScreen(state.player.x * TILE_SIZE, (state.player.y - 0.4) * TILE_SIZE);
+      this.light.draw(this.ctx, camera, gm, this.cloudMix, { x: at.x / camera.viewW, y: at.y / camera.viewH });
+    }
     if (oct) {
       this.litter.drawFog(this.ctx, camera, bounds, oct.darkness, now);
       this.grade.draw(this.ctx, camera, oct.darkness);
@@ -1970,7 +1984,8 @@ export class Renderer {
     const content = spotContent(state, spot);
     if (!content) {
       // Resting: picked this season. The fox's secret patches leave nothing behind.
-      if (spot.foxLed || state.spots[spot.id]?.collectedEpoch === undefined) return;
+      const picked = state.spots[spot.id]?.collectedEpoch;
+      if (spot.foxLed || picked === undefined || picked < spotEpoch(state.clock.totalMinutes)) return;
       drawRestingPatch(ctx, s.x, s.y, tile, spot.x * 7 + spot.y);
       return;
     }

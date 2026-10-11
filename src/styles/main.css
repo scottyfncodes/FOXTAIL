@@ -2393,20 +2393,14 @@ body.theme-october .start-bat {
   border-color: #c9a243;
   background: linear-gradient(180deg, rgba(255, 247, 214, 0.95), rgba(250, 236, 190, 0.85));
 }
-.card-stamp {
-  position: absolute;
-  top: 6px;
-  right: -4px;
-  transform: rotate(8deg);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.card-flag.complete {
   color: #8a6418;
-  border: 1.5px solid #c9a243;
-  border-radius: 4px;
-  padding: 1px 5px;
-  background: rgba(255, 248, 220, 0.9);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.collection-card.complete .vdot.on {
+  background: #c9a243;
+  border-color: #c9a243;
 }
 
 /* The action button wakes when something's in reach, and nods when it's something new. */
@@ -2427,6 +2421,22 @@ body.theme-october .start-bat {
   }
 }
 
+/* The prompt: clear of the joystick's top edge, never wider than the screen, and no keyboard key on a touch screen. */
+.interaction-prompt {
+  bottom: calc(var(--safe-bottom) + 158px);
+  max-width: calc(100% - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toast-stack {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 212px);
+}
+@media (pointer: coarse) {
+  .interaction-prompt kbd {
+    display: none;
+  }
+}
+
 /* Touch targets: at least 44px for the HUD's buttons. */
 .icon-btn {
   width: 44px;
@@ -2441,14 +2451,22 @@ body.theme-october .start-bat {
 
 /* Short screens (a phone on its side): news goes low, between the joystick and the button, and never over Ellen. */
 @media (max-height: 500px) {
+  /* The prompt sits at the very bottom between the two controls, and news just above it. */
+  .interaction-prompt {
+    bottom: calc(var(--safe-bottom) + 14px);
+    max-width: calc(100% - var(--safe-left) - var(--safe-right) - 330px);
+    padding: 7px 14px;
+    font-size: 13px;
+  }
   .toast-stack {
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 60px);
     left: calc(env(safe-area-inset-left, 0px) + 170px);
     right: calc(env(safe-area-inset-right, 0px) + 130px);
   }
   .toast {
     font-size: 12.5px;
     padding: 6px 12px;
+    max-width: 100%;
   }
   .toast.sig-major {
     font-size: 13.5px;
@@ -2464,9 +2482,105 @@ body.theme-october .start-bat {
   }
 }
 
+/* A phone on its side: the journal's header, tabs and filters shrink so there's room for the cards. */
+@media (max-height: 500px) {
+  .panel {
+    max-height: 94vh;
+  }
+  .panel-header {
+    padding: 8px 16px 7px;
+  }
+  .panel-header h2 {
+    font-size: 16px;
+  }
+  .panel-tabs {
+    padding: 6px 12px 0;
+  }
+  .panel-tab {
+    padding: 5px 11px;
+  }
+  .panel-body {
+    padding: 8px 16px 14px;
+  }
+  .collection-summary {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .collection-meter {
+    flex: 1;
+  }
+  .collection-filters {
+    margin-bottom: 8px;
+  }
+  .filter-chip {
+    min-height: 32px;
+    padding: 4px 11px;
+  }
+}
+
+/* Short phones upright (iPhone SE, 667px tall): Ellen stands only ~330px down, so news and the prompt sit lower and smaller. */
+@media (max-height: 740px) and (orientation: portrait) {
+  .interaction-prompt {
+    bottom: calc(var(--safe-bottom) + 152px);
+    padding: 7px 14px;
+    font-size: 12.5px;
+  }
+  .toast-stack {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 196px);
+    gap: 4px;
+  }
+  .toast {
+    font-size: 12.5px;
+    padding: 6px 12px;
+  }
+  .toast.sig-major {
+    font-size: 13.5px;
+    padding: 8px 14px;
+  }
+}
+
+/* The smallest phones on their side (iPhone SE: 375px tall): use every pixel between the controls, smaller type. */
+@media (max-height: 420px) {
+  .toast-stack {
+    left: calc(env(safe-area-inset-left, 0px) + 150px);
+    right: calc(env(safe-area-inset-right, 0px) + 110px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 56px);
+    gap: 4px;
+  }
+  .toast {
+    font-size: 12px;
+    line-height: 1.3;
+    padding: 5px 10px;
+  }
+  .interaction-prompt {
+    max-width: calc(100% - var(--safe-left) - var(--safe-right) - 290px);
+    font-size: 12.5px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .journal-toast-frame,
   .action-btn.nod {
     animation: none;
   }
+}
+
+/* October paints the button orange whether or not anything is in reach: dim it right down when nothing is. */
+body.theme-october .action-btn:not(.ready) {
+  filter: saturate(0.3) brightness(0.75);
+}
+body.theme-october .action-btn.ready {
+  box-shadow: var(--shadow), 0 0 0 3px rgba(255, 150, 60, 0.22), 0 0 18px rgba(255, 140, 40, 0.4);
+}
+
+/* October's journal: the filters and the progress bar in the season's colours, like its tabs. */
+body.theme-october .filter-chip.active {
+  background: rgba(255, 140, 50, 0.18);
+  border-color: #c0601c;
+  color: #8a3a10;
+}
+body.theme-october .collection-meter-fill {
+  background: linear-gradient(90deg, #c8641e, #e89a3c);
 }
