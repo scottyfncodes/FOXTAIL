@@ -59,13 +59,18 @@ describe('outdoor spreading', () => {
     const state = createNewGame();
     wild(state, 'p', 65, 30, STAGE_AT.specimen);
     const rand = mulberry32(7);
-    for (let i = 0; i < 4000; i++) {
+    const inMeadow = () => Object.values(state.plants).filter((p) => p.location.kind === 'wild' && p.location.zone === 'meadow').length;
+    // Every plant a specimen, spreading as hard as it can, until the stand has stopped growing for a good while.
+    let flat = 0;
+    for (let i = 0; i < 4000 && flat < 150; i++) {
+      const before = inMeadow();
       for (const p of Object.values(state.plants)) p.growth = STAGE_AT.specimen;
       spreadStep(state, open, 0, rand);
+      flat = inMeadow() === before ? flat + 1 : 0;
     }
-    const inMeadow = Object.values(state.plants).filter((p) => p.location.kind === 'wild' && p.location.zone === 'meadow').length;
-    expect(inMeadow).toBeLessThanOrEqual(WILD_SPECIES_ZONE_CAP);
-  });
+    expect(inMeadow()).toBeGreaterThan(WILD_SPECIES_ZONE_CAP * 0.9);
+    expect(inMeadow()).toBeLessThanOrEqual(WILD_SPECIES_ZONE_CAP);
+  }, 20000);
 
   it('seedlings of an unseen variant arrive unnoticed, to be discovered in the world', () => {
     const state = createNewGame();
