@@ -25,11 +25,11 @@ export const OFFLINE_CAP_MINUTES = 3 * MINUTES_PER_DAY;
 // noticeable ones and a long time away much fuller plants, without ever
 // running away.
 /** Extra growth-minutes for each doubling of the real time away past the cap. */
-export const ECOLOGY_PER_DOUBLING = 3600;
+export const ECOLOGY_PER_DOUBLING = 5400;
 /** Real hours past the cap that the first doubling is measured against. */
 export const ECOLOGY_TAPER_HOURS = 2;
 /** However long you're gone, the extra allowance stops here (about three weeks away). */
-export const ECOLOGY_MAX_EXTRA = 30000;
+export const ECOLOGY_MAX_EXTRA = 45000;
 
 /**
  * Growth-minutes the living world gets for `realMs` away: the same as the

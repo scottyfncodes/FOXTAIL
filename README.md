@@ -244,6 +244,15 @@ its usual pace.
   back to visibly more garden than the last, and a year away is capped.
   Self-sown strangers keep the clock's pace. The catch-up is seeded from
   the moment you left, so the same save always comes back the same.
+- **A region can be taken over.** Left to it, what you planted swallows
+  the ground around it: a few plants set out in a region come back after
+  a night away to most of it theirs, after a few days to nearly all of it,
+  and then push on into the regions next door. The region cap
+  (`WILD_ZONE_CAP`) is set so a region fills, not stops halfway; no single
+  species may be more than a share of it (`WILD_SPECIES_ZONE_CAP`), and the
+  valley as a whole has a ceiling (`WILD_TOTAL_CAP`) that keeps the
+  catch-up, the save and the frame quick. The HUD's "*n*% yours" is how
+  much of the region you're standing in is under your plants.
 - **Spreading has habits** (`SPREAD_HABIT` in `systems/wild.ts`): ferns
   set new clumps a stride or two off; bamboo, reeds and cattails thicken
   into tight clonal stands; creepers fill gaps close by; broad-leaved
@@ -294,9 +303,11 @@ journal stays finished.
 | Growth past specimen (time to most of the way) | `growth.ts` `MATURITY_K` / `MATURE_SF` | 12000 growth-min / sf 6 |
 | Titan growth past turning / ceiling | `growth.ts` `TITAN_K` / `TITAN_SF` | 14000 growth-min / sf 7 |
 | How full before a Titan turns / spacing | `growth.ts` `TITAN_READY` / `TITAN_SPACING` | 0.8 / 8 tiles |
-| Extra garden time per doubling of real time away | `Clock.ts` `ECOLOGY_PER_DOUBLING` / `ECOLOGY_TAPER_HOURS` | 3600 / 2 h |
-| Most extra garden time from one absence | `Clock.ts` `ECOLOGY_MAX_EXTRA` | 30000 |
+| Extra garden time per doubling of real time away | `Clock.ts` `ECOLOGY_PER_DOUBLING` / `ECOLOGY_TAPER_HOURS` | 5400 / 2 h |
+| Most extra garden time from one absence | `Clock.ts` `ECOLOGY_MAX_EXTRA` | 45000 |
+| How readily a large plant seeds a new one, per game-hour | `wild.ts` `SPREAD_BASE_CHANCE` × species `spread` × habit `rate`, × `SPECIMEN_SPREAD_BOOST` past specimen | 0.045 / 1.75 |
 | How each form spreads | `wild.ts` `SPREAD_HABIT` | rate × reach × spacing |
+| How many of your plants a region, a species in it, and the valley hold | `wild.ts` `WILD_ZONE_CAP` / `WILD_SPECIES_ZONE_CAP` / `WILD_TOTAL_CAP` | 440 / 200 / 1800 |
 | How each form fills out | `PlantArt.ts` `GROWTH_PROFILE` | grow / wide / tall / titan |
 
 ## October

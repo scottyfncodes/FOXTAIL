@@ -21,10 +21,18 @@ import { DISCOVERY_SPOTS } from '../data/discoveryPoints';
 
 /** Game-minutes between spread checks. */
 export const SPREAD_STEP = 60;
-export const WILD_ZONE_CAP = 140;
+/**
+ * How many of your plants one region holds. Regions are 800 to 1300 tiles,
+ * and at the crowding limit below about two plants fit in every three
+ * tiles: so this is enough for a region to disappear under what you put
+ * there, not just half of it (the old cap of 140 stopped every region at
+ * about half covered, however long you were away).
+ */
+export const WILD_ZONE_CAP = 440;
 /** No single species takes over a region completely: there's always room for the next thing. */
-export const WILD_SPECIES_ZONE_CAP = 55;
-export const WILD_TOTAL_CAP = 560;
+export const WILD_SPECIES_ZONE_CAP = 200;
+/** The whole valley: about four regions' worth, so the sim, the save and the frame stay quick. */
+export const WILD_TOTAL_CAP = 1800;
 const SEEDLING_SPORT_CHANCE = 0.035;
 /**
  * A bed lively enough (see systems/beds.ts: a mix of species and kinds)
@@ -51,6 +59,12 @@ export const SELF_SOW_CHANCE = 0.02;
 /** No new self-sown seedlings while this many cannabis plants already grow wild. */
 export const SELF_SOW_MAX = 5;
 const MIN_SPACING = 0.85;
+/** Chance per spread step, per unit of a species' spread and its habit's rate, that a large plant sets down a new one. */
+export const SPREAD_BASE_CHANCE = 0.045;
+/** A specimen (or anything past it) spreads this much more readily than a merely large plant. */
+export const SPECIMEN_SPREAD_BOOST = 1.75;
+/** How many spots a spreading plant tries for a seedling, out in the open. */
+export const SPREAD_ATTEMPTS = 6;
 
 /**
  * How each kind of plant takes new ground. Ferns throw up new crowns a
@@ -128,7 +142,7 @@ export const DOORS = [GREENHOUSE_DOOR, GREENHOUSE_BACK_DOOR, GREENHOUSE_SIDE_DOO
 /** The player can plant closer than anything seeds itself (see landscape.ts checkPlanting). */
 const PLANT_SPACING = 0.5;
 const CROWD_RADIUS = 2;
-const CROWD_LIMIT = 7;
+const CROWD_LIMIT = 9;
 
 export interface SpreadEvent {
   parentId: string;
@@ -223,8 +237,9 @@ export function spreadStep(
     if (!def) continue;
     const habit = spreadHabit(def.form);
     // Per spread step (an in-game hour): a vigorous large pothos throws out a
-    // new plant every day or two of game time; a slow aroid far less often.
-    const chance = def.spread * habit.rate * 0.03 * (stage >= 4 ? 1.5 : 1);
+    // new plant most days of game time, a specimen nearly every day; a slow
+    // aroid far less often. The ground around is what stops it, not the odds.
+    const chance = def.spread * habit.rate * SPREAD_BASE_CHANCE * (stage >= 4 ? SPECIMEN_SPREAD_BOOST : 1);
     if (rand() >= chance) continue;
 
     // A plant in a garden bed spreads only within it; one outside never
@@ -234,7 +249,9 @@ export function spreadStep(
     const tier = bed ? bedTier.get(bed.id) ?? 0 : 0;
     const diverse = !!bed && tier >= LIVELY_TIER;
     const reach = bed ? 0.8 : 1;
-    for (let attempt = 0; attempt < (bed ? 6 : 4); attempt++) {
+    // A few tries at finding ground: a plant hemmed in on one side still
+    // seeds out the other, so a stand keeps pushing outward at its edge.
+    for (let attempt = 0; attempt < (bed ? 6 : SPREAD_ATTEMPTS); attempt++) {
       const a = rand() * Math.PI * 2;
       const d = (habit.reach[0] + rand() * (habit.reach[1] - habit.reach[0])) * reach;
       const x = parent.location.x + Math.cos(a) * d;
