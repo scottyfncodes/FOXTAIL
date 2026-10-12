@@ -39,7 +39,7 @@ const poolCache = new WeakMap<DiscoverySpot, readonly PlantDef[]>();
 export function spotPool(spot: DiscoverySpot): readonly PlantDef[] {
   let pool = poolCache.get(spot);
   if (!pool) {
-    pool = spot.pool ? spot.pool.map((id) => PLANTS[id]).filter(Boolean) : PLANT_LIST.filter((p) => !p.foxOnly && !p.secret && !p.season && p.habitat.includes(spot.zone));
+    pool = spot.pool ? spot.pool.map((id) => PLANTS[id]).filter(Boolean) : PLANT_LIST.filter((p) => !p.foxOnly && !p.secret && !p.season && !p.giant && p.habitat.includes(spot.zone));
     poolCache.set(spot, pool);
   }
   return pool;
@@ -54,6 +54,8 @@ export function spotPool(spot: DiscoverySpot): readonly PlantDef[] {
 export function spotContent(state: GameState, spot: DiscoverySpot): SpotContent | null {
   const ss = state.spots[spot.id];
   if (spot.foxLed && !ss?.revealed) return null;
+  // A Giant's patch is bare ground until the Giants wake.
+  if (spot.giant && state.giantsAwakeAt == null) return null;
   const epoch = spotEpoch(state.clock.totalMinutes);
   if (ss?.collectedEpoch !== undefined && ss.collectedEpoch >= epoch) return null;
 
@@ -183,7 +185,7 @@ export interface HunchTarget {
 export function hunchTargets(state: GameState, zone: OutdoorZoneId): HunchTarget[] {
   const out: HunchTarget[] = [];
   for (const def of PLANT_LIST) {
-    if (def.secret || def.foxOnly || def.season || !def.habitat.includes(zone) || !conditionMet(state, def)) continue;
+    if (def.secret || def.foxOnly || def.season || def.giant || !def.habitat.includes(zone) || !conditionMet(state, def)) continue;
     for (const v of def.variants) {
       if (v.sportOnly || !variantAllowed(state, def.id, v.id) || hasFound(state, def.id, v.id)) continue;
       const rank = Math.max(rarityRank(v.rarity), rarityRank(def.rarity));

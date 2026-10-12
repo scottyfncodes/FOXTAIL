@@ -2,7 +2,7 @@ import type { Game } from '../game/engine/Game';
 import { Panel } from './Panel';
 import { el } from './dom';
 import { PLANTS, specimenName, specimenRarity, findVariant, latinLine, rarityRank } from '../game/data/plants';
-import { STAGES, STAGE_LABEL, stageFloat, stageIndexOf, minutesToNextStage } from '../game/systems/growth';
+import { STAGES, STAGE_LABEL, GARDEN_STAGE_LABEL, gardenStageOf, maturity, plantSf, stageIndexOf, minutesToNextStage, type GardenStage } from '../game/systems/growth';
 import { cuttingBlockReason, cuttingCooldown, cuttingOdds } from '../game/systems/propagation';
 import { canTransplant, findBed } from '../game/systems/landscape';
 import { zoneLabel } from '../game/engine/Game';
@@ -53,7 +53,7 @@ export class PlantCard {
     if (latin) info.appendChild(el('div', 'latin', latin));
     info.appendChild(rarityBadge(specimenRarity(plant.defId, plant.variantId)));
     if (variant) info.appendChild(note(variant.description, 'row-note'));
-    head.append(portrait(plant.defId, plant.variantId, stageFloat(plant.growth), plant.seed, 110), info);
+    head.append(portrait(plant.defId, plant.variantId, plantSf(plant), plant.seed, 110), info);
     body.appendChild(head);
 
     const idx = stageIndexOf(plant.growth);
@@ -68,7 +68,11 @@ export class PlantCard {
     const native = def.habitat.includes(loc.zone);
     const bed = loc.bedId ? findBed(state, loc.bedId) : undefined;
     const where = `${bed ? 'In your garden bed in' : 'Growing in'} ${zoneLabel(loc.zone, state)}${native ? ', where it’s at home' : ''}.`;
-    body.appendChild(note(`${next === null ? `${STAGE_LABEL[STAGES[idx]]} — fully grown.` : `${STAGE_LABEL[STAGES[idx]]}. ${STAGE_LABEL[STAGES[idx + 1]]} in ${realTime(next)}.`} ${where}`, 'growth-note'));
+    body.appendChild(note(`${next === null ? `${STAGE_LABEL[STAGES[idx]]}.` : `${STAGE_LABEL[STAGES[idx]]}. ${STAGE_LABEL[STAGES[idx + 1]]} in ${realTime(next)}.`} ${where}`, 'growth-note'));
+    const gs = gardenStageOf(plant);
+    const garden = el('div', `garden-stage garden-stage-${gs}`);
+    garden.append(el('span', 'garden-stage-label', GARDEN_STAGE_LABEL[gs]), el('span', 'garden-stage-text', gardenStageText(gs, maturity(plant.growth))));
+    body.appendChild(garden);
 
     const actions = el('div', 'action-row');
     const block = cuttingBlockReason(state, plant, now);
@@ -123,5 +127,21 @@ export class PlantCard {
       compost.appendChild(row);
     }
     body.appendChild(compost);
+  }
+}
+
+/** A line on how a plant out in the garden is coming along. */
+function gardenStageText(gs: GardenStage, mature: number): string {
+  switch (gs) {
+    case 'establishing':
+      return 'Putting down roots.';
+    case 'developing':
+      return 'Putting on leaves and height.';
+    case 'mature':
+      return 'Full-sized, and still filling out.';
+    case 'overgrown':
+      return mature > 0.95 ? 'As full as an ordinary one ever gets.' : 'Spreading wider and fuller all the time, even while you’re away.';
+    case 'titan':
+      return 'A Titan: one in a great many. It will go on growing for a long while yet.';
   }
 }

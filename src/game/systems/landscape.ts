@@ -134,6 +134,13 @@ const FORM_RADIUS: Record<string, number> = {
   palm: 0.6,
   cane: 0.5,
   pumpkin: 0.75,
+  // The Giants take up real ground.
+  treeFern: 0.95,
+  elephantEar: 1.0,
+  giantReed: 0.8,
+  gunnera: 1.15,
+  canna: 0.75,
+  giantHosta: 1.0,
 };
 
 export function matureRadius(defId: string, variantId?: string): number {

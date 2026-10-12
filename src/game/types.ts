@@ -62,7 +62,14 @@ export type PlantForm =
   | 'bamboo' // tall jointed canes with sprays of narrow leaves at the nodes (bamboo)
   | 'lilypad' // round notched pads floating flat on the water (water lily)
   | 'cattail' // a stand of tall blades with brown velvet seed heads on stiff stalks (cattail)
-  | 'pumpkin'; // a sprawling vine of big lobed leaves round a pumpkin that ripens orange and, grown, is carved (pumpkin)
+  | 'pumpkin' // a sprawling vine of big lobed leaves round a pumpkin that ripens orange and, grown, is carved (pumpkin)
+  // The Giants: each has a form of its own, too big and too particular to share one.
+  | 'treeFern' // a shaggy trunk crowned with huge arching fronds (tree fern)
+  | 'elephantEar' // enormous heart-shaped leaves on tall stalks, layered and drooping (giant elephant ear)
+  | 'giantReed' // a dense, upright stand of tall leafy canes topped with plumes (giant reed)
+  | 'gunnera' // a few vast, crinkled, lobed umbrellas on prickly stalks (gunnera)
+  | 'canna' // tall stems of broad paddle leaves, crowned with flowers (canna)
+  | 'giantHosta'; // a massive mound of broad, deeply ribbed leaves (titan hosta)
 
 /** How a mushroom's cap is shaped. */
 export type CapShape = 'dome' | 'flat' | 'funnel' | 'shaggy' | 'honeycomb' | 'nodding';
@@ -193,6 +200,17 @@ export interface PlantDef {
    * collection (and its count) — it has a page of its own once found.
    */
   season?: 'october';
+  /**
+   * One of the Giants: kept out of the field journal's own count (like the
+   * season's plants) and listed on a page of its own. Its wild patches only
+   * show once the Giants have woken (see systems/giants.ts).
+   */
+  giant?: boolean;
+  /**
+   * Chance (0–1) that any one plant of it, given time in its own country,
+   * grows into a Titan. Left unset, the form decides (see systems/growth.ts).
+   */
+  titanChance?: number;
 }
 
 export type ToolId = 'basket' | 'lantern';
@@ -206,4 +224,6 @@ export interface DiscoverySpot {
   foxLed?: boolean;
   /** Restricts what can appear here to these species (otherwise the zone's habitat pool). */
   pool?: string[];
+  /** A Giant's patch: nothing shows here until the Giants have woken. */
+  giant?: boolean;
 }

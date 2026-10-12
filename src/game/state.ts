@@ -68,6 +68,11 @@ export interface OwnedPlant {
   unnoticed?: boolean;
   /** Has counted toward its species' "grown" tally (reached established while in the player's care). */
   countedGrown?: boolean;
+  /**
+   * Grew on into a Titan (see systems/growth.ts): the growth it had when it
+   * did. Set once and never taken away; its Titan form fills out from there.
+   */
+  titanAt?: number;
 }
 
 /** A plant being carried: a fresh cutting (growth 0) or a potted plant lifted from somewhere. */
@@ -133,6 +138,8 @@ export interface SpeciesRecord {
   earned: number;
   plantedOut: number;
   displayed: number;
+  /** One of yours has grown into a Titan. Not a variant: it doesn't count as a form found. */
+  titan?: boolean;
 }
 
 export interface SpotState {
@@ -461,6 +468,11 @@ export interface GameState {
   october: OctoberLog;
   /** Hints toward the last three forms nobody is shown the way to, by mystery id. */
   mysteries: Record<string, MysteryRecord>;
+  /**
+   * When the Giants woke (game-minutes): the first time one of your own
+   * plants out in the valley grew large. From then on their patches show.
+   */
+  giantsAwakeAt: number | null;
 }
 
 /** How far the hints toward one of the valley's last mysteries have come (see systems/mysteries.ts). */
@@ -561,6 +573,7 @@ export function createNewGame(): GameState {
     regionTier: {},
     october: newOctoberLog(),
     mysteries: {},
+    giantsAwakeAt: null,
     cat: {
       x: 21.95,
       y: 3.5,

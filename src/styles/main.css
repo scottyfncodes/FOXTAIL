@@ -1051,6 +1051,50 @@ button {
   margin: 0 0 10px;
 }
 
+/* How a plant out in the garden is coming along: Establishing … Overgrown, or Titan. */
+.garden-stage {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: -4px 0 12px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.garden-stage-label {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--leaf-strong);
+  background: var(--leaf-soft);
+}
+.garden-stage-text {
+  color: var(--ink-brown-dim);
+}
+.garden-stage-overgrown .garden-stage-label {
+  color: #f4ecd8;
+  background: var(--leaf);
+}
+.garden-stage-titan .garden-stage-label {
+  color: #3a2a08;
+  background: linear-gradient(90deg, #d9b453, #f0d27a);
+}
+
+/* The Giants' page in the field journal. */
+.giants-intro {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-brown-dim);
+  margin: 0 0 10px;
+}
+.collection-card .card-flag.titan {
+  color: #8a6418;
+  font-weight: 700;
+}
+
 .section-head {
   font-size: 11px;
   text-transform: uppercase;

@@ -1704,6 +1704,147 @@ PLANTS.foxfireBonnet = {
   season: 'october',
 };
 
+// ---------------------------------------------------------------- The Giants
+//
+// Six plants on another scale altogether. They grow wild only in patches
+// of their own, which only show once the Giants have woken (systems/
+// giants.ts): the first time one of your own plants out in the valley
+// grows large. Each is found, rooted and established like anything else,
+// but they keep out of the field journal's main count (and so never hold
+// back a finished journal): they have a page of their own.
+
+PLANTS.treeFern = {
+  id: 'treeFern',
+  name: 'Tree Fern',
+  latin: 'Dicksonia antarctica',
+  form: 'treeFern',
+  rarity: 'rare',
+  habitat: ['dampForest', 'woodland'],
+  landscape: 'fern',
+  description: 'A fern that grows a trunk. Year on year it lifts its crown of huge, arching fronds higher, until it stands over everything else like something left over from before the flowers.',
+  hint: 'A crown of fronds, held up high on a shaggy trunk.',
+  look: { hue: 112, sat: 46, light: 34, accentHue: 30, variegation: 'none', size: 1.5 },
+  variants: [
+    { id: 'soft', name: 'Soft', rarity: 'rare', description: 'Soft, deep-green fronds on a rust-brown trunk.', look: {} },
+    { id: 'silver', name: 'Silver', rarity: 'veryRare', description: 'Every frond backed with silver, so the crown flashes pale when the wind turns it.', look: { hue: 150, sat: 22, light: 44 } },
+  ],
+  growthRate: 0.8,
+  spread: 0.4,
+  unlisted: true,
+  giant: true,
+  titanChance: 0.3,
+};
+
+PLANTS.giantElephantEar = {
+  id: 'giantElephantEar',
+  name: 'Giant Elephant Ear',
+  latin: 'Alocasia macrorrhizos',
+  form: 'elephantEar',
+  rarity: 'rare',
+  habitat: ['creek', 'dampForest'],
+  landscape: 'jungle',
+  description: 'Leaves the size of a door, heart-shaped and hanging from stalks taller than you are. Rain drums on them like a tin roof.',
+  hint: 'Leaves like great green ears, hung on tall stalks by the water.',
+  look: { hue: 102, sat: 50, light: 33, accentHue: 90, variegation: 'none', size: 1.6, leafWidth: 1.05 },
+  variants: [
+    { id: 'green', name: 'Green', rarity: 'rare', description: 'Glossy green, with pale ribs.', look: {} },
+    { id: 'variegata', name: 'Variegata', rarity: 'veryRare', description: 'Splashed and sectored in creamy white, no two leaves alike.', look: { variegation: 'splash', variegationColor: CREAM, light: 36 } },
+  ],
+  growthRate: 1.05,
+  spread: 0.4,
+  unlisted: true,
+  giant: true,
+  titanChance: 0.3,
+};
+
+PLANTS.giantReed = {
+  id: 'giantReed',
+  name: 'Giant Reed Grass',
+  latin: 'Arundo donax',
+  form: 'giantReed',
+  rarity: 'rare',
+  habitat: ['creek', 'overgrownClearing'],
+  landscape: 'jungle',
+  description: 'A grass that forgot to stop. Leafy blue-green canes shoot up twice your height and thicken into a rustling screen, plumed with silver at the top.',
+  hint: 'A wall of tall, rustling canes by the water.',
+  look: { hue: 138, sat: 26, light: 46, accentHue: 70, accentSat: 26, accentLight: 58, variegation: 'none', size: 1.5 },
+  variants: [
+    { id: 'blueGreen', name: 'Blue-Green', rarity: 'rare', description: 'Cool, glaucous blades.', look: {} },
+    { id: 'versicolor', name: 'Versicolor', rarity: 'veryRare', description: 'Every blade striped lengthwise in cream.', look: { variegation: 'stripe', variegationColor: CREAM, light: 50 } },
+  ],
+  growthRate: 1.2,
+  spread: 0.6,
+  unlisted: true,
+  giant: true,
+  titanChance: 0.25,
+};
+
+PLANTS.giantGunnera = {
+  id: 'giantGunnera',
+  name: 'Giant Gunnera',
+  latin: 'Gunnera manicata',
+  form: 'gunnera',
+  rarity: 'rare',
+  habitat: ['creek', 'dampForest'],
+  landscape: 'jungle',
+  description: 'A handful of vast, crinkled leaves on prickly red stalks, each big enough to shelter under. It looks like something a dinosaur would eat.',
+  hint: 'Umbrella leaves on prickly stalks, big enough to stand under.',
+  look: { hue: 96, sat: 44, light: 36, accentHue: 4, accentSat: 42, accentLight: 34, variegation: 'none', size: 1.7 },
+  variants: [
+    { id: 'manicata', name: 'Manicata', rarity: 'rare', description: 'Rough, deep-green umbrellas on red stalks.', look: {} },
+    { id: 'tinctoria', name: 'Tinctoria', rarity: 'veryRare', description: 'Smaller, more crinkled leaves on stalks as red as rhubarb.', look: { hue: 104, light: 32, accentHue: 356, accentSat: 60, accentLight: 36, size: 1.55 } },
+  ],
+  growthRate: 0.9,
+  spread: 0.3,
+  unlisted: true,
+  giant: true,
+  titanChance: 0.35,
+};
+
+PLANTS.giantCanna = {
+  id: 'giantCanna',
+  name: 'Giant Canna',
+  latin: 'Canna ‘Musifolia’',
+  form: 'canna',
+  rarity: 'rare',
+  habitat: ['meadow', 'overgrownClearing'],
+  landscape: 'flower',
+  description: 'Tall stems of broad, banana-like leaves that keep coming up from the root, and once it’s settled in, flowers like flags at the top.',
+  hint: 'Tall paddle leaves, a flag of flowers on top.',
+  look: { hue: 108, sat: 44, light: 36, accentHue: 6, accentSat: 82, accentLight: 50, variegation: 'none', size: 1.4, flowers: true },
+  variants: [
+    { id: 'scarlet', name: 'Scarlet', rarity: 'rare', description: 'Green leaves, scarlet flowers.', look: {} },
+    { id: 'tropicanna', name: 'Tropicanna', rarity: 'veryRare', description: 'Leaves striped orange, pink and bronze like a sunset, under tangerine flowers.', look: { hue: 10, sat: 58, light: 44, variegation: 'veins', variegationColor: [42, 95, 64], accentHue: 26, accentSat: 92, accentLight: 54 } },
+  ],
+  growthRate: 1.1,
+  spread: 0.45,
+  unlisted: true,
+  giant: true,
+  titanChance: 0.25,
+};
+
+PLANTS.titanHosta = {
+  id: 'titanHosta',
+  name: 'Titan Hosta',
+  latin: 'Hosta ‘Empress Wu’',
+  form: 'giantHosta',
+  rarity: 'rare',
+  habitat: ['woodland', 'dampForest'],
+  landscape: 'jungle',
+  description: 'The biggest hosta there is: a mound of broad, ribbed leaves, layer over layer, wide enough to hide a fox in. In summer it sends up spires of lilac bells.',
+  hint: 'A great mound of ribbed leaves in the shade.',
+  look: { hue: 118, sat: 34, light: 32, accentHue: 270, accentSat: 36, accentLight: 82, variegation: 'none', size: 1.5, leafWidth: 1.1 },
+  variants: [
+    { id: 'empressWu', name: 'Empress Wu', rarity: 'rare', description: 'Thick, dark green leaves.', look: {} },
+    { id: 'sumAndSubstance', name: 'Sum and Substance', rarity: 'veryRare', description: 'Huge chartreuse-gold leaves that seem to glow in the shade.', look: { hue: 64, sat: 62, light: 48 } },
+  ],
+  growthRate: 0.85,
+  spread: 0.35,
+  unlisted: true,
+  giant: true,
+  titanChance: 0.3,
+};
+
 export const PLANT_LIST: PlantDef[] = Object.values(PLANTS);
 
 export const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'veryRare', 'extremelyRare', 'unheardOf', 'mythic'];

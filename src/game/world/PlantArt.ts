@@ -3051,6 +3051,443 @@ function drawPumpkinVine(p: Paint) {
   }
 }
 
+// ------------------------------------------------------------ the Giants
+//
+// Six plants too big and too particular to share a form with anything
+// else. Each grows in its own way: the tree fern lifts a trunk and spreads
+// a crown; the elephant ear adds ever bigger leaves; the reed thickens into
+// a stand; the gunnera opens a few vast umbrellas; the canna sends up stems
+// and then flowers; the hosta mounds. Past MATURE_SF a Titan (growth.ts)
+// carries every one of them further, and grows something the ordinary
+// specimen never does.
+
+/** 0 for an ordinary plant, rising to 1 as a Titan fills out. */
+function titanOf(sf: number): number {
+  return Math.max(0, Math.min(1, sf - SF_MAX_ORDINARY));
+}
+
+/**
+ * A pinnate frond from the current origin: a curving rachis lined with
+ * paired leaflets, arching out along `ang` and drooping toward its tip.
+ */
+function pinnateFrond(p: Paint, ang: number, len: number, droop: number, color: string, leaflet = 0.2) {
+  const { ctx } = p;
+  const x2 = Math.cos(ang) * len * 0.92;
+  const y2 = Math.sin(ang) * len * 0.92 + droop;
+  const cx = Math.cos(ang) * len * 0.5;
+  const cy = Math.sin(ang) * len * 0.5 - len * 0.22;
+  stroke(ctx, color, Math.max(0.7, len * 0.016), () => {
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(cx, cy, x2, y2);
+  });
+  const path = new Path2D();
+  for (let t = 0.08; t < 0.97; t += 0.055) {
+    const mt = 1 - t;
+    const px = 2 * mt * t * cx + t * t * x2;
+    const py = 2 * mt * t * cy + t * t * y2;
+    const tx = 2 * mt * cx + 2 * t * (x2 - cx);
+    const ty = 2 * mt * cy + 2 * t * (y2 - cy);
+    const a0 = Math.atan2(ty, tx);
+    const ll = len * leaflet * (1 - t * 0.65) * (t < 0.2 ? 0.6 + t * 2 : 1);
+    const lw = ll * 0.3;
+    for (const s of [-1, 1]) {
+      const a = a0 + s * 1.2;
+      const ex = px + Math.cos(a) * ll;
+      const ey = py + Math.sin(a) * ll + ll * 0.25;
+      const nx = -Math.sin(a) * lw;
+      const ny = Math.cos(a) * lw;
+      path.moveTo(px, py);
+      path.quadraticCurveTo((px + ex) / 2 + nx, (py + ey) / 2 + ny, ex, ey);
+      path.quadraticCurveTo((px + ex) / 2 - nx, (py + ey) / 2 - ny, px, py);
+    }
+  }
+  ctx.fillStyle = color;
+  ctx.fill(path);
+}
+
+/** Tree Fern: a shaggy trunk that lifts a crown of huge arching fronds above everything else. */
+function drawTreeFern(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const g = Math.min(sf, SF_MAX_ORDINARY);
+  const t = titanOf(sf);
+  // The trunk only shows once it's established; a Titan's stands twice as tall.
+  const H = g < 0.9 ? 0 : S * (0.08 + (g - 0.9) * 0.24 + t * 0.7);
+  const tw = S * (0.06 + g * 0.012 + t * 0.035);
+  if (H > 0) {
+    const grad = ctx.createLinearGradient(-tw, 0, tw, 0);
+    grad.addColorStop(0, 'hsl(22,28%,15%)');
+    grad.addColorStop(0.45, 'hsl(24,30%,27%)');
+    grad.addColorStop(1, 'hsl(20,26%,13%)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(-tw * 1.25, 0);
+    ctx.quadraticCurveTo(-tw * 0.9, -H * 0.5, -tw * 0.85, -H);
+    ctx.lineTo(tw * 0.85, -H);
+    ctx.quadraticCurveTo(tw * 0.9, -H * 0.5, tw * 1.25, 0);
+    ctx.closePath();
+    ctx.fill();
+    // The old frond bases, in rough diagonal rows down the trunk.
+    ctx.strokeStyle = 'rgba(12,8,4,0.55)';
+    ctx.lineWidth = Math.max(0.6, tw * 0.18);
+    ctx.beginPath();
+    for (let y = -H * 0.06; y > -H * 0.96; y -= tw * 0.7) {
+      const off = (Math.round(y / tw) % 2) * tw * 0.4;
+      for (let x = -tw * 0.6 + off; x < tw * 0.7; x += tw * 0.75) {
+        ctx.moveTo(x - tw * 0.18, y);
+        ctx.quadraticCurveTo(x, y - tw * 0.25, x + tw * 0.18, y);
+      }
+    }
+    ctx.stroke();
+    if (t > 0) {
+      // A Titan's trunk wears moss and a few small ferns of its own.
+      ctx.fillStyle = hsl(look.hue + 10, look.sat, look.light - 6, 0.8);
+      for (let k = 0; k < 3 + Math.round(t * 5); k++) {
+        ctx.beginPath();
+        ctx.ellipse((rand() - 0.5) * tw * 1.4, -H * (0.15 + rand() * 0.7), tw * 0.5, tw * 0.28, rand() - 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+  withTransform(ctx, 0, -H, 0, () => {
+    // A skirt of old brown fronds hangs under a mature crown.
+    const dead = g < 4.4 ? 0 : Math.round((g - 4.4) * 2.5 + t * 5);
+    for (let i = 0; i < dead; i++) {
+      const side = i % 2 ? 1 : -1;
+      const len = S * (0.5 + rand() * 0.25) * (1 + t * 0.4);
+      pinnateFrond(p, Math.PI / 2 + side * (0.35 + rand() * 0.45), len * 0.75, 0, hsl(28, 32, 26 + rand() * 8), 0.14);
+    }
+    const n = Math.min(24, Math.round(3 + g * 2.3 + t * 6));
+    const reach = S * (0.5 + g * 0.1 + t * 0.4);
+    const fronds = Array.from({ length: n }, (_, i) => {
+      const u = n === 1 ? 0.5 : i / (n - 1);
+      // Fanned all round the crown: the ones toward you and away are foreshortened.
+      const ang = -Math.PI + u * Math.PI + (rand() - 0.5) * 0.25;
+      const back = rand() < 0.45;
+      return { ang, back, len: reach * (0.8 + rand() * 0.35) * (back ? 0.85 : 1) };
+    });
+    fronds.sort((a, b) => Number(b.back) - Number(a.back) || Math.abs(b.ang + Math.PI / 2) - Math.abs(a.ang + Math.PI / 2));
+    for (const f of fronds) {
+      const out = Math.abs(f.ang + Math.PI / 2);
+      const droop = f.len * (0.15 + out * 0.32);
+      const dim = f.back ? 9 : out > 1.1 ? 4 : 0;
+      pinnateFrond(p, f.ang, f.len, droop, hsl(look.hue + (rand() - 0.5) * 6, look.sat, look.light - dim + (rand() - 0.5) * 5), 0.19);
+    }
+    // New fiddleheads uncurling in the middle of a crown that's still growing.
+    if (g >= 0.5 && g < 5.5) {
+      const curls = 1 + Math.floor(rand() * 2) + (t > 0 ? 1 : 0);
+      for (let k = 0; k < curls; k++) {
+        const x = (k - (curls - 1) / 2) * S * 0.08;
+        const h = S * (0.12 + rand() * 0.08);
+        stroke(ctx, hsl(look.hue + 8, look.sat - 6, look.light + 4), Math.max(0.8, S * 0.02), () => {
+          ctx.moveTo(x * 0.3, 0);
+          ctx.quadraticCurveTo(x, -h * 0.6, x, -h);
+          ctx.arc(x + S * 0.025, -h, S * 0.025, Math.PI, Math.PI * 2.7);
+        });
+      }
+    }
+  });
+}
+
+/** One elephant ear: a broad arrow-headed heart with pale ribs, hung tip-down off its stalk. */
+function elephantLeaf(p: Paint, L: number, W: number, dim: number) {
+  const { ctx, look } = p;
+  leaf(p, { shape: 'heart', L, W, dim, midrib: false });
+  ctx.save();
+  leafPath(ctx, 'heart', L, W, 0);
+  ctx.clip();
+  ctx.strokeStyle = hsl(look.hue + 8, Math.max(10, look.sat - 18), look.light + 16 - dim, 0.55);
+  ctx.lineWidth = Math.max(0.6, W * 0.045);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -L * 0.94);
+  for (const s of [-1, 1]) {
+    for (let k = 1; k <= 5; k++) {
+      const f = k / 6;
+      ctx.moveTo(0, -L * f * 0.85);
+      ctx.quadraticCurveTo(s * W * 0.45, -L * (f * 0.85 + 0.02), s * W * 0.95 * Math.sin(Math.PI * (0.15 + f * 0.6)), -L * (f * 0.85 + 0.1));
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Giant Elephant Ear: enormous heart-shaped leaves on tall stalks, layered and drooping into a tropical dome. */
+function drawElephantEar(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const g = Math.min(sf, SF_MAX_ORDINARY);
+  const t = titanOf(sf);
+  const n = Math.min(14, Math.round(1 + g * 1.45 + t * 4));
+  const leaves = Array.from({ length: n }, (_, i) => {
+    const u = n === 1 ? 0.5 : i / (n - 1);
+    const a = (u - 0.5) * 2.5 + (rand() - 0.5) * 0.3;
+    const stem = S * (0.3 + g * 0.11 + t * 0.32) * (0.72 + rand() * 0.35) * (1 - Math.abs(a) * 0.18);
+    const L = S * (0.36 + g * 0.065 + t * 0.26) * (0.85 + rand() * 0.25);
+    return { a, stem, L };
+  });
+  // The tallest, most upright leaves are furthest back.
+  leaves.sort((x, y) => Math.abs(x.a) - Math.abs(y.a) || y.stem - x.stem);
+  for (const lf of leaves) {
+    const ex = Math.sin(lf.a) * lf.stem;
+    const ey = -Math.cos(lf.a) * lf.stem;
+    stroke(ctx, stemColor(look, 4), Math.max(1, S * (0.026 + t * 0.012)), () => {
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(ex * 0.25, ey * 0.7, ex, ey);
+    });
+    const side = lf.a === 0 ? 1 : Math.sign(lf.a);
+    // Young leaves stand up to unfurl; grown ones hang out and down like ears.
+    const hang = Math.abs(lf.a) < 0.25 && g < 3 ? 0.4 : 1.75 + Math.min(0.9, Math.abs(lf.a) * 0.45);
+    const W = lf.L * 0.66 * (look.leafWidth ?? 1);
+    withTransform(ctx, ex, ey, side * hang, () => elephantLeaf(p, lf.L, W, Math.abs(lf.a) < 0.5 ? 7 : 0));
+  }
+}
+
+/** Giant Reed: a tall, dense stand of leafy canes, thickening every season, plumed once it's grown. */
+function drawGiantReed(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const g = Math.min(sf, SF_MAX_ORDINARY);
+  const t = titanOf(sf);
+  const n = Math.min(28, Math.round(2 + g * 3.3 + t * 9));
+  const wide = S * (0.16 + g * 0.08 + t * 0.22);
+  const canes = Array.from({ length: n }, (_, i) => {
+    const x = i === 0 ? 0 : (rand() - 0.5) * 2 * wide * Math.sqrt(rand());
+    return { x, h: S * (0.4 + g * 0.4 + t * 0.85) * (0.68 + rand() * 0.32) * (1 - (Math.abs(x) / (wide + 1)) * 0.25), lean: (rand() - 0.5) * 0.1 + (x / S) * 0.12, back: rand() < 0.5 };
+  }).sort((a, b) => Number(b.back) - Number(a.back) || a.h - b.h);
+  const culm = (dl: number) => hsl(look.accentHue, look.accentSat ?? 30, (look.accentLight ?? 52) + dl);
+  for (const c of canes) {
+    withTransform(ctx, c.x, 0, c.lean, () => {
+      stroke(ctx, culm(c.back ? -10 : 0), Math.max(0.7, S * 0.022), () => {
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -c.h);
+      });
+      // Long blue-green blades all the way up, alternating, arching out.
+      const nodes = Math.min(9, Math.max(2, Math.round(c.h / (S * 0.17))));
+      for (let k = 1; k <= nodes; k++) {
+        const y = -(c.h * (k - 0.3)) / nodes;
+        const dir = k % 2 ? 1 : -1;
+        withTransform(ctx, 0, y, 0, () => ribbon(p, dir, S * (0.3 + rand() * 0.12) * (1 - (k / nodes) * 0.35), S * 0.03 * (look.leafWidth ?? 1), 0.25 + rand() * 0.25, c.back ? 8 : 0));
+      }
+      if (g >= 5 || t > 0) {
+        // A feathery plume, silver going to tan.
+        const ph = S * (0.16 + t * 0.08);
+        ctx.strokeStyle = hsl(38, 26, 74, 0.85);
+        ctx.lineWidth = Math.max(0.5, S * 0.008);
+        ctx.beginPath();
+        for (let k = 0; k < 9; k++) {
+          const yy = -c.h - (k / 9) * ph;
+          const w = ph * 0.35 * Math.sin(Math.PI * (1 - k / 9));
+          ctx.moveTo(0, yy);
+          ctx.lineTo(-w, yy - ph * 0.12);
+          ctx.moveTo(0, yy);
+          ctx.lineTo(w, yy - ph * 0.12);
+        }
+        ctx.moveTo(0, -c.h);
+        ctx.lineTo(0, -c.h - ph);
+        ctx.stroke();
+      }
+    });
+  }
+}
+
+/** One gunnera leaf: a vast lobed, toothed umbrella seen from the side, crinkled and ribbed. */
+function gunneraLeaf(p: Paint, R: number, tilt: number, dim: number) {
+  const { ctx, look, rand } = p;
+  const lobes = 9;
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= 72; i++) {
+    const th = (i / 72) * Math.PI * 2;
+    const lobe = 0.8 + 0.2 * Math.abs(Math.sin((th * lobes) / 2));
+    const tooth = 1 + (i % 2 ? 0.035 : -0.02);
+    const r = R * lobe * tooth;
+    pts.push([Math.cos(th) * r, Math.sin(th) * r * 0.42]);
+  }
+  ctx.save();
+  ctx.rotate(tilt);
+  const build = (dy = 0) => {
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + dy) : ctx.moveTo(x, y + dy)));
+    ctx.closePath();
+  };
+  // The underside, showing as a darker rim below the upper surface.
+  build(R * 0.06);
+  ctx.fillStyle = hsl(look.hue - 6, look.sat - 8, look.light - 16 - dim);
+  ctx.fill();
+  build();
+  const gr = ctx.createRadialGradient(-R * 0.2, -R * 0.1, R * 0.1, 0, 0, R);
+  gr.addColorStop(0, hsl(look.hue + 4, look.sat + 4, look.light + 8 - dim));
+  gr.addColorStop(1, hsl(look.hue, look.sat, look.light - 6 - dim));
+  ctx.fillStyle = gr;
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  // Ribs radiating from the centre, and the crinkle between them.
+  ctx.strokeStyle = hsl(look.accentHue, 30, look.light + 10 - dim, 0.6);
+  ctx.lineWidth = Math.max(0.7, R * 0.03);
+  ctx.beginPath();
+  for (let k = 0; k < lobes; k++) {
+    const th = (k / lobes) * Math.PI * 2 + 0.2;
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(th) * R * 0.9, Math.sin(th) * R * 0.38);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = hsl(look.hue, look.sat, look.light - 20 - dim, 0.35);
+  ctx.lineWidth = Math.max(0.5, R * 0.014);
+  ctx.beginPath();
+  for (let k = 0; k < 26; k++) {
+    const th = rand() * Math.PI * 2;
+    const r = R * (0.25 + rand() * 0.6);
+    const x = Math.cos(th) * r;
+    const y = Math.sin(th) * r * 0.42;
+    ctx.moveTo(x - R * 0.05, y);
+    ctx.quadraticCurveTo(x, y - R * 0.03, x + R * 0.05, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+}
+
+/** Giant Gunnera: a few vast crinkled umbrellas on prickly red stalks, a strange cone at the foot. */
+function drawGunnera(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const g = Math.min(sf, SF_MAX_ORDINARY);
+  const t = titanOf(sf);
+  const n = Math.min(10, Math.round(1 + g * 1.05 + t * 3));
+  const stalkCol = hsl(look.accentHue, look.accentSat ?? 45, look.accentLight ?? 34);
+  const leaves = Array.from({ length: n }, (_, i) => {
+    const u = n === 1 ? 0.5 : i / (n - 1);
+    const a = (u - 0.5) * 2.1 + (rand() - 0.5) * 0.3;
+    return { a, stalk: S * (0.25 + g * 0.12 + t * 0.4) * (0.7 + rand() * 0.4) * (1 - Math.abs(a) * 0.15), R: S * (0.24 + g * 0.06 + t * 0.24) * (0.85 + rand() * 0.25) };
+  }).sort((x, y) => y.stalk - x.stalk);
+  // The flower cone sits low in the middle, under the leaves.
+  if (g >= 4) {
+    const ch = S * (0.22 + (g - 4) * 0.05 + t * 0.2);
+    const cw = ch * 0.28;
+    ctx.fillStyle = hsl(12, 38, 30);
+    ctx.beginPath();
+    ctx.moveTo(-cw, 0);
+    ctx.quadraticCurveTo(-cw * 0.8, -ch * 0.6, 0, -ch);
+    ctx.quadraticCurveTo(cw * 0.8, -ch * 0.6, cw, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = hsl(18, 45, 42);
+    for (let k = 0; k < 14; k++) {
+      const v = rand();
+      ctx.beginPath();
+      ctx.arc((rand() - 0.5) * cw * 1.4 * (1 - v), -ch * v * 0.95, Math.max(0.6, cw * 0.14), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  for (const lf of leaves) {
+    const ex = Math.sin(lf.a) * lf.stalk * 0.85;
+    const ey = -Math.cos(lf.a) * lf.stalk;
+    stroke(ctx, stalkCol, Math.max(1, S * (0.035 + t * 0.015)), () => {
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(ex * 0.2, ey * 0.6, ex, ey);
+    });
+    // Prickles along the stalk.
+    ctx.strokeStyle = hsl(look.accentHue, 40, 22, 0.8);
+    ctx.lineWidth = Math.max(0.5, S * 0.006);
+    ctx.beginPath();
+    for (let k = 1; k < 7; k++) {
+      const u = k / 7;
+      const x = 2 * (1 - u) * u * ex * 0.2 + u * u * ex;
+      const y = 2 * (1 - u) * u * ey * 0.6 + u * u * ey;
+      const s = k % 2 ? 1 : -1;
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + s * S * 0.02, y - S * 0.012);
+    }
+    ctx.stroke();
+    withTransform(ctx, ex, ey, 0, () => gunneraLeaf(p, lf.R, lf.a * 0.35, Math.abs(lf.a) < 0.4 ? 0 : 5));
+  }
+}
+
+/** Giant Canna: tall stems of broad paddle leaves, and once it's mature, flowers at the top. */
+function drawCanna(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const g = Math.min(sf, SF_MAX_ORDINARY);
+  const t = titanOf(sf);
+  const n = Math.min(12, Math.round(1 + g * 1.35 + t * 4));
+  const stems = Array.from({ length: n }, (_, i) => ({
+    x: i === 0 ? 0 : (rand() - 0.5) * S * (0.25 + g * 0.07 + t * 0.2),
+    h: S * (0.38 + g * 0.3 + t * 0.6) * (i === 0 ? 1 : 0.7 + rand() * 0.3),
+    lean: (rand() - 0.5) * 0.12,
+  })).sort((a, b) => a.h - b.h);
+  const blooms = g < 3 ? 0 : Math.min(n, 1 + Math.floor((g - 3) * 1.6) + Math.round(t * 4));
+  const tallest = [...stems].sort((a, b) => b.h - a.h).slice(0, blooms);
+  for (const st of stems) {
+    withTransform(ctx, st.x, 0, st.lean, () => {
+      stroke(ctx, stemColor(look, -2), Math.max(0.9, S * 0.03), () => {
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -st.h);
+      });
+      const leaves = Math.max(2, Math.min(6, Math.round(st.h / (S * 0.22))));
+      for (let k = 0; k < leaves; k++) {
+        const u = 0.12 + (k / leaves) * 0.72;
+        const side = k % 2 ? 1 : -1;
+        const L = S * (0.34 + rand() * 0.1) * (1 - u * 0.35) * (1 + t * 0.2);
+        withTransform(ctx, 0, -st.h * u, side * (0.55 + rand() * 0.35), () => leaf(p, { shape: 'oval', L, W: L * 0.36 * (look.leafWidth ?? 1), dim: k < 1 ? 5 : 0 }));
+      }
+      if (tallest.includes(st)) {
+        // A loose head of big, ruffled petals, buds still coming above.
+        const cHue = look.accentHue;
+        const cs = look.accentSat ?? 80;
+        const cl = look.accentLight ?? 52;
+        const fr = S * (0.07 + t * 0.03);
+        for (let k = 0; k < 6; k++) {
+          const yy = -st.h - k * fr * 0.55;
+          const sd = k % 2 ? 1 : -1;
+          ctx.fillStyle = hsl(cHue + (rand() - 0.5) * 10, cs, cl + (rand() - 0.5) * 10);
+          ctx.beginPath();
+          ctx.ellipse(sd * fr * 0.45, yy, fr * (0.9 - k * 0.1), fr * 0.5, sd * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = hsl(cHue + 8, cs, cl + 14);
+        ctx.beginPath();
+        ctx.ellipse(0, -st.h - fr * 3.4, fr * 0.2, fr * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+  }
+}
+
+/** Titan Hosta: a massive dense mound of broad ribbed leaves, layered row on row, lilac bells above. */
+function drawGiantHosta(p: Paint) {
+  const { ctx, look, rand, S, sf } = p;
+  const g = Math.min(sf, SF_MAX_ORDINARY);
+  const t = titanOf(sf);
+  const n = Math.min(40, Math.round(4 + g * 4.2 + t * 12));
+  const width = 1 + g * 0.04 + t * 0.3;
+  // Flower scapes rise from the back of a mature mound.
+  const scapes = g < 4.5 ? 0 : Math.min(9, 1 + Math.floor((g - 4.5) * 2) + Math.round(t * 4));
+  for (let k = 0; k < scapes; k++) {
+    const x = (rand() - 0.5) * S * 0.6 * width;
+    const h = S * (0.85 + rand() * 0.3) * (1 + t * 0.3);
+    stroke(ctx, stemColor(look, 10), Math.max(0.6, S * 0.012), () => {
+      ctx.moveTo(x * 0.5, -S * 0.2);
+      ctx.quadraticCurveTo(x, -h * 0.6, x + S * 0.03, -h);
+    });
+    ctx.fillStyle = hsl(look.accentHue, look.accentSat ?? 40, look.accentLight ?? 80);
+    for (let b = 0; b < 6; b++) {
+      ctx.beginPath();
+      ctx.ellipse(x + S * 0.03 + (b % 2 ? 1 : -1) * S * 0.025, -h + b * S * 0.045, S * 0.022, S * 0.03, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  const leaves = Array.from({ length: n }, () => {
+    const a = (rand() - 0.5) * 3.0;
+    const row = rand();
+    return { a, row, stalk: S * (0.1 + rand() * 0.2) * (1 - Math.abs(a) * 0.18) * width, L: S * (0.4 + rand() * 0.14) * (1 + t * 0.22) };
+  }).sort((x, y) => x.row - y.row || Math.abs(x.a) - Math.abs(y.a));
+  for (const l of leaves) {
+    const tx = Math.sin(l.a) * l.stalk * 1.25;
+    const ty = -Math.cos(l.a) * l.stalk + l.row * S * 0.12;
+    stroke(ctx, stemColor(look, 6), Math.max(0.6, S * 0.022), () => {
+      ctx.moveTo(0, 0);
+      ctx.lineTo(tx, ty);
+    });
+    withTransform(ctx, tx, ty, l.a * 1.15, () => hostaLeaf(p, l.L, l.L * 0.6 * (look.leafWidth ?? 1), l.row < 0.4 ? 7 : 0));
+  }
+}
+
 const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   fern: drawFern,
   splitleaf: drawSplitleaf,
@@ -3090,16 +3527,76 @@ const FORM_DRAW: Record<PlantForm, (p: Paint) => void> = {
   lilypad: drawLilyPad,
   cattail: drawCattail,
   pumpkin: drawPumpkinVine,
+  treeFern: drawTreeFern,
+  elephantEar: drawElephantEar,
+  giantReed: drawGiantReed,
+  gunnera: drawGunnera,
+  canna: drawCanna,
+  giantHosta: drawGiantHosta,
 };
 
 /** Where filling out begins: a specimen a little past its first flush. */
 const MATURE_FROM = 4.35;
-/** The highest growth drawn (growth.ts MATURE_SF). */
-const SF_MAX = 6;
+/** An ordinary plant at its fullest (growth.ts MATURE_SF). */
+const SF_MAX_ORDINARY = 6;
+/** The highest growth drawn: a Titan at its fullest (growth.ts TITAN_SF). */
+const SF_MAX = 7;
 
 /** 0 until a specimen starts filling out, rising to 1 at its fullest. */
 export function overgrowthOf(sf: number): number {
-  return Math.max(0, Math.min(1, (sf - MATURE_FROM) / (SF_MAX - MATURE_FROM)));
+  return Math.max(0, Math.min(1, (sf - MATURE_FROM) / (SF_MAX_ORDINARY - MATURE_FROM)));
+}
+
+/**
+ * How each kind of plant keeps growing out in the ground once it's a
+ * specimen, on its way to its fullest (and, for a Titan, beyond): `grow`
+ * scales the whole plant, `wide` and `tall` stretch it sideways or upward,
+ * `titan` is how much bigger a Titan gets on top. Ground covers spread
+ * out flat; canes, reeds and stems go up; broad-leaved plants fill out
+ * in every direction; ferns widen; little succulents barely change. Pots
+ * and baskets keep their plants in proportion.
+ */
+interface GrowthProfile {
+  grow: number;
+  wide: number;
+  tall: number;
+  titan: number;
+}
+
+const LOW: GrowthProfile = { grow: 0.12, wide: 0.55, tall: 0, titan: 0 };
+const TALL: GrowthProfile = { grow: 0.18, wide: 0.12, tall: 0.4, titan: 0.35 };
+const BROAD: GrowthProfile = { grow: 0.4, wide: 0.2, tall: 0, titan: 0.45 };
+const FROND: GrowthProfile = { grow: 0.32, wide: 0.22, tall: 0.08, titan: 0.45 };
+const SMALL: GrowthProfile = { grow: 0.15, wide: 0.12, tall: 0.04, titan: 0.3 };
+/** The Giants already change shape as they grow (see their draw functions): this is only the extra. */
+const GIANT: GrowthProfile = { grow: 0.2, wide: 0.08, tall: 0.04, titan: 0.25 };
+
+const GROWTH_PROFILE: Partial<Record<PlantForm, GrowthProfile>> = {
+  moss: LOW, mat: LOW, trefoil: LOW, runner: LOW, trailing: LOW, beads: LOW, climber: LOW, lilypad: LOW, pumpkin: LOW,
+  bamboo: TALL, cattail: TALL, spear: TALL, palm: TALL, cane: TALL, strappy: TALL,
+  heart: BROAD, splitleaf: BROAD, patterned: BROAD, fig: BROAD, fan: BROAD, palmate: BROAD, clump: BROAD, bloom: BROAD,
+  fern: FROND,
+  treeFern: GIANT, elephantEar: GIANT, giantReed: GIANT, gunnera: GIANT, canna: GIANT, giantHosta: GIANT,
+};
+
+function profileOf(form: PlantForm): GrowthProfile {
+  return GROWTH_PROFILE[form] ?? SMALL;
+}
+
+/** How big to draw a plant of this form at this growth: stageScale, then its own way of filling out in the ground. */
+export function plantScale(form: PlantForm, sf: number, mode: PlantMode): number {
+  if (mode !== 'ground') return stageScale(Math.min(sf, SF_MAX_ORDINARY));
+  if (sf <= 4) return stageScale(sf);
+  const pr = profileOf(form);
+  return STAGE_SCALE[4] * (1 + Math.min(1, (sf - 4) / 2) * pr.grow + titanOf(sf) * pr.titan);
+}
+
+/** How much wider (sx) and taller (sy) than in proportion a plant this grown stands in the ground. */
+export function plantStretch(form: PlantForm, sf: number, mode: PlantMode): { sx: number; sy: number } {
+  if (mode !== 'ground' || sf <= 4) return { sx: 1, sy: 1 };
+  const pr = profileOf(form);
+  const o = Math.min(1, (sf - 4) / 2) + titanOf(sf) * 0.5;
+  return { sx: 1 + o * pr.wide, sy: 1 + o * pr.tall };
 }
 
 /**
@@ -3112,6 +3609,8 @@ const OFFSHOOTS: Partial<Record<PlantForm, number>> = {
   spear: 3, clump: 2, bloom: 2, palm: 2, cattail: 3, bamboo: 2, patterned: 2, heart: 2, splitleaf: 1, coin: 3, dew: 3, trap: 3,
   pitcher: 3, palmate: 2, fan: 2, cane: 1, paddle: 2, column: 2, jade: 1, fig: 1, trailing: 1, beads: 1, climber: 1, cups: 1,
   lilypad: 3, pumpkin: 0,
+  // The Giants mostly grow themselves bigger; the reed's stand is its own offshoots.
+  treeFern: 1, elephantEar: 2, giantReed: 0, gunnera: 1, canna: 2, giantHosta: 2,
 };
 
 /**
@@ -3122,11 +3621,15 @@ export function paintPlant(ctx: CanvasRenderingContext2D, defId: string, variant
   const def = PLANTS[defId];
   if (!def) return;
   const look = lookFor(defId, variantId);
-  const S = unit * look.size * stageScale(sf) * 0.62;
+  const S = unit * look.size * plantScale(def.form, sf, mode) * 0.62;
   const p: Paint = { ctx, look, rand: mulberry32(seed * 7919 + 13), unit, S, sf, mode };
   // A long-established plant fills out: offshoots come up round it.
   const kids = offshoot || mode === 'climb' || mode === 'hanging' ? [] : offshootsOf(def.form, sf, seed, S, mode);
   ctx.save();
+  if (!offshoot) {
+    const st = plantStretch(def.form, sf, mode);
+    if (st.sx !== 1 || st.sy !== 1) ctx.scale(st.sx, st.sy);
+  }
   for (const k of kids) if (k.y <= 0) withTransform(ctx, k.x, k.y, 0, () => paintPlant(ctx, defId, variantId, k.sf, k.seed, unit, mode, true));
   if (mode === 'climb') drawClimbingVine(p, def.form);
   else FORM_DRAW[def.form](p);
@@ -3140,7 +3643,8 @@ function offshootsOf(form: PlantForm, sf: number, seed: number, S: number, mode:
   const most = OFFSHOOTS[form] ?? 2;
   if (over <= 0 || most <= 0) return [];
   const potted = mode === 'pot';
-  const n = Math.min(potted ? 2 : most, Math.round(over * most + 0.3));
+  // A Titan gathers a whole court of offshoots round it.
+  const n = Math.min(potted ? 2 : most, Math.round(over * most + 0.3)) + (mode === 'ground' ? Math.round(titanOf(sf) * most * 0.7) : 0);
   if (n <= 0) return [];
   const rand = mulberry32(seed * 104729 + 77);
   const out: { x: number; y: number; sf: number; seed: number }[] = [];
@@ -3151,7 +3655,7 @@ function offshootsOf(form: PlantForm, sf: number, seed: number, S: number, mode:
     const x = side * reach * (0.6 + (i / Math.max(1, n)) * 0.4);
     const y = potted ? S * 0.02 : (rand() - 0.45) * S * 0.36;
     // Each newer offshoot younger than the last; all of them grow on as the parent does.
-    const kidSf = potted ? 0.8 + rand() * 0.6 : 1.1 + over * 1.5 - (i / most) * 0.8 + rand() * 0.4;
+    const kidSf = Math.min(4, potted ? 0.8 + rand() * 0.6 : 1.1 + over * 1.5 - (i / most) * 0.8 + rand() * 0.4);
     out.push({ x, y, sf: Math.max(0.6, kidSf), seed: seed * 31 + i * 7 + 3 });
   }
   return out;
@@ -3224,11 +3728,52 @@ function drawClimbingVine(p: Paint, form: PlantForm) {
 
 /** Bounding box (in units of S) each form needs around its base, with room for a mature plant's offshoots and longer vines. */
 function extentFor(form: PlantForm, mode: PlantMode, sf: number): { w: number; up: number; down: number } {
-  const e = extent(form, mode);
+  const base = giantExtent(form, sf) ?? extent(form, mode);
+  const st = plantStretch(form, sf, mode);
+  const e = { w: base.w * st.sx, up: base.up * st.sy, down: base.down * st.sy };
+  const titan = mode === 'ground' ? titanOf(sf) : 0;
+  if (titan > 0) e.w *= 1 + titan * 0.35;
   const over = overgrowthOf(sf);
   if (over <= 0) return e;
   const wide = mode === 'ground' && (OFFSHOOTS[form] ?? 2) > 0 ? 0.75 : 0.25;
   return { w: e.w * (1 + over * wide), up: e.up * (1 + over * 0.2), down: e.down * (1 + over * 0.3) };
+}
+
+/** The Giants change shape as they grow, so their bounding box (in units of S) grows with them. */
+function giantExtent(form: PlantForm, sf: number): { w: number; up: number; down: number } | null {
+  const g = Math.min(sf, SF_MAX_ORDINARY);
+  const t = titanOf(sf);
+  switch (form) {
+    case 'treeFern': {
+      const reach = 0.5 + g * 0.1 + t * 0.4;
+      const H = Math.max(0, 0.08 + (g - 0.9) * 0.24) + t * 0.7;
+      return { w: reach * 1.3 + 0.15, up: H + reach * 0.55 + 0.25, down: 0.45 };
+    }
+    case 'elephantEar': {
+      const stem = 0.3 + g * 0.11 + t * 0.32;
+      const L = 0.36 + g * 0.065 + t * 0.26;
+      return { w: stem + L * 1.3 + 0.1, up: stem * 1.08 + L * 1.1 + 0.1, down: 0.3 + L * 0.7 };
+    }
+    case 'giantReed': {
+      const h = 0.4 + g * 0.4 + t * 0.85;
+      return { w: 0.16 + g * 0.08 + t * 0.22 + 0.5 + h * 0.08, up: h + 0.45, down: 0.4 };
+    }
+    case 'gunnera': {
+      const stalk = 0.25 + g * 0.12 + t * 0.4;
+      const R = 0.24 + g * 0.06 + t * 0.24;
+      return { w: stalk * 0.85 + R * 1.25 + 0.1, up: stalk * 1.1 + R * 0.6 + 0.15, down: 0.35 + R * 0.5 };
+    }
+    case 'canna': {
+      const h = 0.38 + g * 0.3 + t * 0.6;
+      return { w: (0.25 + g * 0.07 + t * 0.2) / 2 + 0.5 + h * 0.08, up: h + 0.5, down: 0.4 };
+    }
+    case 'giantHosta': {
+      const wf = 1 + g * 0.04 + t * 0.3;
+      return { w: 0.4 * wf + 0.58 * (1 + t * 0.22) + 0.1, up: g >= 4.5 ? 1.2 * (1 + t * 0.3) + 0.1 : 1, down: 0.5 };
+    }
+    default:
+      return null;
+  }
 }
 
 /** Bounding box (in units of S) each form needs around its base. */
@@ -3317,7 +3862,7 @@ export class PlantSpriteCache {
     this.builtThisFrame++;
 
     const look = lookFor(defId, variantId);
-    const S = unitB * look.size * stageScale(sfB) * 0.62;
+    const S = unitB * look.size * plantScale(def.form, sfB, mode) * 0.62;
     const e = extentFor(def.form, mode, sfB);
     const pad = 4;
     const w = Math.ceil(S * e.w * 2 + pad * 2);
@@ -3372,8 +3917,8 @@ export function drawPortrait(canvas: HTMLCanvasElement, defId: string, variantId
   const unit = 90;
   const look = lookFor(defId, variantId);
   const e = extentFor(def.form, 'ground', sf);
-  const S = unit * look.size * stageScale(sf) * 0.62;
-  const Sref = unit * look.size * stageScale(Math.max(sf, 1.6)) * 0.62;
+  const S = unit * look.size * plantScale(def.form, sf, 'ground') * 0.62;
+  const Sref = unit * look.size * plantScale(def.form, Math.max(sf, 1.6), 'ground') * 0.62;
   const w = Math.ceil(Sref * e.w * 2 + 20);
   const h = Math.ceil(Sref * (e.up + e.down) + 20);
   const off = document.createElement('canvas');

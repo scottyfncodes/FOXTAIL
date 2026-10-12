@@ -40,7 +40,8 @@ export function pickFoxPlant(state: GameState, zone: OutdoorZoneId, rand: () => 
   }
   const options: { def: PlantDef; variantId: string; w: number }[] = [];
   for (const def of PLANT_LIST) {
-    if (def.secret || def.season) continue;
+    // The Giants keep to their own patches.
+    if (def.secret || def.season || def.giant) continue;
     const native = def.habitat.includes(zone);
     if (!native && !def.foxOnly) continue;
     for (const v of def.variants) {

@@ -18,7 +18,7 @@ afterEach(() => setTheme('classic', false));
 describe('patch pools, worked out once', () => {
   it('are exactly the species, in the same order, the patch always offered', () => {
     for (const spot of DISCOVERY_SPOTS) {
-      const fresh = spot.pool ? spot.pool.map((id) => PLANTS[id]).filter(Boolean) : PLANT_LIST.filter((p) => !p.foxOnly && !p.secret && !p.season && p.habitat.includes(spot.zone));
+      const fresh = spot.pool ? spot.pool.map((id) => PLANTS[id]).filter(Boolean) : PLANT_LIST.filter((p) => !p.foxOnly && !p.secret && !p.season && !p.giant && p.habitat.includes(spot.zone));
       expect(spotPool(spot)).toEqual(fresh);
       // And it's the one list, not rebuilt each time it's asked for.
       expect(spotPool(spot)).toBe(spotPool(spot));

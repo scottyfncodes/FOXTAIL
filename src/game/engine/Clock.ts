@@ -147,6 +147,11 @@ export interface ClockAdvanceResult {
  * and once on load (large "offline" delta).
  */
 export function advanceClock(state: GameState, nowMs: number, rand: () => number = Math.random): ClockAdvanceResult {
+  // An unreadable time, now or saved, moves nothing on: the next good reading starts from there.
+  if (!Number.isFinite(nowMs)) return { elapsedMinutes: 0, ecologyMinutes: 0, realDeltaMs: 0, wasOffline: false, weatherChanged: false };
+  if (!Number.isFinite(state.clock.lastRealTimestamp)) state.clock.lastRealTimestamp = nowMs;
+  // The same moment asked about twice (two resume events at once) passes no time the second time:
+  // the timestamp only ever moves to the moment just accounted for.
   const realDeltaMs = Math.max(0, nowMs - state.clock.lastRealTimestamp);
   const wasOffline = realDeltaMs > 60_000;
   // Away for a while: the day/night shape doesn't matter, only how much time passed.
