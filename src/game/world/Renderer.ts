@@ -25,9 +25,9 @@ import { findPotStyle, RAISED_BED } from '../data/shop';
 import { ELLEN_APPEARANCE, SCOUT_APPEARANCE, SCOTT_APPEARANCE, CAT_APPEARANCE, CHARACTER_SCALE } from '../data/character';
 import { daylightFactor, isNight } from '../engine/Clock';
 import { spotContent, spotEpoch } from '../systems/spots';
-import { stageFloat, stageIndexOf } from '../systems/growth';
+import { plantSf, stageFloat, stageIndexOf } from '../systems/growth';
 import type { LushField } from '../systems/wild';
-import { CHARACTERS } from '../systems/wild';
+import { CHARACTERS, DOORS } from '../systems/wild';
 import { bedLiveliness } from '../systems/beds';
 import { PlantSpriteCache, type PlantMode } from './PlantArt';
 import { VergeTiles, type VergeLevel } from './VergeArt';
@@ -159,6 +159,15 @@ const LUSH_GROUND: Record<string, RGB> = {
  */
 export const CARPET_FROM = 0.55;
 export const CARPET_DENSE = 0.75;
+
+/**
+ * Whether a plant at (wx, wy), this grown (sf) and this big, stands between
+ * the camera and something at (x, y) just behind it: its leaves would cover it.
+ */
+export function foliageHides(wx: number, wy: number, sf: number, big: number, x: number, y: number): boolean {
+  const dy = wy - y;
+  return dy > 0 && dy < (0.6 + sf * 0.3) * big && Math.abs(wx - x) < (0.5 + sf * 0.25) * big;
+}
 
 /** Whether a wild plant is drawn as part of the carpet rather than on its own. */
 export function drawnAsCarpet(p: Pick<OwnedPlant, 'defId' | 'variantId' | 'growth' | 'unnoticed'>, lushHere: number): boolean {
@@ -1866,9 +1875,10 @@ export class Renderer {
     const { ctx } = this;
     const tile = TILE_SIZE * camera.zoom;
     const s = camera.worldToScreen(wx * TILE_SIZE, wy * TILE_SIZE);
-    const sf = stageFloat(p.growth);
+    const sf = plantSf(p);
     const look = lookFor(p.defId, p.variantId);
     const spread = tile * (0.12 + sf * 0.1) * look.size;
+    const titan = p.titanAt !== undefined;
     const sprite = this.sprites.get(p.defId, p.variantId, sf, p.seed, tile, 'ground', this.dpr);
     // The valley's secret plants never sparkle: nothing marks them out but themselves.
     const sparkle = !!p.unnoticed && !PLANTS[p.defId]?.secret;
@@ -1881,18 +1891,36 @@ export class Renderer {
     ctx.beginPath();
     ctx.ellipse(s.x, s.y + tile * 0.04, spread, spread * 0.4, 0, 0, Math.PI * 2);
     ctx.fill();
+    if (titan) {
+      // A Titan's deep pool of shade, wider than its own leaves.
+      ctx.fillStyle = 'rgba(8,20,6,0.16)';
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y + tile * 0.06, spread * 1.6, spread * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     // Foliage between the camera and Ellen fades, so she never gets lost in
-    // the jungle she planted.
-    const dx = wx - state.player.x;
-    const dy = wy - state.player.y;
-    const hides = dy > 0 && dy < 0.6 + sf * 0.3 && Math.abs(dx) < 0.5 + sf * 0.25;
-    if (hides) ctx.globalAlpha = 0.45;
+    // the jungle she planted, and so does a big plant standing over a patch
+    // or a garden piece: what you can use always shows through.
+    const big = Math.max(1, look.size) * (titan ? 1.5 : 1);
+    if (foliageHides(wx, wy, sf, big, state.player.x, state.player.y) || (sf * big >= 4.5 && this.hidesSomething(state, wx, wy, sf, big))) ctx.globalAlpha = 0.45;
     if (sprite) this.blitPlantSprite(sprite, s.x, s.y + tile * 0.05, p.seed, 'ground', now, state.weather.condition === 'rain');
     ctx.globalAlpha = 1;
     if (sparkle) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, '#fff4c2', 3);
     const cue = this.mysteryCues?.get(p.id);
     if (cue === 'star') this.drawStarGlints(s.x, s.y - tile * (0.25 + sf * 0.12) * look.size, tile, now, p.seed);
     else if (cue === 'eclipse') this.drawEclipse(s.x, s.y - tile * (0.14 + sf * 0.05) * look.size, tile * (0.08 + sf * 0.02) * look.size, now, p.seed);
+  }
+
+  /** Whether a big plant at (wx, wy) stands in front of a patch with something in it, or a garden piece. */
+  private hidesSomething(state: GameState, wx: number, wy: number, sf: number, big: number): boolean {
+    for (const spot of DISCOVERY_SPOTS) {
+      if (Math.abs(spot.x + 0.5 - wx) > 3 || Math.abs(spot.y + 0.5 - wy) > 3) continue;
+      if (foliageHides(wx, wy, sf, big, spot.x + 0.5, spot.y + 0.5) && spotContent(state, spot)) return true;
+    }
+    for (const d of state.decor) if (Math.abs(d.x - wx) < 3 && Math.abs(d.y - wy) < 3 && foliageHides(wx, wy, sf, big, d.x, d.y)) return true;
+    // The doors home always show through, however tall the garden in front of them.
+    for (const d of DOORS) if (Math.abs(d.x + 0.5 - wx) < 4 && foliageHides(wx, wy, sf, big * 1.4, d.x + 0.5, d.y + 0.9)) return true;
+    return false;
   }
 
   /** Two or three points of light deep in a big plant's leaves, each there only for a moment. */
@@ -2009,7 +2037,8 @@ export class Renderer {
     ctx.fill();
     if (mark !== 'known') drawPatchRing(ctx, s.x, s.y + tile * 0.02, tile, mark, now, spot.x + spot.y * 3);
     if (rank >= 2) this.glowMarker(s.x, s.y - tile * 0.2, tile, rank >= 3 ? '#f0d27a' : '#bfe6d4', now);
-    this.drawPlantSprite(s.x, s.y + tile * 0.04, tile, content.defId, content.variantId, 1.5, content.seed, 'ground', now);
+    // A Giant's patch shows a plant already well up: there's no mistaking what grows there.
+    this.drawPlantSprite(s.x, s.y + tile * 0.04, tile, content.defId, content.variantId, PLANTS[content.defId]?.giant ? 2.4 : 1.5, content.seed, 'ground', now);
     if (mark === 'new') this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, rank >= 3 ? '#ffe28a' : '#ffffff', 2 + Math.min(3, rank));
   }
 

@@ -72,7 +72,19 @@ const LATER_SPOTS: DiscoverySpot[] = [
   { id: 'sp-rock-11', zone: 'rockyClearing', x: 54, y: 50 },
 ];
 
-export const DISCOVERY_SPOTS: DiscoverySpot[] = [...LAYOUT_SPOTS, ...LATER_SPOTS];
+// The Giants' own patches, one for each, in its home country. Like the
+// later patches they sit on ground the layout already left clear. Nothing
+// shows in them until the Giants have woken (see systems/giants.ts).
+export const GIANT_SPOTS: DiscoverySpot[] = [
+  { id: 'sp-giant-treeFern', zone: 'dampForest', x: 61, y: 5, pool: ['treeFern'], giant: true },
+  { id: 'sp-giant-elephantEar', zone: 'creek', x: 38, y: 30, pool: ['giantElephantEar'], giant: true },
+  { id: 'sp-giant-reed', zone: 'overgrownClearing', x: 24, y: 33, pool: ['giantReed'], giant: true },
+  { id: 'sp-giant-gunnera', zone: 'creek', x: 45, y: 45, pool: ['giantGunnera'], giant: true },
+  { id: 'sp-giant-canna', zone: 'meadow', x: 71, y: 25, pool: ['giantCanna'], giant: true },
+  { id: 'sp-giant-hosta', zone: 'woodland', x: 26, y: 9, pool: ['titanHosta'], giant: true },
+];
+
+export const DISCOVERY_SPOTS: DiscoverySpot[] = [...LAYOUT_SPOTS, ...LATER_SPOTS, ...GIANT_SPOTS];
 
 /** Game-minutes per spot "season": a picked patch regrows (as something new) after this. */
 export const SPOT_EPOCH_MINUTES = 360;

@@ -30,6 +30,8 @@ function inHouse(x: number, y: number): boolean {
 // Anything below this can't be a wall-clock epoch in ms; older builds saved
 // a page-relative performance.now() value here.
 const MIN_EPOCH_MS = 1_000_000_000_000;
+/** A save stamped further ahead of the device's clock than this was stamped by a wrong clock. */
+const FUTURE_SLACK_MS = 24 * 3_600_000;
 
 type Loose = Record<string, unknown>;
 
@@ -173,7 +175,12 @@ export function migrateSave(raw: unknown): GameState | null {
   for (const p of Object.values(state.plants)) {
     const loc = p.location;
     if (loc.kind === 'wild' && loc.bedId && !state.gardenBeds.some((b) => b.id === loc.bedId)) delete loc.bedId;
+    // Growth is the one number everything about a plant grows from: anything unreadable starts it over as a cutting, never as nothing.
+    if (typeof p.growth !== 'number' || !Number.isFinite(p.growth) || p.growth < 0) p.growth = 0;
+    // A Titan stays a Titan; a mark that can't be read (or that's ahead of the plant's own growth) is dropped.
+    if (p.titanAt !== undefined && (typeof p.titanAt !== 'number' || !Number.isFinite(p.titanAt) || p.titanAt < 0 || p.titanAt > p.growth)) delete p.titanAt;
   }
+  if (typeof state.giantsAwakeAt !== 'number' || !Number.isFinite(state.giantsAwakeAt)) state.giantsAwakeAt = null;
   // A fox caught mid-trail when the page closed has long since gone.
   if (['fleeing', 'lookingBack', 'vanishing'].includes(state.fox.behavior)) {
     state.fox.behavior = 'gone';
@@ -199,6 +206,9 @@ export function migrateSave(raw: unknown): GameState | null {
     }
   }
   if (!(state.clock.lastRealTimestamp >= MIN_EPOCH_MS)) state.clock.lastRealTimestamp = Date.now();
+  // Saved "in the future" (a device clock that was set ahead): count time away from now, not from then.
+  if (state.clock.lastRealTimestamp > Date.now() + FUTURE_SLACK_MS) state.clock.lastRealTimestamp = Date.now();
+  if (!Number.isFinite(state.clock.totalMinutes) || state.clock.totalMinutes < 0) state.clock.totalMinutes = createNewGame().clock.totalMinutes;
 
   // Spot coordinates are data, not save state: re-seat a settled NPC on
   // its spot's current position in case the layout moved since the save.

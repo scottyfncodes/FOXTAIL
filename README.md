@@ -217,30 +217,87 @@ grow in patches all over it.
 
 ## Overgrowth
 
-The plants you plant keep living while you're away, and you can see it.
-The valley's own wild growth goes at its usual pace.
+The plants you plant keep living while you're away, and you can see it:
+plant something small, go off, and come back to a garden that has grown
+taller, wider, denser, and spread. The valley's own wild growth goes at
+its usual pace.
 
-- **Your plants never stop filling out.** Past *specimen*, a plant keeps
-  maturing toward its fullest self (`MATURE_SF` in `systems/growth.ts`):
-  ferns gather new crowns round their base, spider plants put out
-  plantlets, mushrooms come up in denser clusters, moss spreads into more
-  cushions, and potted or hanging vines (pothos, string of pearls…) keep
-  getting longer. Indoors and out.
-- **Time away counts for them.** The clock still catches up at most three
-  game days, but the plants you set out get an extra, tapering allowance
-  of growth for every real hour beyond that: a short break shows small
-  changes, a few days noticeable ones, a week or more much fuller plants.
-  It never runs away, and nothing that came up by itself gets it. When
-  you come back, a note says what happened, and new growth is marked with
-  a few drifting motes the first time it's on screen.
+- **Your plants never stop filling out, each in its own way.** Past
+  *specimen* a plant out in the ground keeps maturing toward its fullest
+  (`MATURE_SF` in `systems/growth.ts`), and is drawn substantially bigger
+  as it does, shaped by its form (`GROWTH_PROFILE` in `world/PlantArt.ts`):
+  moss, thyme, clover and vines spread wide and stay low; bamboo, cattails
+  and canes go up; broad-leaved plants fill out in every direction; ferns
+  widen; little succulents barely change. Ferns still gather new crowns,
+  spider plants plantlets, mushrooms denser clusters. Potted and hanging
+  plants keep their proportions.
+- **Four garden stages.** The plant card shows where a plant out in the
+  valley has got to: *Establishing*, *Developing*, *Mature*, *Overgrown*
+  (and, rarely, *Titan*). The collection's own stages (cutting … specimen)
+  still decide rooting, establishing and spreading underneath.
+- **Time away counts, for growing and for spreading.** The clock still
+  catches up at most three game days, but your garden gets an extra,
+  tapering allowance for every real hour beyond that (`ecologyMinutesFor`
+  in `Clock.ts`), and plays it out in the same hourly steps as play:
+  your plants and everything come up from them grow on *and spread*
+  through it. So an hour away, a day, three days and a week each come
+  back to visibly more garden than the last, and a year away is capped.
+  Self-sown strangers keep the clock's pace. The catch-up is seeded from
+  the moment you left, so the same save always comes back the same.
+- **Spreading has habits** (`SPREAD_HABIT` in `systems/wild.ts`): ferns
+  set new clumps a stride or two off; bamboo, reeds and cattails thicken
+  into tight clonal stands; creepers fill gaps close by; broad-leaved
+  plants mostly just get bigger. Nothing seeds itself on or beside a patch
+  you take cuttings from, a garden piece, the stall or a door home, or
+  under a Giant's canopy; the region, species and valley caps still hold.
+- **Clear sight lines.** A big plant fades where it would hide Ellen, a
+  patch with something in it, a garden piece or a door. Plants were never
+  solid, so nothing blocks the way.
+- **Coming back** a note says what happened, and new growth is marked
+  with a few drifting motes the first time it's on screen.
+
+### Titans
+
+Now and then a plant given long enough in its own country grows on past
+an ordinary plant's fullest into a **Titan**: much bigger, with a court
+of offshoots and a deep pool of shade, and for the Giants something more
+(a tree fern's trunk grows mossy and twice as tall, the reed plumes, the
+canna flowers in a crowd, the hosta sends up a ring of bells). Whether a
+plant can is a fixed roll on its own seed against its species' chance
+(`titanChance`: about 1 in 3 for the Giants, 1 in 10 to 1 in 25 for big
+ordinary forms, never for small low things); it must be planted out in
+its home region and nearly at its fullest, and no two Titans of a kind
+stand within `TITAN_SPACING` tiles. The moment it turns is saved on the
+plant (`titanAt`) and never taken away. A Titan isn't a variant: it adds
+nothing to the species or forms counts, only a ★ in the journal.
+
+### The Giants
+
+Six plants on another scale, each with its own form and way of growing:
+**Tree Fern** (a trunk lifting a crown of arching fronds, a skirt of old
+brown ones beneath), **Giant Elephant Ear** (door-sized heart leaves hung
+on tall stalks), **Giant Reed Grass** (a tall, thickening stand of leafy
+canes, plumed when grown), **Giant Gunnera** (a few vast crinkled
+umbrellas on prickly red stalks, a cone at the foot), **Giant Canna**
+(tall paddle-leaved stems, flowering once mature) and **Titan Hosta** (a
+massive ribbed mound, lilac bells above). Each has two forms and grows
+wild in one patch of its own (`GIANT_SPOTS`), which stays bare until the
+Giants wake: the first time a plant you set out grows large. They're
+found, rooted and established like anything else, and have their own
+page in the journal, kept out of the field journal's count so a finished
+journal stays finished.
 
 ### Balancing knobs
 
 | What | Where | Value |
 | --- | --- | --- |
-| Growth past specimen (time to most of the way) | `growth.ts` `MATURITY_K` / `MATURE_SF` | 16000 growth-min / sf 6 |
-| Extra growth per doubling of real time away | `Clock.ts` `ECOLOGY_PER_DOUBLING` / `ECOLOGY_TAPER_HOURS` | 3600 / 2 h |
-| Most extra growth from one absence | `Clock.ts` `ECOLOGY_MAX_EXTRA` | 30000 |
+| Growth past specimen (time to most of the way) | `growth.ts` `MATURITY_K` / `MATURE_SF` | 12000 growth-min / sf 6 |
+| Titan growth past turning / ceiling | `growth.ts` `TITAN_K` / `TITAN_SF` | 14000 growth-min / sf 7 |
+| How full before a Titan turns / spacing | `growth.ts` `TITAN_READY` / `TITAN_SPACING` | 0.8 / 8 tiles |
+| Extra garden time per doubling of real time away | `Clock.ts` `ECOLOGY_PER_DOUBLING` / `ECOLOGY_TAPER_HOURS` | 3600 / 2 h |
+| Most extra garden time from one absence | `Clock.ts` `ECOLOGY_MAX_EXTRA` | 30000 |
+| How each form spreads | `wild.ts` `SPREAD_HABIT` | rate × reach × spacing |
+| How each form fills out | `PlantArt.ts` `GROWTH_PROFILE` | grow / wide / tall / titan |
 
 ## October
 

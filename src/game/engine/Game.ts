@@ -2,6 +2,8 @@ import type { Facing, GameState, OwnedPlant } from '../state';
 import { makeUid } from '../state';
 import { loadOrCreate, saveGame, resetGame } from './SaveManager';
 import { advanceClock } from './Clock';
+import { hashString, mulberry32 } from './Random';
+import { wakeGiants } from '../systems/giants';
 import { Camera } from './Camera';
 import { Input } from './Input';
 import { AudioManager } from './AudioManager';
@@ -712,11 +714,23 @@ export class Game {
    * `ecology − elapsed` extra growth on top (see Clock's ecologyMinutesFor).
    */
   private simulate(elapsed: number, offline: boolean, ecology = elapsed) {
-    const result = advanceWorld(this.state, elapsed, this.spreadCarry, this.isOpenGround, Math.random, ecology - elapsed);
+    // Time away is played out from a seed fixed by the moment you left, so
+    // the same save comes back to the same garden however it's reopened.
+    const rand = offline ? mulberry32(hashString(`away:${this.state.clock.totalMinutes - elapsed}:${elapsed}`)) : Math.random;
+    const result = advanceWorld(this.state, elapsed, this.spreadCarry, this.isOpenGround, rand, ecology - elapsed);
     this.spreadCarry = result.carry;
     const now = this.state.clock.totalMinutes;
-    if (result.ups.length || result.spreads.length || result.sown.length) this.lushDirty = true;
+    if (result.ups.length || result.spreads.length || result.sown.length || result.titans.length) this.lushDirty = true;
     this.markNewGrowth(result, offline);
+    for (const id of result.titans) {
+      const t = this.state.plants[id];
+      if (!t || t.location.kind !== 'wild' || offline) continue;
+      this.pushToast(`Your ${specimenName(t.defId, t.variantId)} in ${zoneLabel(t.location.zone, this.state)} has grown into a Titan.`, 'discovery', 'major');
+    }
+    if (wakeGiants(this.state, now)) {
+      this.pushToast('Something enormous has started growing out in the valley. Your garden has woken the Giants.', 'discovery', 'major');
+      this.hint('giants', 'Each Giant grows in a patch of its own somewhere in the valley. The journal has a page for them.', 'important');
+    }
     // A find only goes in the journal once it's been grown: a plant of it rooted in your care.
     for (const g of recordGrown(this.state, now)) {
       if (offline) continue;
@@ -784,7 +798,9 @@ export class Game {
       if (grew.size > 0) parts.push(grew.size === 1 ? 'one of your plants grew' : 'your plants grew');
       // Specimens don't change stage any more, but they keep filling out.
       else if (Object.keys(this.state.plants).length > 0 && ecology >= 600) parts.push('your plants filled out');
-      if (result.spreads.length > 0) parts.push(`${result.spreads.length === 1 ? 'a seedling' : `${result.spreads.length} seedlings`} came up in ${listZones(zones, this.state)}`);
+      if (result.spreads.length > 0) parts.push(`${result.spreads.length === 1 ? 'a new plant' : `${result.spreads.length} new plants`} came up in ${listZones(zones, this.state)}`);
+      const titan = result.titans.map((id) => this.state.plants[id]).find((t) => t && t.location.kind === 'wild');
+      if (titan) parts.push(`${result.titans.length === 1 ? `your ${specimenName(titan.defId, titan.variantId)} grew into a Titan` : `${result.titans.length} of your plants grew into Titans`}`);
       const body = parts.length ? `: ${parts.slice(0, -1).join(', ')}${parts.length > 1 ? ', and ' : ''}${parts[parts.length - 1]}` : '';
       this.pushToast(`While you were away, ${spanText(elapsed)} passed${body}.`, 'info', 'important');
       if (sports.length > 0) this.pushToast(`And something you’ve never seen before is growing among them. Go and look.`, 'discovery');
@@ -804,6 +820,10 @@ export class Game {
     for (const s of result.spreads) {
       const c = this.state.plants[s.childId];
       if (c?.location.kind === 'wild' && !PLANTS[c.defId]?.secret && near(c.location.x, c.location.y)) add.push({ x: c.location.x, y: c.location.y, seenAt: null, big: true });
+    }
+    for (const id of result.titans) {
+      const c = this.state.plants[id];
+      if (c?.location.kind === 'wild' && !PLANTS[c.defId]?.secret) add.push({ x: c.location.x, y: c.location.y - 0.5, seenAt: null, big: true });
     }
     for (const u of result.ups) {
       const c = this.state.plants[u.plantId];

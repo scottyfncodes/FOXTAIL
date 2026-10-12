@@ -17,8 +17,9 @@ import { findFace } from '../game/data/october';
 import { drawPumpkin } from '../game/world/OctoberArt';
 import { markSolutionRead, mysteryNotes, type MysteryId } from '../game/systems/mysteries';
 import { isOctober } from '../game/season';
+import { GIANTS, giantTotals, giantsAwake } from '../game/systems/giants';
 
-type Tab = 'plants' | 'regions' | 'curiosities' | 'golf' | 'october';
+type Tab = 'plants' | 'giants' | 'regions' | 'curiosities' | 'golf' | 'october';
 
 const REGIONS: OutdoorZoneId[] = ['meadow', 'woodland', 'creek', 'dampForest', 'rockyClearing', 'overgrownClearing'];
 
@@ -38,6 +39,7 @@ export class JournalPanel {
   constructor(private game: Game) {
     for (const [id, label] of [
       ['plants', 'Collection'],
+      ['giants', 'Giants'],
       ['regions', 'Regions'],
       ['curiosities', 'Curiosities'],
       ['golf', 'Golf Balls'],
@@ -77,17 +79,22 @@ export class JournalPanel {
     // October gets a page once there's something on it, and keeps it whatever the look.
     const anyOctober = this.octoberPlants().length > 0 || this.game.state.october.faces.length > 0 || octoberNotes(this.game.state).length > 0;
     if (!anyOctober && this.tab === 'october') this.tab = 'plants';
+    // The Giants get theirs once they've woken (or one has turned up some other way).
+    const anyGiants = giantsAwake(this.game.state) || GIANTS.some((d) => this.game.state.collection[d.id]);
+    if (!anyGiants && this.tab === 'giants') this.tab = 'plants';
     for (const c of Array.from(this.panel.tabsEl.children) as HTMLElement[]) {
       c.classList.toggle('active', c.dataset.tab === this.tab);
       if (c.dataset.tab === 'curiosities') c.style.display = anyCurio ? '' : 'none';
       if (c.dataset.tab === 'golf') c.style.display = anyGolf ? '' : 'none';
       if (c.dataset.tab === 'october') c.style.display = anyOctober ? '' : 'none';
+      if (c.dataset.tab === 'giants') c.style.display = anyGiants ? '' : 'none';
     }
     this.panel.clearBody();
     if (this.tab === 'regions') return this.renderRegions();
     if (this.tab === 'curiosities') return this.renderCuriosities();
     if (this.tab === 'golf') return this.golfDetail ? this.renderGolfBall(this.golfDetail) : this.renderGolfBalls();
     if (this.tab === 'october') return this.renderOctober();
+    if (this.tab === 'giants') return this.detail ? this.renderDetail(this.detail) : this.renderGiants();
     if (this.detail) return this.renderDetail(this.detail);
     this.renderCollection();
   }
@@ -161,9 +168,9 @@ export class JournalPanel {
     const def = PLANTS[defId];
     const rec = state.collection[defId];
     const grown = rec?.grownVariants ?? [];
-    if (!def || !rec || !grown.length || def.unlisted) return this.renderCollection();
+    if (!def || !rec || !grown.length || (def.unlisted && !def.giant)) return def?.giant ? this.renderGiants() : this.renderCollection();
     const body = this.panel.body;
-    const back = el('button', 'back-link', '← Collection');
+    const back = el('button', 'back-link', def.giant ? '← The Giants' : '← Collection');
     back.addEventListener('click', () => {
       this.detail = null;
       this.render();
@@ -204,6 +211,7 @@ export class JournalPanel {
     }
     body.appendChild(vlist);
     if (defId === 'hoya') this.mysteryCard('hoya', 'In the margin', body);
+    if (rec.titan) body.appendChild(note(`★ One of your ${def.name} plants has grown into a Titan.`, 'row-note'));
 
     const c = speciesCounts(state, defId);
     body.appendChild(el('h4', 'section-head', 'Your plants'));
@@ -225,6 +233,51 @@ export class JournalPanel {
     if (c.wild > 0) {
       body.appendChild(note(c.wildSprouted > 0 ? `${c.wildPlanted} you planted, and ${c.wildSprouted} that came up by themselves.` : `${c.wildPlanted} you planted out. Once they’re large, they’ll start to spread.`));
     }
+  }
+
+  /**
+   * The Giants: six plants on another scale, each from a patch of its own.
+   * Their own page and their own count, so the field journal's stays as it was.
+   */
+  private renderGiants() {
+    const state = this.game.state;
+    const totals = giantTotals(state);
+    const summary = el('div', 'collection-summary');
+    const meter = el('div', 'collection-meter');
+    const fill = el('div', 'collection-meter-fill');
+    fill.style.width = `${totals.totalForms ? (100 * totals.forms) / totals.totalForms : 0}%`;
+    meter.appendChild(fill);
+    const titans = totals.titans ? ` · ${totals.titans} grown to Titan` : '';
+    summary.append(el('div', 'collection-summary-text', `${totals.grown} of ${totals.total} Giants · ${totals.forms} of ${totals.totalForms} forms${titans}`), meter);
+    this.panel.body.appendChild(summary);
+    this.panel.body.appendChild(
+      el('p', 'giants-intro', 'Each grows wild in a patch of its own. Root them and establish them like anything else; planted out in their own country, they grow into the biggest things in the valley, and now and then, given long enough, one becomes a Titan.')
+    );
+    const grid = el('div', 'collection-grid');
+    for (const def of GIANTS) {
+      const rec = state.collection[def.id];
+      const grown = rec?.grownVariants ?? [];
+      const complete = grown.length > 0 && def.variants.every((v) => grown.includes(v.id));
+      const card = el('div', `collection-card${grown.length ? ' found clickable' : rec ? ' seen' : ''}${complete ? ' complete' : ''}`);
+      if (rec && grown.length) {
+        const best = [...grown].sort((a, b) => rarityRank(findVariant(def.id, b)!.rarity) - rarityRank(findVariant(def.id, a)!.rarity))[0] ?? def.variants[0].id;
+        card.append(portrait(def.id, best, 3.6, 4, 76), el('div', 'card-name', def.name));
+        const dots = el('div', 'variant-dots');
+        for (const v of def.variants) dots.appendChild(el('span', grown.includes(v.id) ? 'vdot on' : rec.variants.includes(v.id) ? 'vdot seen' : 'vdot'));
+        card.appendChild(dots);
+        if (rec.titan) card.appendChild(el('div', 'card-flag titan', '★ Titan'));
+        else if (complete) card.appendChild(el('div', 'card-flag complete', '★ Complete'));
+        else if (isEstablished(state, def.id)) card.appendChild(el('div', 'card-flag', 'Established'));
+        card.addEventListener('click', () => {
+          this.detail = def.id;
+          this.render();
+        });
+      } else {
+        card.append(portrait(def.id, def.variants[0].id, 3.2, 4, 76, true), el('div', 'card-name unknown', rec ? def.name : '???'), el('div', 'card-hint', rec ? 'Found — grow it to record it.' : def.hint));
+      }
+      grid.appendChild(card);
+    }
+    this.panel.body.appendChild(grid);
   }
 
   /** Insects, creatures and oddities — the things at the end of a fox's trail. */

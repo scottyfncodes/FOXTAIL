@@ -2,15 +2,16 @@ import type { GameState, OwnedPlant } from '../state';
 import { makeUid } from '../state';
 import type { LandscapeCharacter, OutdoorZoneId, PlantForm } from '../types';
 import { PLANTS, lookFor } from '../data/plants';
-import { GRID_W, GRID_H, zoneAt, isWater } from '../data/worldMap';
-import { stageFloat, stageIndexOf, tickGrowth, type StageUp } from './growth';
+import { GRID_W, GRID_H, zoneAt, isWater, GREENHOUSE_DOOR, GREENHOUSE_BACK_DOOR, GREENHOUSE_SIDE_DOOR, HOUSE_DOOR, HOUSE_BACK_DOOR } from '../data/worldMap';
+import { checkTitans, stageFloat, stageIndexOf, tickGrowth, type StageUp } from './growth';
 import { rollSport, crossOf } from './propagation';
 import { hasFound } from './collection';
 import { journalComplete, variantAllowed } from './lineage';
 import { SpatialGrid } from './spatial';
-import { bedContains, onPath } from './landscape';
+import { bedContains, currentRadius, onPath } from './landscape';
 import { bedLiveliness, LIVELY_TIER } from './beds';
 import { inPond } from './koi';
+import { DISCOVERY_SPOTS } from '../data/discoveryPoints';
 
 // Plants the player puts outdoors aren't decorations: once they're large
 // they start seeding, creeping and throwing out runners into the ground
@@ -49,9 +50,81 @@ const CROSS_RADIUS = 3;
 export const SELF_SOW_CHANCE = 0.02;
 /** No new self-sown seedlings while this many cannabis plants already grow wild. */
 export const SELF_SOW_MAX = 5;
-/** Forms that run along the ground (or climb over it), so their seedlings come up a little further out. */
-const RUNNING_FORMS: PlantForm[] = ['trailing', 'beads', 'runner', 'climber', 'mat', 'moss', 'trefoil'];
 const MIN_SPACING = 0.85;
+
+/**
+ * How each kind of plant takes new ground. Ferns throw up new crowns a
+ * stride or two off; bamboo, reeds and cattails thicken into tight
+ * clonal stands; moss, thyme and clover creep outward and fill the gaps;
+ * vines run; the big broad-leaved plants mostly just get bigger, and only
+ * now and then set a new one down. `rate` scales the species' own spread,
+ * `reach` is how far off (tiles) the new one comes up, and `spacing` how
+ * close it may stand to anything else.
+ */
+export interface SpreadHabit {
+  rate: number;
+  reach: [number, number];
+  spacing: number;
+}
+
+const DEFAULT_HABIT: SpreadHabit = { rate: 1, reach: [1.1, 2.8], spacing: MIN_SPACING };
+const RUNNER: SpreadHabit = { rate: 1, reach: [1.5, 3.8], spacing: MIN_SPACING };
+const CREEPER: SpreadHabit = { rate: 1.25, reach: [0.7, 1.8], spacing: 0.6 };
+const CLONAL: SpreadHabit = { rate: 1, reach: [0.6, 1.3], spacing: 0.65 };
+const BROADLEAF: SpreadHabit = { rate: 0.45, reach: [1.3, 2.6], spacing: 1 };
+
+export const SPREAD_HABIT: Partial<Record<PlantForm, SpreadHabit>> = {
+  trailing: RUNNER,
+  beads: RUNNER,
+  runner: RUNNER,
+  climber: RUNNER,
+  moss: CREEPER,
+  mat: CREEPER,
+  trefoil: CREEPER,
+  bamboo: CLONAL,
+  cattail: CLONAL,
+  spear: CLONAL,
+  heart: BROADLEAF,
+  splitleaf: BROADLEAF,
+  patterned: BROADLEAF,
+  fig: BROADLEAF,
+  fan: BROADLEAF,
+  palm: BROADLEAF,
+  cane: BROADLEAF,
+  palmate: BROADLEAF,
+  clump: BROADLEAF,
+  // The Giants: the reed runs underground into a thicket; the rest mostly fill out where they stand.
+  giantReed: { rate: 0.9, reach: [0.7, 1.5], spacing: 0.7 },
+  treeFern: { rate: 0.5, reach: [1.6, 3.2], spacing: 1.5 },
+  elephantEar: { rate: 0.35, reach: [1.7, 2.6], spacing: 1.3 },
+  canna: { rate: 0.5, reach: [0.9, 1.8], spacing: 1 },
+  giantHosta: { rate: 0.25, reach: [1.6, 2.5], spacing: 1.3 },
+  gunnera: { rate: 0.15, reach: [2.1, 3.1], spacing: 1.8 },
+};
+
+/** Giants whose canopy spreads wide enough that nothing new comes up underneath. */
+const CANOPY_FORMS = new Set<PlantForm | undefined>(['treeFern', 'elephantEar', 'gunnera', 'giantHosta']);
+
+export function spreadHabit(form: PlantForm): SpreadHabit {
+  return SPREAD_HABIT[form] ?? DEFAULT_HABIT;
+}
+
+/**
+ * The plants the valley's growth while you're away belongs to: the ones you
+ * set out, and everything that's come up from them. Not the odd thing that
+ * came up by itself from nothing of yours.
+ */
+export function isGardenPlant(p: Pick<OwnedPlant, 'bornWild' | 'generation'>): boolean {
+  return !p.bornWild || p.generation > 0;
+}
+
+/** Room kept clear round the things you use: patches, garden pieces, the stall and the doors home. */
+const KEEP_CLEAR_SPOT = 1.1;
+const KEEP_CLEAR_DECOR = 0.7;
+const KEEP_CLEAR_STALL = 1.8;
+const KEEP_CLEAR_DOOR = 2.5;
+/** Every door in and out of the greenhouse and the house, as the tile in its wall. */
+export const DOORS = [GREENHOUSE_DOOR, GREENHOUSE_BACK_DOOR, GREENHOUSE_SIDE_DOOR, HOUSE_DOOR, HOUSE_BACK_DOOR];
 /** The player can plant closer than anything seeds itself (see landscape.ts checkPlanting). */
 const PLANT_SPACING = 0.5;
 const CROWD_RADIUS = 2;
@@ -76,7 +149,8 @@ function tooClose(plants: OwnedPlant[] | SpatialGrid<OwnedPlant>, x: number, y: 
   const check = (p: OwnedPlant) => {
     if (p.location.kind !== 'wild') return false;
     const d = Math.hypot(p.location.x - x, p.location.y - y);
-    if (d < spacing) {
+    // Nothing comes up under a Giant's spreading canopy.
+    if (d < spacing || (CANOPY_FORMS.has(PLANTS[p.defId]?.form) && d < currentRadius(p))) {
       close = true;
       return true;
     }
@@ -99,8 +173,26 @@ export function canPlantAt(state: GameState, x: number, y: number, isOpenGround:
   return !tooClose(wildPlants(state), x, y, PLANT_SPACING).tooClose;
 }
 
-/** One spread check across every outdoor plant. */
-export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: number, rand: () => number): SpreadEvent[] {
+/** Whether new growth may come up at (x, y) without crowding something you use. */
+function keepsClear(state: GameState, x: number, y: number, spots: readonly { x: number; y: number }[]): boolean {
+  for (const sp of spots) if (Math.hypot(sp.x + 0.5 - x, sp.y + 0.5 - y) < KEEP_CLEAR_SPOT) return false;
+  for (const d of state.decor) if (Math.hypot(d.x - x, d.y - y) < KEEP_CLEAR_DECOR) return false;
+  for (const d of DOORS) if (Math.hypot(d.x + 0.5 - x, d.y + 0.5 - y) < KEEP_CLEAR_DOOR) return false;
+  return Math.hypot(state.stall.x + 1 - x, state.stall.y + 0.5 - y) >= KEEP_CLEAR_STALL;
+}
+
+/**
+ * One spread check across every outdoor plant. `parents`, if given, picks
+ * which plants may spread this time (the rest still count as neighbours).
+ */
+export function spreadStep(
+  state: GameState,
+  isOpenGround: GroundCheck,
+  now: number,
+  rand: () => number,
+  parents?: (p: OwnedPlant) => boolean,
+  spots: readonly { x: number; y: number }[] = DISCOVERY_SPOTS
+): SpreadEvent[] {
   const events: SpreadEvent[] = [];
   const wild = wildPlants(state);
   if (wild.length >= WILD_TOTAL_CAP) return events;
@@ -120,15 +212,19 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
   // Nothing nobody planted comes up until the field journal is complete: every listed plant, in every form, grown.
   const gateOpen = journalComplete(state);
 
-  for (const parent of wild) {
+  const parentCount = wild.length;
+  for (let pi = 0; pi < parentCount; pi++) {
+    const parent = wild[pi];
     if (parent.location.kind !== 'wild') continue;
     const stage = stageIndexOf(parent.growth);
     if (stage < 3) continue;
+    if (parents && !parents(parent)) continue;
     const def = PLANTS[parent.defId];
     if (!def) continue;
+    const habit = spreadHabit(def.form);
     // Per spread step (an in-game hour): a vigorous large pothos throws out a
     // new plant every day or two of game time; a slow aroid far less often.
-    const chance = def.spread * 0.03 * (stage >= 4 ? 1.5 : 1);
+    const chance = def.spread * habit.rate * 0.03 * (stage >= 4 ? 1.5 : 1);
     if (rand() >= chance) continue;
 
     // A plant in a garden bed spreads only within it; one outside never
@@ -137,10 +233,10 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
     const bed = bedId ? state.gardenBeds.find((b) => b.id === bedId) : undefined;
     const tier = bed ? bedTier.get(bed.id) ?? 0 : 0;
     const diverse = !!bed && tier >= LIVELY_TIER;
-    const reach = (RUNNING_FORMS.includes(def.form) ? 1.35 : 1) * (bed ? 0.8 : 1);
+    const reach = bed ? 0.8 : 1;
     for (let attempt = 0; attempt < (bed ? 6 : 4); attempt++) {
       const a = rand() * Math.PI * 2;
-      const d = (1.1 + rand() * 1.7) * reach;
+      const d = (habit.reach[0] + rand() * (habit.reach[1] - habit.reach[0])) * reach;
       const x = parent.location.x + Math.cos(a) * d;
       const y = parent.location.y + Math.sin(a) * d;
       const tx = Math.floor(x);
@@ -157,10 +253,11 @@ export function spreadStep(state: GameState, isOpenGround: GroundCheck, now: num
         if (!isOpenGround(tx, ty)) continue;
         if (bed ? !bedContains(bed, x, y, 0.2) : state.gardenBeds.some((b) => bedContains(b, x, y, -0.2))) continue;
         if (state.paths.length && onPath(state, x, y, now, true)) continue;
+        if (!keepsClear(state, x, y, spots)) continue;
       }
       if ((perZone[zone] ?? 0) >= WILD_ZONE_CAP) continue;
       if ((perSpecies[`${zone}:${parent.defId}`] ?? 0) >= WILD_SPECIES_ZONE_CAP) continue;
-      const near = tooClose(grid, x, y);
+      const near = tooClose(grid, x, y, habit.spacing);
       if (near.tooClose || near.crowd >= CROWD_LIMIT) continue;
 
       let defId = parent.defId;
@@ -267,6 +364,8 @@ export interface WorldAdvance {
   spreads: SpreadEvent[];
   /** Plants that came up wild by themselves, from no plant of the player's. */
   sown: string[];
+  /** Plants that grew into Titans. */
+  titans: string[];
   carry: number;
 }
 
@@ -275,10 +374,13 @@ export interface WorldAdvance {
  * SPREAD_STEP chunks so a long absence plays out the same way as the same
  * time spent in-game: seedlings grow up and spread in their turn.
  *
- * `plantedExtra` is extra growth (game-minutes) for the plants the player
- * set out themselves, after a long absence (see Clock's ecologyMinutesFor):
- * they fill out further while you're away. Nothing that came up by itself
- * gets it, and it doesn't spread anything: the wild keeps the clock's pace.
+ * `gardenExtra` is the extra time (game-minutes) the garden gets after a
+ * long absence, past what the clock itself catches up (see Clock's
+ * ecologyMinutesFor). Your plants, and everything come up from them, go on
+ * growing and spreading through it, in the same hourly steps as ever: so a
+ * day away, three days and a week each come back to a fuller garden than
+ * the last. Nothing else in the valley moves on in that time (no weather,
+ * no self-sown strangers): it's the garden's time only.
  */
 export function advanceWorld(
   state: GameState,
@@ -286,11 +388,12 @@ export function advanceWorld(
   carry: number,
   isOpenGround: GroundCheck,
   rand: () => number = Math.random,
-  plantedExtra = 0
+  gardenExtra = 0
 ): WorldAdvance {
   const ups: StageUp[] = [];
   const spreads: SpreadEvent[] = [];
   const sown: string[] = [];
+  const titans: string[] = [];
   let left = minutes;
   let c = carry;
   const startNow = state.clock.totalMinutes - minutes;
@@ -305,10 +408,22 @@ export function advanceWorld(
       spreads.push(...spreadStep(state, isOpenGround, at, rand));
       const seedling = selfSowStep(state, isOpenGround, at, rand);
       if (seedling) sown.push(seedling.id);
+      titans.push(...checkTitans(state));
     }
   }
-  if (plantedExtra > 0) ups.push(...tickGrowth(state, plantedExtra, (p) => !p.bornWild));
-  return { ups, spreads, sown, carry: c };
+  // The garden's own extra time: dated at the clock's present, since it's
+  // time the clock never ran through.
+  const now = state.clock.totalMinutes;
+  let extra = Number.isFinite(gardenExtra) ? Math.max(0, gardenExtra) : 0;
+  while (extra > 1e-9) {
+    const dt = Math.min(extra, SPREAD_STEP);
+    ups.push(...tickGrowth(state, dt, isGardenPlant));
+    extra -= dt;
+    if (dt >= SPREAD_STEP - 1e-9) spreads.push(...spreadStep(state, isOpenGround, now, rand, isGardenPlant));
+    titans.push(...checkTitans(state));
+  }
+  if (minutes > 1e-9 && !titans.length) titans.push(...checkTitans(state));
+  return { ups, spreads, sown, titans, carry: c };
 }
 
 // ---------------------------------------------------------------- Lushness
@@ -368,8 +483,11 @@ export function computeLushness(state: GameState): LushField {
     const def = PLANTS[p.defId];
     if (!def) continue;
     const look = lookFor(p.defId, p.variantId);
-    // A long-established plant fills out (see growth.ts), but its ground carpet stops growing a little past specimen.
-    const sf = Math.min(4.6, stageFloat(p.growth));
+    // A long-established plant fills out (see growth.ts), but its ground
+    // carpet stops growing a little past specimen, except for the creepers
+    // and runners, whose whole way of growing is to cover the ground.
+    const creeps = spreadHabit(def.form) === CREEPER || spreadHabit(def.form) === RUNNER;
+    const sf = Math.min(creeps ? 5.6 : 4.6, stageFloat(p.growth));
     const r = (0.7 + sf * 0.6) * Math.max(0.7, look.size);
     const w = 0.18 + sf * 0.16;
     const ci = CHARACTERS.indexOf(def.landscape);
