@@ -3026,7 +3026,11 @@ function drawPumpkinVine(p: Paint) {
     const grow = Math.min(1, (sf - 1.1) / 2.2);
     const r = S * (0.12 + 0.3 * grow);
     const ripe = Math.min(1, Math.max(0, (sf - 1.6) / 1.4));
+    // The vine sprawls wider as it fills out (see plantStretch), but the
+    // pumpkin itself stays round: undo that stretch for the fruit.
+    const st = plantStretch('pumpkin', sf, p.mode);
     withTransform(ctx, 0, S * 0.06, 0, () => {
+      ctx.scale(1 / st.sx, 1 / st.sy);
       pumpkinFruit(p, r, ripe);
       if (sf >= 3 && look.carving) {
         const cy = -r * 0.72;
@@ -3567,12 +3571,14 @@ const LOW: GrowthProfile = { grow: 0.12, wide: 0.55, tall: 0, titan: 0 };
 const TALL: GrowthProfile = { grow: 0.18, wide: 0.12, tall: 0.4, titan: 0.35 };
 const BROAD: GrowthProfile = { grow: 0.4, wide: 0.2, tall: 0, titan: 0.45 };
 const FROND: GrowthProfile = { grow: 0.32, wide: 0.22, tall: 0.08, titan: 0.45 };
+/** A pumpkin vine grows bigger all round rather than flattening out, so its leaves keep their shape. */
+const VINE: GrowthProfile = { grow: 0.3, wide: 0.12, tall: 0, titan: 0 };
 const SMALL: GrowthProfile = { grow: 0.15, wide: 0.12, tall: 0.04, titan: 0.3 };
 /** The Giants already change shape as they grow (see their draw functions): this is only the extra. */
 const GIANT: GrowthProfile = { grow: 0.2, wide: 0.08, tall: 0.04, titan: 0.25 };
 
 const GROWTH_PROFILE: Partial<Record<PlantForm, GrowthProfile>> = {
-  moss: LOW, mat: LOW, trefoil: LOW, runner: LOW, trailing: LOW, beads: LOW, climber: LOW, lilypad: LOW, pumpkin: LOW,
+  moss: LOW, mat: LOW, trefoil: LOW, runner: LOW, trailing: LOW, beads: LOW, climber: LOW, lilypad: LOW, pumpkin: VINE,
   bamboo: TALL, cattail: TALL, spear: TALL, palm: TALL, cane: TALL, strappy: TALL,
   heart: BROAD, splitleaf: BROAD, patterned: BROAD, fig: BROAD, fan: BROAD, palmate: BROAD, clump: BROAD, bloom: BROAD,
   fern: FROND,
