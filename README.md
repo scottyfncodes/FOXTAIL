@@ -102,8 +102,8 @@ grow in patches all over it.
   birdbath, the stall) turn round to face the other way. A turn needs room
   to swing. A bed already dug or set down can be turned from its card,
   plants and all.
-- **Putt-putt.** Two courses. Walk up to the putting mat in the living
-  room for twelve holes laid out with whatever was lying around — mugs, a
+- **Putt-putt.** Two nine-hole courses. Walk up to the putting mat in the
+  living room for nine holes laid out with whatever was lying around — a mug, a
   slipper, books, a bath mat that drags the ball, a glossy magazine it runs
   on across, a paperback slid under the mat to lean it sideways, a
   paper-towel tube to putt through a wall of books, and Ranger, asleep at

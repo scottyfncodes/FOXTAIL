@@ -72,7 +72,7 @@ describe('putt-putt physics', () => {
   });
 
   it('bounces off whatever is lying on the mat', () => {
-    const hole = COURSE.find((h) => h.id === 'mug')!;
+    const hole = COURSE.find((h) => h.id === 'nightcap')!;
     const r = simulatePutt(hole, hole.tee, -Math.PI / 2, 0.9);
     expect(r.events).toContain('hit');
   });
@@ -107,7 +107,7 @@ describe('the course', () => {
 
   it('previews the line only as far as the first bounce', async () => {
     const { previewPath } = await import('../src/game/systems/putting');
-    const hole = COURSE.find((h) => h.id === 'mug')!;
+    const hole = COURSE.find((h) => h.id === 'nightcap')!;
     const path = previewPath(hole, hole.tee, -Math.PI / 2, 1);
     const last = path[path.length - 1];
     // Stops at the mug, well short of the cup behind it.
@@ -115,9 +115,9 @@ describe('the course', () => {
     expect(path.length).toBeGreaterThan(2);
   });
 
-  it('has twelve holes, every one laid out on the mat', () => {
-    expect(COURSE).toHaveLength(12);
-    expect(new Set(COURSE.map((h) => h.id)).size).toBe(12);
+  it('has nine holes, a proper round, every one laid out on the mat', () => {
+    expect(COURSE).toHaveLength(9);
+    expect(new Set(COURSE.map((h) => h.id)).size).toBe(9);
     for (const h of COURSE) {
       for (const p of [h.tee, h.cup]) {
         expect(p.x).toBeGreaterThan(0);
