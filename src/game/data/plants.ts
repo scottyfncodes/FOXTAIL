@@ -1727,6 +1727,9 @@ PLANTS.treeFern = {
   variants: [
     { id: 'soft', name: 'Soft', rarity: 'rare', description: 'Soft, deep-green fronds on a rust-brown trunk.', look: {} },
     { id: 'silver', name: 'Silver', rarity: 'veryRare', description: 'Every frond backed with silver, so the crown flashes pale when the wind turns it.', look: { hue: 150, sat: 22, light: 44 } },
+    { id: 'goldenCrown', name: 'Golden Crown', rarity: 'veryRare', description: 'New fronds unfurl lime-gold and only darken as they age, so the crown is lit from the top.', look: { hue: 76, sat: 58, light: 46 } },
+    { id: 'rustCrozier', name: 'Rust Crozier', rarity: 'extremelyRare', description: 'Its fronds come up coiled in copper fur and stay bronze all summer, on a trunk nearly black.', look: { hue: 26, sat: 48, light: 36, accentHue: 18, accentSat: 30 } },
+    { id: 'frostfrond', name: 'Frostfrond', rarity: 'unheardOf', sportOnly: true, description: 'Fronds gone frost-white from tip to crown, as if a frost had settled on it and never thawed.', look: { hue: 170, sat: 18, light: 70, accentHue: 220, accentSat: 10 } },
   ],
   growthRate: 0.8,
   spread: 0.4,
@@ -1749,6 +1752,9 @@ PLANTS.giantElephantEar = {
   variants: [
     { id: 'green', name: 'Green', rarity: 'rare', description: 'Glossy green, with pale ribs.', look: {} },
     { id: 'variegata', name: 'Variegata', rarity: 'veryRare', description: 'Splashed and sectored in creamy white, no two leaves alike.', look: { variegation: 'splash', variegationColor: CREAM, light: 36 } },
+    { id: 'blackStem', name: 'Black Stem', rarity: 'veryRare', description: 'Inky stalks under leaves of the deepest bottle green.', look: { hue: 128, sat: 40, light: 24, accentHue: 280, accentSat: 20 } },
+    { id: 'lutea', name: 'Lutea', rarity: 'extremelyRare', description: 'Golden stalks and golden ribs through every leaf, as if the sun had got into it.', look: { hue: 70, sat: 56, light: 42, variegation: 'veins', variegationColor: GOLD } },
+    { id: 'stingray', name: 'Stingray', rarity: 'unheardOf', sportOnly: true, description: 'Every leaf drawn out to a long whip of a tip and curled up at the edges, like a ray gliding over the creek.', look: { hue: 96, sat: 46, light: 30, leafWidth: 0.7, ruffled: true } },
   ],
   growthRate: 1.05,
   spread: 0.4,
@@ -1771,6 +1777,9 @@ PLANTS.giantReed = {
   variants: [
     { id: 'blueGreen', name: 'Blue-Green', rarity: 'rare', description: 'Cool, glaucous blades.', look: {} },
     { id: 'versicolor', name: 'Versicolor', rarity: 'veryRare', description: 'Every blade striped lengthwise in cream.', look: { variegation: 'stripe', variegationColor: CREAM, light: 50 } },
+    { id: 'goldChain', name: 'Gold Chain', rarity: 'veryRare', description: 'Blades striped butter-yellow, bright enough to light up the creek bank.', look: { hue: 90, sat: 40, light: 48, variegation: 'stripe', variegationColor: GOLD } },
+    { id: 'burgundy', name: 'Burgundy', rarity: 'extremelyRare', description: 'Canes and young blades flushed wine-red, greening only as they rise.', look: { hue: 344, sat: 30, light: 34, accentHue: 330, accentSat: 32, accentLight: 52 } },
+    { id: 'moonplume', name: 'Moonplume', rarity: 'unheardOf', sportOnly: true, description: 'Silver-white blades from top to bottom, under plumes that seem to hold the moonlight.', look: { hue: 180, sat: 10, light: 72, accentHue: 220, accentSat: 20, accentLight: 86 } },
   ],
   growthRate: 1.2,
   spread: 0.6,
@@ -1793,6 +1802,9 @@ PLANTS.giantGunnera = {
   variants: [
     { id: 'manicata', name: 'Manicata', rarity: 'rare', description: 'Rough, deep-green umbrellas on red stalks.', look: {} },
     { id: 'tinctoria', name: 'Tinctoria', rarity: 'veryRare', description: 'Smaller, more crinkled leaves on stalks as red as rhubarb.', look: { hue: 104, light: 32, accentHue: 356, accentSat: 60, accentLight: 36, size: 1.55 } },
+    { id: 'bronzeShield', name: 'Bronze Shield', rarity: 'extremelyRare', description: 'Leaves that open copper-bronze and keep the colour, on deep red stalks.', look: { hue: 28, sat: 40, light: 32, accentHue: 352, accentSat: 55, accentLight: 30 } },
+    { id: 'paleUmbrella', name: 'Pale Umbrella', rarity: 'extremelyRare', description: 'Huge leaves of a soft, chalky sea-green on pale stalks, like faded parasols.', look: { hue: 150, sat: 26, light: 48, accentHue: 30, accentSat: 26, accentLight: 50 } },
+    { id: 'jurassic', name: 'Jurassic', rarity: 'unheardOf', sportOnly: true, description: 'Bigger than any gunnera has a right to be, almost black-green and armoured with spines. Nothing eats it any more.', look: { hue: 118, sat: 36, light: 22, accentHue: 0, accentSat: 50, accentLight: 22, size: 2 } },
   ],
   growthRate: 0.9,
   spread: 0.3,
@@ -1815,6 +1827,9 @@ PLANTS.giantCanna = {
   variants: [
     { id: 'scarlet', name: 'Scarlet', rarity: 'rare', description: 'Green leaves, scarlet flowers.', look: {} },
     { id: 'tropicanna', name: 'Tropicanna', rarity: 'veryRare', description: 'Leaves striped orange, pink and bronze like a sunset, under tangerine flowers.', look: { hue: 10, sat: 58, light: 44, variegation: 'veins', variegationColor: [42, 95, 64], accentHue: 26, accentSat: 92, accentLight: 54 } },
+    { id: 'blackKnight', name: 'Black Knight', rarity: 'veryRare', description: 'Smoky purple-black leaves under flowers of deep velvet red.', look: { hue: 300, sat: 22, light: 22, accentHue: 352, accentSat: 80, accentLight: 36 } },
+    { id: 'bengalTiger', name: 'Bengal Tiger', rarity: 'extremelyRare', description: 'Green leaves boldly striped in gold, and orange flowers held over them like flags.', look: { variegation: 'stripe', variegationColor: GOLD, accentHue: 30, accentSat: 95, accentLight: 54 } },
+    { id: 'ghostflame', name: 'Ghostflame', rarity: 'unheardOf', sportOnly: true, description: 'Blue-grey leaves and flowers of a pale, cold yellow. After dark its flowers keep a little of the day.', look: { hue: 190, sat: 22, light: 42, accentHue: 54, accentSat: 80, accentLight: 72, variegation: 'glow', variegationColor: [54, 90, 72] } },
   ],
   growthRate: 1.1,
   spread: 0.45,
@@ -1837,6 +1852,9 @@ PLANTS.titanHosta = {
   variants: [
     { id: 'empressWu', name: 'Empress Wu', rarity: 'rare', description: 'Thick, dark green leaves.', look: {} },
     { id: 'sumAndSubstance', name: 'Sum and Substance', rarity: 'veryRare', description: 'Huge chartreuse-gold leaves that seem to glow in the shade.', look: { hue: 64, sat: 62, light: 48 } },
+    { id: 'blueAngel', name: 'Blue Angel', rarity: 'veryRare', description: 'Great heart-shaped leaves dusted powder-blue, under spires of near-white bells.', look: { hue: 192, sat: 28, light: 42, accentHue: 260, accentSat: 18, accentLight: 90 } },
+    { id: 'liberty', name: 'Liberty', rarity: 'extremelyRare', description: 'Wide leaves with a broad, creamy-gold margin that brightens as summer goes on.', look: { variegation: 'edge', variegationColor: CREAM, light: 34 } },
+    { id: 'moonlitMound', name: 'Moonlit Mound', rarity: 'unheardOf', sportOnly: true, description: 'Leaves so pale they are nearly white, with only their ribs in green. It glows softly in the shade after dark.', look: { hue: 90, sat: 20, light: 74, variegation: 'glow', variegationColor: [90, 60, 86] } },
   ],
   growthRate: 0.85,
   spread: 0.35,
