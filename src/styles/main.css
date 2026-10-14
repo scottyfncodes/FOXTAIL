@@ -1762,6 +1762,17 @@ button {
   gap: 10px;
 }
 
+/* Putt-putt is played on the course, not around it: the sheet takes nearly
+   the whole screen (clear of the notch), so the course can be big. */
+.panel.putt-mat {
+  max-height: calc(100vh - 8px - env(safe-area-inset-top, 0px));
+  max-height: calc(100dvh - 8px - env(safe-area-inset-top, 0px));
+}
+.panel.putt-mat .panel-header { padding: 10px 16px 8px; }
+.panel.putt-mat .putt-card { margin-bottom: 6px; }
+.panel.putt-mat .putt-status { min-height: 2.8em; margin: 6px 0 4px; }
+.panel.putt-mat .panel-body { padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+
 /* ---------- The little games around the property ---------- */
 /* They share the putting mat's frame (score line, canvas, a line of
    instructions, buttons). Nothing on the canvas is selectable or

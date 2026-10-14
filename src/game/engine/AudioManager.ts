@@ -203,6 +203,54 @@ export class AudioManager {
     }
   }
 
+  // ---- Putt-putt: small, soft, and never in the way ----
+
+  private lastClack = 0;
+
+  /** The putter meeting the ball: a soft wooden tock, a little brighter for a firm putt. */
+  playPutt(power: number) {
+    if (!this.ctx) return;
+    const p = Math.max(0, Math.min(1, power));
+    this.tone('triangle', 520 + p * 260, 300, this.ctx.currentTime, 0.09, 0.03 + p * 0.03, 2400);
+  }
+
+  /** The ball knocking against something: a click off the edging, a dull knock off a stone. Never more than a few a second. */
+  playClack(hardness: number, speed: number) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (t - this.lastClack < 0.07) return;
+    this.lastClack = t;
+    const v = Math.max(0, Math.min(1, speed / 5));
+    if (v < 0.05) return;
+    this.tone('triangle', 900 + hardness * 700, 600 + hardness * 300, t, 0.05, 0.008 + v * 0.03, 3200);
+  }
+
+  /** A toadstool's springy cap: a little rising boing. */
+  playBoing(speed: number) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (t - this.lastClack < 0.07) return;
+    this.lastClack = t;
+    const v = Math.max(0.2, Math.min(1, speed / 4));
+    this.tone('sine', 260, 520, t, 0.16, 0.02 + v * 0.025, 1800);
+  }
+
+  /** The ball dropping into the cup: a rattle round the tin, then the thunk at the bottom. */
+  playCupDrop() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tone('triangle', 1400, 1100, t, 0.05, 0.03, 4200);
+    this.tone('triangle', 1250, 1000, t + 0.07, 0.05, 0.022, 4200);
+    this.tone('sine', 300, 180, t + 0.16, 0.14, 0.05, 900);
+  }
+
+  /** Into the creek: a plop and a little wash of water. */
+  playSplash() {
+    if (!this.ctx) return;
+    this.tone('sine', 700, 180, this.ctx.currentTime, 0.18, 0.04, 1600);
+    this.breath('bandpass', 1800, 0.8, 0.45, 0.035);
+  }
+
   // ---- October: a few sounds, far apart, and none of them loud ----
 
   /** A note shaped by a gain envelope, through a lowpass so it sounds far off. */

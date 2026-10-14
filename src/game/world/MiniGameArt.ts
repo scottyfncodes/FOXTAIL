@@ -2,10 +2,9 @@ import type { MiniGameId } from '../systems/minigames';
 import { SCOTT_APPEARANCE } from '../data/character';
 
 // The little set-ups around the property where the games are played: a
-// bucket and an upturned pot under the oaks, the kindling heap by the
-// woodpile, a cairn of flat stones on the creek bank, a hedge arch into
-// the maze, a bucket of throwing sticks, the painted target board and the
-// lily pads in the slack water. Each is drawn standing on its point (x, y)
+// cairn of flat stones on the creek bank, a hedge arch into the maze, a
+// bucket of throwing sticks and the lily pads in the slack water — and the
+// flag of Scott's garden putting course under the oaks. Each is drawn standing on its point (x, y)
 // on screen, about a tile across, in the world's own plain shapes.
 
 type Ctx = CanvasRenderingContext2D;
@@ -14,17 +13,6 @@ function shadow(ctx: Ctx, x: number, y: number, rx: number, ry: number) {
   ctx.fillStyle = 'rgba(0,0,0,0.2)';
   ctx.beginPath();
   ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function acorn(ctx: Ctx, x: number, y: number, r: number) {
-  ctx.fillStyle = '#9a6a3a';
-  ctx.beginPath();
-  ctx.ellipse(x, y + r * 0.2, r * 0.8, r, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#6a4a2a';
-  ctx.beginPath();
-  ctx.ellipse(x, y - r * 0.45, r * 0.9, r * 0.45, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -46,67 +34,6 @@ export function drawMiniGameProp(ctx: Ctx, id: MiniGameId, x: number, y: number,
   const t = tile;
   ctx.save();
   switch (id) {
-    case 'acornPitch': {
-      // A wooden bucket, an upturned flower pot, and a little heap of acorns.
-      shadow(ctx, x, y + t * 0.05, t * 0.42, t * 0.12);
-      ctx.fillStyle = '#8a6440';
-      ctx.beginPath();
-      ctx.moveTo(x - t * 0.3, y - t * 0.34);
-      ctx.lineTo(x - t * 0.06, y - t * 0.34);
-      ctx.lineTo(x - t * 0.1, y + t * 0.02);
-      ctx.lineTo(x - t * 0.26, y + t * 0.02);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#4a3420';
-      ctx.beginPath();
-      ctx.ellipse(x - t * 0.18, y - t * 0.34, t * 0.12, t * 0.04, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#3e3a34';
-      ctx.lineWidth = Math.max(1, t * 0.025);
-      for (const k of [0.25, 0.75]) {
-        ctx.beginPath();
-        ctx.moveTo(x - t * (0.3 - k * 0.04) + 0, y - t * 0.34 + t * 0.36 * k);
-        ctx.lineTo(x - t * (0.06 + k * 0.04), y - t * 0.34 + t * 0.36 * k);
-        ctx.stroke();
-      }
-      ctx.fillStyle = '#c0724a';
-      ctx.beginPath();
-      ctx.moveTo(x + t * 0.08, y + t * 0.02);
-      ctx.lineTo(x + t * 0.34, y + t * 0.02);
-      ctx.lineTo(x + t * 0.29, y - t * 0.2);
-      ctx.lineTo(x + t * 0.13, y - t * 0.2);
-      ctx.closePath();
-      ctx.fill();
-      for (const [dx, dy] of [
-        [0.0, 0.14],
-        [0.1, 0.18],
-        [-0.08, 0.2],
-      ])
-        acorn(ctx, x + dx * t, y + dy * t, t * 0.05);
-      break;
-    }
-    case 'twigJenga': {
-      // Kindling stacked log-cabin fashion, a few layers high.
-      shadow(ctx, x, y + t * 0.05, t * 0.38, t * 0.12);
-      const w = Math.max(1.5, t * 0.07);
-      for (let layer = 0; layer < 5; layer++) {
-        const ly = y - layer * t * 0.08;
-        if (layer % 2 === 0) {
-          twig(ctx, x - t * 0.3, ly, x + t * 0.3, ly - t * 0.02, w, layer % 4 === 0 ? '#7a5a3a' : '#8a6a44');
-        } else {
-          for (const dx of [-0.2, 0, 0.2]) {
-            ctx.fillStyle = '#c8a878';
-            ctx.beginPath();
-            ctx.arc(x + dx * t, ly, w * 0.6, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#6a4a2a';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-          }
-        }
-      }
-      break;
-    }
     case 'rockSkip': {
       // A cairn of flat skipping stones on the bank.
       shadow(ctx, x, y + t * 0.04, t * 0.34, t * 0.1);
@@ -183,37 +110,6 @@ export function drawMiniGameProp(ctx: Ctx, id: MiniGameId, x: number, y: number,
       twig(ctx, x + t * 0.18, y + t * 0.1, x + t * 0.5, y + t * 0.04, Math.max(1.5, t * 0.05));
       break;
     }
-    case 'slingshot': {
-      // A painted wooden board on a post: rings, and a dent or two from old pinecones.
-      shadow(ctx, x, y + t * 0.04, t * 0.3, t * 0.08);
-      ctx.fillStyle = '#6a4a2e';
-      ctx.fillRect(x - t * 0.04, y - t * 0.5, t * 0.08, t * 0.52);
-      const cy = y - t * 0.72;
-      const rings = ['#e8dcc4', SCOTT_APPEARANCE.flag, '#e8dcc4', SCOTT_APPEARANCE.flag];
-      rings.forEach((c, i) => {
-        ctx.fillStyle = c;
-        ctx.beginPath();
-        ctx.arc(x, cy, t * (0.3 - i * 0.07), 0, Math.PI * 2);
-        ctx.fill();
-      });
-      ctx.strokeStyle = '#6a4a2e';
-      ctx.lineWidth = Math.max(1, t * 0.03);
-      ctx.beginPath();
-      ctx.arc(x, cy, t * 0.3, 0, Math.PI * 2);
-      ctx.stroke();
-      // A basket of pinecones at its foot.
-      ctx.fillStyle = '#a07a48';
-      ctx.beginPath();
-      ctx.ellipse(x + t * 0.32, y - t * 0.02, t * 0.14, t * 0.08, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#6a4a2a';
-      for (const dx of [-0.05, 0.05, 0]) {
-        ctx.beginPath();
-        ctx.ellipse(x + t * (0.32 + dx), y - t * (0.07 + (dx === 0 ? 0.04 : 0)), t * 0.04, t * 0.055, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      break;
-    }
     case 'frogJump': {
       // Lily pads out on the slack water, and the frog on the nearest one, throat going.
       const pads = [
@@ -266,5 +162,54 @@ export function drawMiniGameProp(ctx: Ctx, id: MiniGameId, x: number, y: number,
     case 'catLaser':
       break;
   }
+  ctx.restore();
+}
+
+/**
+ * The first tee of Scott's garden course, under the oaks: a mown circle of
+ * moss, an old tin can sunk in it, and his flag on a garden cane, stirring.
+ */
+export function drawGardenTee(ctx: Ctx, x: number, y: number, tile: number, now: number) {
+  const t = tile;
+  ctx.save();
+  // The mown circle.
+  ctx.fillStyle = 'rgba(111,160,77,0.85)';
+  ctx.beginPath();
+  ctx.ellipse(x, y, t * 0.62, t * 0.34, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(107,74,46,0.8)';
+  ctx.lineWidth = Math.max(1, t * 0.035);
+  ctx.stroke();
+  // The tin can, sunk flush.
+  ctx.fillStyle = '#8f948f';
+  ctx.beginPath();
+  ctx.ellipse(x + t * 0.12, y + t * 0.02, t * 0.11, t * 0.065, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#141d10';
+  ctx.beginPath();
+  ctx.ellipse(x + t * 0.12, y + t * 0.02, t * 0.085, t * 0.048, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // A ball waiting on the tee.
+  ctx.fillStyle = SCOTT_APPEARANCE.golfBall;
+  ctx.beginPath();
+  ctx.arc(x - t * 0.3, y + t * 0.08, Math.max(1.2, t * 0.045), 0, Math.PI * 2);
+  ctx.fill();
+  // The cane and the flag.
+  const fx = x + t * 0.12;
+  const fy = y + t * 0.02;
+  ctx.strokeStyle = '#b89a62';
+  ctx.lineWidth = Math.max(1, t * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(fx, fy);
+  ctx.lineTo(fx, fy - t * 0.85);
+  ctx.stroke();
+  const wave = Math.sin(now / 420) * t * 0.03;
+  ctx.fillStyle = SCOTT_APPEARANCE.flag;
+  ctx.beginPath();
+  ctx.moveTo(fx, fy - t * 0.85);
+  ctx.quadraticCurveTo(fx + t * 0.16, fy - t * 0.8 + wave, fx + t * 0.32, fy - t * 0.74 + wave * 1.5);
+  ctx.lineTo(fx, fy - t * 0.6);
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 }

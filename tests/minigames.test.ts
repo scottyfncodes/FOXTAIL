@@ -11,9 +11,9 @@ import { SCOTT_SPOTS } from '../src/game/data/scottSpots';
 import { pickInteractable, INTERACT_PRIORITY } from '../src/game/engine/Game';
 
 describe('the little games around the property', () => {
-  it('has eight of them, each with its own id, name and a goal worth reaching', () => {
-    expect(MINI_GAMES).toHaveLength(8);
-    expect(new Set(MINI_GAMES.map((g) => g.id)).size).toBe(8);
+  it('has five of them, each with its own id, name and a goal worth reaching', () => {
+    expect(MINI_GAMES).toHaveLength(5);
+    expect(new Set(MINI_GAMES.map((g) => g.id)).size).toBe(5);
     for (const g of MINI_GAMES) {
       expect(g.name.length).toBeGreaterThan(0);
       expect(g.goal).toBeGreaterThan(0);
@@ -24,7 +24,7 @@ describe('the little games around the property', () => {
   it('sets each one up on open ground in its own part of the property, clear of everything else', () => {
     const blocking = buildBlockingSet(generateObstacles());
     const outdoor = MINI_GAMES.flatMap((g) => (g.where === 'ranger' ? [] : [{ id: g.id, ...g.where }]));
-    expect(outdoor).toHaveLength(7);
+    expect(outdoor).toHaveLength(4);
     for (const g of outdoor) {
       expect(zoneAt(g.x, g.y)).toBe(g.zone);
       expect(isWater(Math.floor(g.x), Math.floor(g.y))).toBe(false);
@@ -71,23 +71,23 @@ describe('a little game’s record', () => {
 
   it('pays once, the first time the goal is reached — the same as a first hole in one', () => {
     expect(MINI_GAME_REWARD).toBe(ACE_REWARD);
-    const goal = findMiniGame('acornPitch')!.goal;
-    expect(recordMiniGame(records, 'acornPitch', goal - 1).coins).toBe(0);
-    expect(recordMiniGame(records, 'acornPitch', goal).coins).toBe(MINI_GAME_REWARD);
-    expect(recordMiniGame(records, 'acornPitch', goal + 5).coins).toBe(0);
-    expect(records.acornPitch.goal).toBe(true);
+    const goal = findMiniGame('rockSkip')!.goal;
+    expect(recordMiniGame(records, 'rockSkip', goal - 1).coins).toBe(0);
+    expect(recordMiniGame(records, 'rockSkip', goal).coins).toBe(MINI_GAME_REWARD);
+    expect(recordMiniGame(records, 'rockSkip', goal + 5).coins).toBe(0);
+    expect(records.rockSkip.goal).toBe(true);
   });
 
   it('keeps each game to itself, and scores whole and never below nothing', () => {
     recordMiniGame(records, 'frogJump', -4);
-    recordMiniGame(records, 'twigJenga', 3.6);
+    recordMiniGame(records, 'gardenMaze', 3.6);
     expect(records.frogJump.best).toBe(0);
-    expect(records.twigJenga.best).toBe(4);
+    expect(records.gardenMaze.best).toBe(4);
     expect(records.rockSkip).toBeUndefined();
   });
 
-  it('counts one of a thing as one, not "1 twigs"', () => {
-    expect(scoreText(findMiniGame('twigJenga')!, 1)).toBe('1 twig');
+  it('counts one of a thing as one, not "1 skips"', () => {
+    expect(scoreText(findMiniGame('rockSkip')!, 1)).toBe('1 skip');
     expect(scoreText(findMiniGame('catLaser')!, 1)).toBe('1 pounce');
     expect(scoreText(findMiniGame('rockSkip')!, 12)).toBe('12 skips');
     expect(scoreText(findMiniGame('gardenMaze')!, 0)).toBe('0 points');

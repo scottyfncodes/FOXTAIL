@@ -1,8 +1,6 @@
 // The little things there are to do around the place besides putt-putt:
-// acorns to lob at a bucket, a kindling heap to pick apart, flat stones by
-// the creek, a maze grown into the meadow, Ranger and the laser pointer,
-// sticks for Scout, a slingshot and some pinecones, and a frog on the lily
-// pads. None of it is a job; it's just what Scott gets up to when he's
+// flat stones by the creek, a maze grown into the meadow, Ranger and the
+// laser pointer, sticks for Scout, and a frog on the lily pads. None of it is a job; it's just what Scott gets up to when he's
 // outside, and Ellen can join in whenever she walks past.
 //
 // Each one is found somewhere on the property (or, for the laser pointer,
@@ -15,7 +13,15 @@ import type { MiniGameRecord } from '../state';
 import type { OutdoorZoneId } from '../types';
 import { ACE_REWARD } from './putting';
 
-export type MiniGameId = 'acornPitch' | 'twigJenga' | 'rockSkip' | 'gardenMaze' | 'catLaser' | 'stickFetch' | 'slingshot' | 'frogJump';
+export type MiniGameId = 'rockSkip' | 'gardenMaze' | 'catLaser' | 'stickFetch' | 'frogJump';
+
+/**
+ * Games that used to be set up around the property and have been put away:
+ * Acorn Pitch, Twig Jenga and Slingshot Targets. An older save may still
+ * hold their records; those are left exactly as they are (nothing reads
+ * them, nothing deletes them), and nothing can open them any more.
+ */
+export const RETIRED_MINI_GAMES: readonly string[] = ['acornPitch', 'twigJenga', 'slingshot'];
 
 export interface MiniGameDef {
   id: MiniGameId;
@@ -38,26 +44,6 @@ export interface MiniGameDef {
 export const MINI_GAME_REWARD = ACE_REWARD;
 
 export const MINI_GAMES: MiniGameDef[] = [
-  {
-    id: 'acornPitch',
-    name: 'Acorn Pitch',
-    emoji: '🌰',
-    // Under the last oaks at the woodland's edge: a bucket, an upturned pot and a pocketful of acorns.
-    where: { zone: 'woodland', x: 32.5, y: 27.5 },
-    prompt: 'Pitch acorns at the bucket',
-    unit: 'points',
-    goal: 14,
-  },
-  {
-    id: 'twigJenga',
-    name: 'Twig Jenga',
-    emoji: '🪵',
-    // The kindling heap beside Scott's woodpile.
-    where: { zone: 'woodland', x: 27.5, y: 22.5 },
-    prompt: 'Pick apart the kindling pile',
-    unit: 'twigs',
-    goal: 20,
-  },
   {
     id: 'rockSkip',
     name: 'Rock Skip',
@@ -98,16 +84,6 @@ export const MINI_GAMES: MiniGameDef[] = [
     goal: 120,
   },
   {
-    id: 'slingshot',
-    name: 'Slingshot Targets',
-    emoji: '🎯',
-    // A painted board on a post in the rocky clearing, and a basket of pinecones.
-    where: { zone: 'rockyClearing', x: 56.5, y: 51.5 },
-    prompt: 'Pinecones at the wooden targets',
-    unit: 'points',
-    goal: 20,
-  },
-  {
     id: 'frogJump',
     name: 'Frog Jump',
     emoji: '🐸',
@@ -124,8 +100,14 @@ export function scoreText(def: Pick<MiniGameDef, 'unit'>, n: number): string {
   return `${n} ${n === 1 ? def.unit.replace(/es$/, 'e').replace(/s$/, '') : def.unit}`;
 }
 
+/** A game that can be played now; undefined for anything else, a retired game's id included. */
 export function findMiniGame(id: string): MiniGameDef | undefined {
   return MINI_GAMES.find((g) => g.id === id);
+}
+
+/** Whether `id` names a game that can be opened (a stale id from an old save or link is not). */
+export function isPlayableMiniGame(id: string): id is MiniGameId {
+  return !!findMiniGame(id);
 }
 
 export function miniGameRecord(records: Record<string, MiniGameRecord>, id: MiniGameId): MiniGameRecord {

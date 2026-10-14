@@ -19,7 +19,8 @@ import { STALL_ID, stallRect, yardFootprint, type YardPiece } from '../systems/y
 import { PLANTS, lookFor, specimenRarity, rarityRank } from '../data/plants';
 import { TOOL_PICKUPS } from '../data/toolPickups';
 import { MINI_GAMES } from '../systems/minigames';
-import { drawMiniGameProp } from './MiniGameArt';
+import { GARDEN_TEE_SPOT } from '../systems/puttingCourses';
+import { drawGardenTee, drawMiniGameProp } from './MiniGameArt';
 import { DISCOVERY_SPOTS } from '../data/discoveryPoints';
 import { findPotStyle, RAISED_BED } from '../data/shop';
 import { ELLEN_APPEARANCE, SCOUT_APPEARANCE, SCOTT_APPEARANCE, CAT_APPEARANCE, CHARACTER_SCALE } from '../data/character';
@@ -714,7 +715,7 @@ export class Renderer {
       // A trellis stands just behind whatever is climbing it.
       drawables.push({ y: d.decorId === 'gardenTrellis' ? d.y - 0.1 : d.y, draw: () => this.turnDecor(camera, d, (p) => this.drawDecor(camera, p, state, now)) });
     }
-    // The little games' set-ups: the bucket under the oaks, the kindling heap, the stone cairn, the maze arch…
+    // The little games' set-ups: the stone cairn, the maze arch, the bucket of sticks, the lily pads…
     const bloom = Math.min(1, Object.keys(state.collection).length / 24);
     for (const g of MINI_GAMES) {
       if (g.where === 'ranger' || !inView(g.where.x, g.where.y, 2)) continue;
@@ -724,6 +725,17 @@ export class Renderer {
         draw: () => {
           const s = camera.worldToScreen(at.x * TILE_SIZE, at.y * TILE_SIZE);
           drawMiniGameProp(this.ctx, g.id, s.x, s.y, TILE_SIZE * camera.zoom, now, bloom);
+        },
+      });
+    }
+    // The first tee of Scott's garden course, under the oaks.
+    if (inView(GARDEN_TEE_SPOT.x, GARDEN_TEE_SPOT.y, 2)) {
+      const at = GARDEN_TEE_SPOT;
+      drawables.push({
+        y: at.y,
+        draw: () => {
+          const s = camera.worldToScreen(at.x * TILE_SIZE, at.y * TILE_SIZE);
+          drawGardenTee(this.ctx, s.x, s.y, TILE_SIZE * camera.zoom, now);
         },
       });
     }

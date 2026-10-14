@@ -35,6 +35,12 @@ export const WILD_SPEED = 9;
 export const STILL_BORING = 2.2;
 /** He's only keen enough to stalk from this interest up. */
 export const STALK_INTEREST = 0.4;
+/** Keen as this, a dot running away from him is chased, not stalked. */
+export const CHASE_INTEREST = 0.55;
+/** His top speed flat out across the boards, units/s, and how quickly he gets there and stops. */
+export const CHASE_SPEED = 3.4;
+const CHASE_ACCEL = 8;
+const CHASE_BRAKE = 10;
 
 export type CatMode =
   | 'watch' // sitting up, head tracking the dot
@@ -44,6 +50,8 @@ export type CatMode =
   | 'pounce' // in the air
   | 'caught' // landed on it: smug
   | 'miss' // overshot, skidded, and now licking a paw as if he meant it
+  | 'chase' // running after it, flat out
+  | 'skid' // it doubled back: all four paws out, sliding on the boards
   | 'groom' // couldn't care less
   | 'moth' // something more interesting fluttered past
   | 'stare' // staring at the wall where the dot was
@@ -72,9 +80,15 @@ export interface LaserCat {
   to: Pt;
   /** Height off the floor, 0..1, mid-leap. */
   hop: number;
+  /** How fast he's running along his heading (chasing, skidding), units/s. */
+  speed: number;
+  /** He's already balked once on this wiggle: the next one's for real. */
+  balked: boolean;
+  /** The pounce just missed by a whisker: he's swatting at where it was. */
+  swat: boolean;
 }
 
-export type LaserEvent = 'catch' | 'miss' | 'pounce' | 'zoomies' | 'moth' | 'groom' | 'flop' | 'stare';
+export type LaserEvent = 'catch' | 'miss' | 'near' | 'pounce' | 'balk' | 'chase' | 'skid' | 'zoomies' | 'moth' | 'groom' | 'flop' | 'stare';
 
 export interface LaserGame {
   t: number;
@@ -128,7 +142,7 @@ export function createLaser(seed: number): LaserGame {
     hiddenT: 0,
     offT: 0,
     interest: 0.5,
-    cat: { x: c.x, y: c.y, heading: -Math.PI / 2, look: -Math.PI / 2, mode: 'search', modeT: 0, modeDur: 0, from: { ...c }, to: { ...c }, hop: 0 },
+    cat: { x: c.x, y: c.y, heading: -Math.PI / 2, look: -Math.PI / 2, mode: 'search', modeT: 0, modeDur: 0, from: { ...c }, to: { ...c }, hop: 0, speed: 0, balked: false, swat: false },
     moth: null,
     catches: 0,
     pounces: 0,
@@ -178,6 +192,8 @@ function turn(a: number, b: number, rate: number) {
 }
 
 function setMode(g: LaserGame, mode: CatMode, dur = 0) {
+  if (mode !== 'chase' && mode !== 'skid') g.cat.speed = 0;
+  if (mode !== 'miss') g.cat.swat = false;
   g.cat.mode = mode;
   g.cat.modeT = 0;
   g.cat.modeDur = dur;
@@ -195,6 +211,13 @@ function keepInRoom(c: LaserCat) {
     if (outX < outY) c.x += outX;
     else c.y += outY;
   }
+}
+
+/** Moves him along his heading at his running speed, and keeps him in the room. */
+function moveAlong(c: LaserCat, dt: number) {
+  c.x += Math.cos(c.heading) * c.speed * dt;
+  c.y += Math.sin(c.heading) * c.speed * dt;
+  keepInRoom(c);
 }
 
 /** One fixed step of play. */
@@ -262,7 +285,7 @@ function stepDot(g: LaserGame, dt: number) {
 
 function stepInterest(g: LaserGame, dt: number) {
   const c = g.cat;
-  const busy = c.mode === 'pounce' || c.mode === 'caught' || c.mode === 'miss';
+  const busy = c.mode === 'pounce' || c.mode === 'caught' || c.mode === 'miss' || c.mode === 'chase' || c.mode === 'skid';
   if (!g.on) g.interest -= 0.05 * dt;
   else if (g.hidden) {
     if (g.hiddenT > 4) g.interest -= 0.06 * dt;
@@ -317,6 +340,12 @@ function stepCat(g: LaserGame, dt: number) {
       c.look = turn(c.look, target, dt * 9);
       c.heading = turn(c.heading, target, dt * 2.2);
       if (whim(g, dt)) break;
+      // Running away from him at a good clip, by someone he's keen on playing with: after it.
+      if (visible(g) && g.interest >= CHASE_INTEREST && g.speed > MOVE_SPEED * 1.5 && g.speed < WILD_SPEED && d > POUNCE_RANGE * 0.8 && c.modeT > 0.25) {
+        g.events.push('chase');
+        setMode(g, 'chase');
+        break;
+      }
       if (visible(g) && g.interest >= STALK_INTEREST && c.modeT > 0.6 + (1 - g.interest) * 1.5) setMode(g, 'stalk');
       break;
     }
@@ -338,6 +367,11 @@ function stepCat(g: LaserGame, dt: number) {
       }
       c.look = turn(c.look, toDot, dt * 9);
       c.heading = turn(c.heading, toDot, dt * 4);
+      if (g.interest >= CHASE_INTEREST && g.speed > MOVE_SPEED * 1.5 && g.speed < WILD_SPEED && d > POUNCE_RANGE) {
+        g.events.push('chase');
+        setMode(g, 'chase');
+        break;
+      }
       if (d > POUNCE_RANGE * 0.85) {
         // Low to the boards, creeping in.
         const sp = 0.9 * dt;
@@ -360,12 +394,23 @@ function stepCat(g: LaserGame, dt: number) {
           setMode(g, 'stalk');
           break;
         }
+        // Not quite yet: a cat will wind himself up, think better of it, and wind up all over again.
+        if (!c.balked && g.rng() < 0.08 + 0.25 * (1 - g.interest)) {
+          c.balked = true;
+          g.events.push('balk');
+          setMode(g, 'wiggle', 0.5 + g.rng() * 0.5);
+          break;
+        }
+        c.balked = false;
         // He leaps for where the dot is right now — and he's only as good a shot as he is keen.
         const spread = 0.3 + 0.7 * (1 - g.interest) ** 2 + 0.1 * d;
         const err = spread * g.rng();
         const ea = g.rng() * Math.PI * 2;
         c.from = { x: c.x, y: c.y };
         c.to = { x: g.base.x + Math.cos(ea) * err, y: g.base.y + Math.sin(ea) * err };
+        // He never leaps into the skirting board: he lands short of it.
+        c.to.x = clamp(c.to.x, 0.5, ROOM_W - 0.5);
+        c.to.y = clamp(c.to.y, 0.5, ROOM_H - 0.5);
         c.heading = Math.atan2(c.to.y - c.y, c.to.x - c.x);
         c.look = c.heading;
         g.pounces++;
@@ -389,7 +434,9 @@ function stepCat(g: LaserGame, dt: number) {
           g.events.push('catch');
           setMode(g, 'caught', 1.8);
         } else {
-          // Overshoots, and skids on the boards.
+          // Overshoots, and skids on the boards — swatting at it as he goes, if it was that close.
+          c.swat = visible(g) && dist(c.to, g.base) < CATCH_R * 1.9;
+          if (c.swat) g.events.push('near');
           c.from = { x: c.x, y: c.y };
           c.to = { x: c.x + Math.cos(c.heading) * 0.55, y: c.y + Math.sin(c.heading) * 0.55 };
           g.events.push('miss');
@@ -410,6 +457,52 @@ function stepCat(g: LaserGame, dt: number) {
       c.y = c.from.y + (c.to.y - c.from.y) * e;
       keepInRoom(c);
       if (c.modeT >= c.modeDur) setMode(g, 'watch');
+      break;
+    }
+    case 'chase': {
+      c.hop = 0;
+      if (!visible(g) || g.interest < 0.3 || c.modeT > 6) {
+        // Lost it, or lost interest: he brakes, and sits to think about it.
+        c.speed = Math.max(0, c.speed - CHASE_BRAKE * dt);
+        if (c.speed <= 0.2) setMode(g, g.on ? 'watch' : 'search');
+        moveAlong(c, dt);
+        break;
+      }
+      c.look = turn(c.look, toDot, dt * 10);
+      let off = toDot - c.heading;
+      while (off > Math.PI) off -= Math.PI * 2;
+      while (off < -Math.PI) off += Math.PI * 2;
+      // It's doubled back behind him while he's going flat out: he can't turn that fast.
+      if (Math.abs(off) > 1.9 && c.speed > 1.8) {
+        g.events.push('skid');
+        setMode(g, 'skid', 0.5);
+        break;
+      }
+      // The faster he's going, the wider he turns.
+      c.heading = turn(c.heading, toDot, dt * Math.max(1.8, 7 - c.speed * 1.4));
+      // Close and it's stopped: down into the crouch.
+      if (d <= POUNCE_RANGE * 0.9 && g.speed < MOVE_SPEED) {
+        c.speed = Math.max(0, c.speed - CHASE_BRAKE * 2 * dt);
+        if (c.speed < 0.6) setMode(g, 'wiggle', 0.3 + g.rng() * 0.4);
+        moveAlong(c, dt);
+        break;
+      }
+      // Run up on it, easing off as he closes so he doesn't run straight past.
+      const want = Math.min(CHASE_SPEED * (0.7 + 0.3 * g.interest), Math.max(0, d - 0.7) * 2.2);
+      c.speed += Math.max(-CHASE_BRAKE * dt, Math.min(CHASE_ACCEL * dt, want - c.speed));
+      moveAlong(c, dt);
+      break;
+    }
+    case 'skid': {
+      // Paws out, sliding on along the way he was going, slowing, then he spins round to find it.
+      c.speed = Math.max(0, c.speed - CHASE_BRAKE * 0.9 * dt);
+      moveAlong(c, dt);
+      if (visible(g)) c.look = turn(c.look, toDot, dt * 6);
+      if (c.modeT >= c.modeDur) {
+        c.speed = 0;
+        c.heading = turn(c.heading, toDot, Math.PI);
+        setMode(g, 'watch');
+      }
       break;
     }
     case 'zoomies': {
