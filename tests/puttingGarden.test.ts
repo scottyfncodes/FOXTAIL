@@ -226,10 +226,16 @@ describe('putting records across courses', () => {
     expect(otherCourse(GARDEN_COURSE)).toBe(LIVING_ROOM_COURSE);
   });
 
-  it('leaves the living-room course exactly as it was, so old best rounds still count', () => {
+  it('plays both courses as nines; the mat’s old twelve-hole best is its own record, not this course’s', () => {
     expect(LIVING_ROOM_COURSE.holes).toBe(COURSE);
-    expect(COURSE).toHaveLength(12);
-    expect(LIVING_ROOM_COURSE.recordId).toBe('living-room-12');
+    for (const c of COURSES) expect(c.holes).toHaveLength(9);
+    expect(LIVING_ROOM_COURSE.recordId).toBe('living-room-9');
+    const old = { rounds: 6, best: 30, holes: 12, course: 'living-room-12', aces: ['hallway', 'mug'] };
+    expect(courseBest(old, LIVING_ROOM_COURSE)).toBeNull();
+    expect(recordCourseRound(old, LIVING_ROOM_COURSE, 25)).toBe(true);
+    expect(old).toMatchObject({ rounds: 7, best: 25, holes: 9, course: 'living-room-9' });
+    // Aces are kept by hole: one on a hole that's still played still counts.
+    expect(acesOn(old, LIVING_ROOM_COURSE)).toBe(1);
   });
 });
 

@@ -1,4 +1,4 @@
-// Putt-putt. Two courses share one simulation: the twelve-hole course on
+// Putt-putt. Two nine-hole courses share one simulation: the course on
 // the living-room mat, laid out with whatever was lying around the house
 // (a mug, a slipper, a couple of books, and the cat, who got there first),
 // and Scott's nine-hole garden course under the oaks (see data/gardenCourse).
@@ -248,9 +248,10 @@ export function surfaceAt(hole: Hole, x: number, y: number): Surface {
 }
 
 // The course is drawn a little wider than the real mat, so it plays well on a
-// phone. It starts gentle and saves the tricky ones for the back: a bath mat
-// that drags, a glossy magazine that doesn't, a paperback ramp under the
-// mat, a paper-towel tube to putt through, and Ranger, whose tail won't keep still.
+// phone. Nine holes: it starts gentle and saves the tricky ones for the back: a
+// glossy magazine that doesn't, a paperback ramp under the
+// mat, a paper-towel tube to putt through, Ranger, whose tail won't keep still,
+// and a bath mat across the last.
 export const COURSE: Hole[] = [
   {
     id: 'hallway',
@@ -260,26 +261,6 @@ export const COURSE: Hole[] = [
     cup: { x: 1.8, y: 1.2 },
     slope: { x: 0, y: 0 },
     obstacles: [],
-  },
-  {
-    id: 'bathmat',
-    name: 'Bath Mat',
-    par: 2,
-    tee: { x: 0.8, y: 8.1 },
-    cup: { x: 2.7, y: 1.4 },
-    slope: { x: 0, y: 0 },
-    obstacles: [],
-    // The bath mat across the middle soaks up a soft putt.
-    zones: [{ kind: 'rough', x: 0, y: 3.9, w: 3.6, h: 1.5 }],
-  },
-  {
-    id: 'mug',
-    name: 'Around the Mug',
-    par: 2,
-    tee: { x: 1.8, y: 8.1 },
-    cup: { x: 1.8, y: 1.15 },
-    slope: { x: 0, y: 0 },
-    obstacles: [{ shape: 'circle', kind: 'mug', x: 1.8, y: 4.4, r: 0.36 }],
   },
   {
     id: 'uphill',
@@ -301,18 +282,6 @@ export const COURSE: Hole[] = [
     obstacles: [{ shape: 'circle', kind: 'mug', x: 2.5, y: 4.6, r: 0.3 }],
     // A magazine left open round the cup: hit it like the rest and it runs right on by.
     zones: [{ kind: 'slick', x: 0.1, y: 0.4, w: 2.2, h: 2.9 }],
-  },
-  {
-    id: 'chicane',
-    name: 'Coaster Chicane',
-    par: 3,
-    tee: { x: 1.8, y: 8.1 },
-    cup: { x: 1.8, y: 1.2 },
-    slope: { x: 0, y: 0 },
-    obstacles: [
-      { shape: 'circle', kind: 'mug', x: 1.15, y: 5.6, r: 0.3 },
-      { shape: 'circle', kind: 'mug', x: 2.45, y: 3.4, r: 0.3 },
-    ],
   },
   {
     id: 'tunnel',
@@ -399,7 +368,7 @@ export const COURSE: Hole[] = [
 ];
 
 /** Which course a best round was set on: a redesigned course starts a fresh record. */
-export const COURSE_ID = 'living-room-12';
+export const COURSE_ID = 'living-room-9';
 
 export const COURSE_PAR = COURSE.reduce((s, h) => s + h.par, 0);
 
