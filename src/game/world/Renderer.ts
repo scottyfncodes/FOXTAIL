@@ -2,7 +2,7 @@ import { normalRot, type TurnMode } from '../data/turn';
 import { furnitureTurn } from '../data/furniture';
 import { decorTurn } from '../data/decor';
 import { Camera } from '../engine/Camera';
-import type { GameState, ScoutState, ScottState, CatState, Facing, OwnedPlant, PlacedDecor } from '../state';
+import type { GameState, ScoutState, ScottState, CatState, Facing, OwnedPlant, PlacedDecor, GardenBed } from '../state';
 import type { Obstacle } from './Obstacles';
 import type { DiscoverySpot, ZoneId } from '../types';
 import { TILE_SIZE, GRID_W, GREENHOUSE_FOOTPRINT, GREENHOUSE_DOOR, zoneAt, isWater, type Rect } from '../data/worldMap';
@@ -167,6 +167,31 @@ export const CARPET_DENSE = 0.75;
 export function foliageHides(wx: number, wy: number, sf: number, big: number, x: number, y: number): boolean {
   const dy = wy - y;
   return dy > 0 && dy < (0.6 + sf * 0.3) * big && Math.abs(wx - x) < (0.5 + sf * 0.25) * big;
+}
+
+/**
+ * The screen area a plant in this bed may draw into: the bed itself, and
+ * straight up above it (a tall plant still stands tall), but nothing to
+ * either side or below.
+ */
+export function bedColumn(camera: Pick<Camera, 'worldToScreen'>, bed: Pick<GardenBed, 'x' | 'y' | 'w' | 'h' | 'shape'>): Path2D {
+  const m = 0.06;
+  const tl = camera.worldToScreen((bed.x - m) * TILE_SIZE, (bed.y - m) * TILE_SIZE);
+  const br = camera.worldToScreen((bed.x + bed.w + m) * TILE_SIZE, (bed.y + bed.h + m) * TILE_SIZE);
+  const top = tl.y - 1e5;
+  const path = new Path2D();
+  if (bed.shape === 'oval') {
+    const cx = (tl.x + br.x) / 2;
+    const cy = (tl.y + br.y) / 2;
+    path.moveTo(tl.x, top);
+    path.lineTo(tl.x, cy);
+    path.ellipse(cx, cy, (br.x - tl.x) / 2, (br.y - tl.y) / 2, 0, Math.PI, 0, true);
+    path.lineTo(br.x, top);
+  } else {
+    path.rect(tl.x, top, br.x - tl.x, br.y - top);
+  }
+  path.closePath();
+  return path;
 }
 
 /** Whether a wild plant is drawn as part of the carpet rather than on its own. */
@@ -1887,6 +1912,15 @@ export class Renderer {
       ctx.fillStyle = sparkle ? '#fff4c2' : 'rgba(10,24,8,0.22)';
       return;
     }
+    // A plant in a garden bed fills out only as far as the bed: its leaves,
+    // offshoots and shade stop at the edging instead of spilling onto the
+    // ground around it. It may still grow up as tall as it likes.
+    const bedId = p.location.kind === 'wild' ? p.location.bedId : undefined;
+    const bed = bedId ? state.gardenBeds.find((b) => b.id === bedId) : undefined;
+    if (bed) {
+      ctx.save();
+      ctx.clip(bedColumn(camera, bed));
+    }
     ctx.fillStyle = 'rgba(10,24,8,0.22)';
     ctx.beginPath();
     ctx.ellipse(s.x, s.y + tile * 0.04, spread, spread * 0.4, 0, 0, Math.PI * 2);
@@ -1905,6 +1939,7 @@ export class Renderer {
     if (foliageHides(wx, wy, sf, big, state.player.x, state.player.y) || (sf * big >= 4.5 && this.hidesSomething(state, wx, wy, sf, big))) ctx.globalAlpha = 0.45;
     if (sprite) this.blitPlantSprite(sprite, s.x, s.y + tile * 0.05, p.seed, 'ground', now, state.weather.condition === 'rain');
     ctx.globalAlpha = 1;
+    if (bed) ctx.restore();
     if (sparkle) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, '#fff4c2', 3);
     const cue = this.mysteryCues?.get(p.id);
     if (cue === 'star') this.drawStarGlints(s.x, s.y - tile * (0.25 + sf * 0.12) * look.size, tile, now, p.seed);
