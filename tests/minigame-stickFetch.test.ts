@@ -9,6 +9,7 @@ import {
   STICK_ORDER,
   THROWS,
   createFetch,
+  fakeThrow,
   inCreek,
   logDist,
   playSession,
@@ -255,5 +256,73 @@ describe('stick fetch: a session', () => {
     console.log('steady', steady.join(' '), '| shaky', shaky.join(' '), '| careless', careless.join(' '), '| maxed', maxed.join(' '), '| maxed good', maxedGood.join(' '));
     expect(steady.filter((s) => s >= 120).length).toBeGreaterThanOrEqual(9);
     for (const s of [...careless, ...maxed, ...maxedGood]) expect(s).toBeLessThan(120);
+  });
+});
+
+describe('stick fetch: the little moments', () => {
+  it('now and then she catches a short lob clean out of the air, and it scores', () => {
+    let caught = 0;
+    for (let seed = 1; seed <= 60 && !caught; seed++) {
+      const g = createFetch(seed);
+      throwStick(g, 'switch', UP, 0.22);
+      for (let k = 0; k < 120 * 20 && g.n === 0; k++) {
+        stepFetch(g, STEP);
+        if (g.events.includes('catch')) {
+          caught++;
+          expect(g.scout.mode).toBe('leap');
+          expect(g.stick!.lie).toBe('caught');
+        }
+        g.events.length = 0;
+      }
+      if (caught) {
+        expect(g.scores[0].lie).toBe('caught');
+        expect(g.scores[0].caught).toBeGreaterThan(0);
+        expect(g.scores[0].total).toBe(g.scores[0].distPts + g.scores[0].accuracy + g.scores[0].clean + g.scores[0].proud + g.scores[0].caught);
+      }
+    }
+    expect(caught).toBe(1);
+  });
+
+  it('never catches the big branch, and most throws are fetched off the ground', () => {
+    let catches = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      for (const [kind, power] of [
+        ['branch', 0.3],
+        ['good', 0.7],
+      ] as const) {
+        const g = createFetch(seed);
+        throwStick(g, kind, UP, power);
+        for (let k = 0; k < 120 * 20 && g.n === 0; k++) {
+          stepFetch(g, STEP);
+          if (g.events.includes('catch')) {
+            catches++;
+            expect(kind).not.toBe('branch');
+          }
+          g.events.length = 0;
+        }
+      }
+    }
+    expect(catches).toBeLessThan(20);
+  });
+
+  it('falls for a fake throw: off up the meadow, a look round, and back to sit', () => {
+    const g = createFetch(3);
+    expect(fakeThrow(g)).toBe(true);
+    expect(g.events).toContain('fooled');
+    let farthest = 0;
+    for (let k = 0; k < 120 * 4 && g.scout.mode === 'fooled'; k++) {
+      stepFetch(g, STEP);
+      farthest = Math.max(farthest, g.scout.y);
+    }
+    expect(farthest).toBeGreaterThan(HOME.y + 2);
+    expect(g.scout.mode).toBe('sit');
+    expect(g.scout).toMatchObject({ x: HOME.x, y: HOME.y });
+    // Nothing was thrown, and nothing was scored.
+    expect(g.n).toBe(0);
+    expect(g.phase).toBe('aim');
+    expect(g.scores).toEqual([]);
+    // Only while she's sat waiting: not while she's out after a real one.
+    throwStick(g, 'good', UP, 0.5);
+    expect(fakeThrow(g)).toBe(false);
   });
 });

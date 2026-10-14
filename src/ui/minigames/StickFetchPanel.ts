@@ -16,6 +16,7 @@ import {
   THROWS,
   bushAt,
   createFetch,
+  fakeThrow,
   flagFor,
   previewThrow,
   stepFetch,
@@ -59,6 +60,9 @@ export class StickFetchPanel extends MiniGamePanel {
   private kind: StickKind = 'good';
   private dragFrom: CanvasPoint | null = null;
   private dragTo: CanvasPoint | null = null;
+  /** The hardest the current pull has been: pulled right back and then let off, it's a fake. */
+  private dragMax = 0;
+  private quip: { text: string; t0: number } | null = null;
   /** When Scott let go, for his arm's follow-through (ms). */
   private thrownAt = -1e9;
   private whistledAt = -1e9;
@@ -93,6 +97,7 @@ export class StickFetchPanel extends MiniGamePanel {
     this.dragFrom = this.dragTo = null;
     this.thrownAt = this.whistledAt = -1e9;
     this.puffs = [];
+    this.quip = null;
     this.lastPhase = '';
     this.wasBelowGoal = true;
     this.refresh();
@@ -153,6 +158,7 @@ export class StickFetchPanel extends MiniGamePanel {
       }
       this.dragFrom = p;
       this.dragTo = p;
+      this.dragMax = 0;
     } else if (g.phase === 'flight' || g.phase === 'fetch') {
       if (!g.scout.hurry && g.scout.mode !== 'wag' && g.scout.mode !== 'drop') {
         whistle(g);
@@ -162,7 +168,9 @@ export class StickFetchPanel extends MiniGamePanel {
   }
 
   protected onMove(p: CanvasPoint) {
-    if (this.dragFrom) this.dragTo = p;
+    if (!this.dragFrom) return;
+    this.dragTo = p;
+    this.dragMax = Math.max(this.dragMax, this.aim()?.power ?? 0);
   }
 
   protected onCancel() {
@@ -174,7 +182,14 @@ export class StickFetchPanel extends MiniGamePanel {
     this.dragTo = p;
     const aim = this.aim();
     this.dragFrom = this.dragTo = null;
-    if (!aim || aim.power < 0.08) return;
+    if (!aim || aim.power < 0.08) {
+      // Wound right up and then let off: she falls for it every time.
+      if (this.dragMax > 0.35 && fakeThrow(this.g)) {
+        this.thrownAt = performance.now();
+        this.quip = { text: 'She fell for it.', t0: performance.now() };
+      }
+      return;
+    }
     if (throwStick(this.g, this.kind, aim.angle, aim.power)) {
       this.thrownAt = performance.now();
       this.refresh();
@@ -198,7 +213,7 @@ export class StickFetchPanel extends MiniGamePanel {
   protected update(dt: number, t: number) {
     const g = this.g;
     if (this.finished) return;
-    if (g.phase !== 'aim' && g.phase !== 'done') {
+    if ((g.phase !== 'aim' && g.phase !== 'done') || (g.phase === 'aim' && g.scout.mode === 'fooled')) {
       this.acc += dt;
       while (this.acc >= STEP) {
         this.acc -= STEP;
@@ -206,7 +221,7 @@ export class StickFetchPanel extends MiniGamePanel {
         this.react(t);
         // Stepping may have ended the throw (the phase changes under us).
         const phase: string = g.phase;
-        if (phase === 'aim' || phase === 'done') break;
+        if ((phase === 'aim' && g.scout.mode !== 'fooled') || phase === 'done') break;
       }
     } else this.acc = 0;
     this.puffs = this.puffs.filter((p) => t - p.t0 < 900);
@@ -230,6 +245,10 @@ export class StickFetchPanel extends MiniGamePanel {
       if (e === 'puddle' || e === 'wade') this.puffs.push({ x: g.scout.x, y: g.scout.y, t0: t, kind: 'splash' });
       if (e === 'shake') for (let i = 0; i < 3; i++) this.puffs.push({ x: g.scout.x, y: g.scout.y, t0: t + i * 200, kind: 'drop' });
       if (e === 'scored') this.scored(g.scores[g.scores.length - 1], t);
+      if (e === 'catch') {
+        this.quip = { text: 'Caught it!', t0: t };
+        this.game.audio.playToolChime();
+      }
     }
     g.events.length = 0;
   }
@@ -239,6 +258,7 @@ export class StickFetchPanel extends MiniGamePanel {
     if (sc.accuracy) bits.push(`flag +${sc.accuracy}`);
     if (sc.clean) bits.push(`clean +${sc.clean}`);
     if (sc.proud) bits.push(`proud +${sc.proud}`);
+    if (sc.caught) bits.push(`caught +${sc.caught}`);
     if (sc.lie === 'creek') bits.push('a wet dog');
     else if (sc.lie === 'bush') bits.push('dug out of a bush');
     else if (sc.lie === 'puddle') bits.push('muddy');
@@ -275,6 +295,21 @@ export class StickFetchPanel extends MiniGamePanel {
     if (g.phase === 'aim') {
       this.drawChips(ctx);
       this.drawGuide(ctx);
+    }
+    if (this.quip && t - this.quip.t0 < 1500) {
+      const u = (t - this.quip.t0) / 1500;
+      ctx.save();
+      ctx.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1;
+      ctx.font = '600 14px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      const w = ctx.measureText(this.quip.text).width + 22;
+      ctx.fillStyle = 'rgba(20,30,20,0.6)';
+      ctx.beginPath();
+      ctx.roundRect(this.cw / 2 - w / 2, this.top + 8, w, 26, 13);
+      ctx.fill();
+      ctx.fillStyle = '#f4ecd8';
+      ctx.fillText(this.quip.text, this.cw / 2, this.top + 26);
+      ctx.restore();
     }
     if (t - this.whistledAt < 700) {
       // A whistle: a little note over Scott's head.
@@ -584,14 +619,30 @@ export class StickFetchPanel extends MiniGamePanel {
     // Drawn a bit larger than life, so she reads at the far end of the meadow.
     const tile = q.m * 5.4;
     const mode = sc.mode;
-    const sitting = mode === 'sit' || mode === 'wag' || (mode === 'distracted' && sc.distraction === 'butterfly');
-    const running = sc.moving && (mode === 'run' || mode === 'return');
+    // While Scott winds up she's up on her feet, front end down, every bit of her on that stick.
+    const aimNow = this.g.phase === 'aim' && mode === 'sit' ? this.aim() : null;
+    const ready = aimNow ? aimNow.power : 0;
+    const spinning = mode === 'wag' && sc.delighted;
+    const puzzled = mode === 'fooled' && sc.modeT >= 0.55 && sc.modeT <= 1.35;
+    const sitting = !aimNow && (mode === 'sit' || (mode === 'wag' && !spinning) || (mode === 'distracted' && sc.distraction === 'butterfly') || puzzled);
+    const running = (sc.moving && (mode === 'run' || mode === 'return' || mode === 'fooled')) || mode === 'leap' || spinning;
     const sniffing = mode === 'sniff' || mode === 'pickup' || mode === 'drop' || (mode === 'distracted' && sc.distraction === 'smell');
     const digging = mode === 'dig';
     // Which way she faces on screen: up the meadow is up the canvas.
     let dx = Math.cos(sc.heading);
     let dy = -Math.sin(sc.heading) * 0.6;
-    if (sitting) {
+    if (spinning) {
+      // Round and round in a happy little circle.
+      dx = Math.cos(t / 110);
+      dy = Math.sin(t / 110) * 0.6;
+    } else if (puzzled) {
+      // Where did it go? Looking this way, then that.
+      dx = Math.sin((sc.modeT - 0.55) * 7) * 0.9;
+      dy = -0.6;
+    } else if (aimNow) {
+      dx = -0.15;
+      dy = -0.8;
+    } else if (sitting) {
       // Sat at his feet facing up the meadow, a little turned toward him.
       dx = mode === 'distracted' ? 0.6 : -0.25;
       dy = -0.5;
@@ -601,10 +652,12 @@ export class StickFetchPanel extends MiniGamePanel {
     dy /= dl;
     const bodyScaleY = sitting ? 0.62 : 1;
     // A bounding run: the whole dog lifts and drops.
-    const gallop = running ? Math.abs(Math.sin(t / (sc.hurry ? 55 : 70))) * tile * 0.05 : 0;
+    const gallop = running && mode !== 'leap' ? Math.abs(Math.sin(t / (sc.hurry ? 55 : 70))) * tile * 0.05 : ready > 0.6 ? Math.abs(Math.sin(t / 90)) * tile * 0.03 * ready : 0;
     const shake = mode === 'shake' ? Math.sin(t / 22) * tile * 0.04 : 0;
     const cx = q.x + shake;
-    const cy = q.y - tile * 0.12 - gallop;
+    // The play bow: chest down, back end up, the more so the further he's drawn back.
+    const bow = ready * tile * 0.035;
+    const cy = q.y - tile * 0.12 - gallop + bow;
 
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath();
@@ -612,8 +665,8 @@ export class StickFetchPanel extends MiniGamePanel {
     ctx.fill();
 
     // Tail: going like the clappers when she's happy.
-    const wagRate = mode === 'wag' || mode === 'sit' ? 45 : running ? 70 : 110;
-    const wag = Math.sin(t / wagRate) * (mode === 'wag' ? 0.9 : 0.5);
+    const wagRate = aimNow ? 45 - ready * 20 : mode === 'wag' || mode === 'sit' ? 45 : running ? 70 : puzzled ? 220 : 110;
+    const wag = Math.sin(t / wagRate) * (mode === 'wag' || aimNow ? 0.9 : puzzled ? 0.2 : 0.5);
     const tbx = cx - dx * tile * 0.14;
     const tby = cy - dy * tile * 0.1;
     ctx.strokeStyle = S.furDark;
@@ -635,7 +688,8 @@ export class StickFetchPanel extends MiniGamePanel {
         ctx.stroke();
       }
     } else {
-      const sw = running ? Math.sin(t / (sc.hurry ? 55 : 70)) * tile * 0.07 : digging ? Math.sin(t / 40) * tile * 0.03 : 0;
+      // Mid-leap her legs are stretched out fore and aft; running, they gallop.
+      const sw = mode === 'leap' ? tile * 0.09 : running ? Math.sin(t / (sc.hurry ? 55 : 70)) * tile * 0.07 : digging ? Math.sin(t / 40) * tile * 0.03 : 0;
       const legs: [number, number, number][] = [
         [0.09, -1, sw],
         [0.09, 1, -sw],
@@ -732,6 +786,15 @@ export class StickFetchPanel extends MiniGamePanel {
     ctx.arc(hx, hy + tile * 0.07, tile * 0.06, 0.1 * Math.PI, 0.9 * Math.PI);
     ctx.stroke();
 
+    if (puzzled) {
+      // A little question over her head.
+      ctx.save();
+      ctx.fillStyle = 'rgba(244,236,216,0.95)';
+      ctx.font = `600 ${Math.max(11, Math.round(tile * 0.16))}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('?', hx + tile * 0.06, hy - tile * 0.14 - Math.sin(sc.modeT * 6) * tile * 0.01);
+      ctx.restore();
+    }
     if (mode === 'distracted') {
       if (sc.distraction === 'butterfly') {
         // A butterfly she simply has to watch for a second.

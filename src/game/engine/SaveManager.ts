@@ -63,6 +63,25 @@ export function migrateSave(raw: unknown): GameState | null {
   if (!Array.isArray(putting.aces)) putting.aces = [];
   if (typeof putting.rounds !== 'number') putting.rounds = 0;
   if (typeof putting.best !== 'number') putting.best = null;
+  // Per-hole bests and the other courses' records: anything that isn't a sound number is dropped.
+  if (putting.holeBests !== undefined) {
+    const hb: Record<string, number> = {};
+    if (isRecord(putting.holeBests)) for (const [id, n] of Object.entries(putting.holeBests)) if (typeof n === 'number' && Number.isFinite(n) && n >= 1) hb[id] = Math.round(n);
+    putting.holeBests = hb;
+  }
+  if (putting.courses !== undefined) {
+    const cs: Record<string, { rounds: number; best: number | null }> = {};
+    if (isRecord(putting.courses)) {
+      for (const [id, c] of Object.entries(putting.courses)) {
+        if (!isRecord(c)) continue;
+        cs[id] = {
+          rounds: typeof c.rounds === 'number' && Number.isFinite(c.rounds) ? c.rounds : 0,
+          best: typeof c.best === 'number' && Number.isFinite(c.best) ? c.best : null,
+        };
+      }
+    }
+    putting.courses = cs;
+  }
   const commissions = merged.commissions as Loose;
   if (typeof commissions.filled !== 'number') commissions.filled = 0;
   if (!Array.isArray(commissions.notes)) commissions.notes = [];

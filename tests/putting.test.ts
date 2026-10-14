@@ -13,6 +13,7 @@ import {
   scoreName,
   toPar,
   type Ball,
+  type CircleObstacle,
   type Hole,
 } from '../src/game/systems/putting';
 
@@ -179,7 +180,7 @@ describe('more to play around', () => {
 
   it('moves Ranger’s tail across the fairway as time passes', async () => {
     const { obstacleAt } = await import('../src/game/systems/putting');
-    const tail = COURSE.find((h) => h.id === 'tail')!.obstacles.find((o) => o.kind === 'tail')!;
+    const tail = COURSE.find((h) => h.id === 'tail')!.obstacles.find((o) => o.kind === 'tail')! as CircleObstacle;
     const xs = [0, 0.65, 1.3, 1.95].map((t) => obstacleAt(tail, t).x);
     expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(1.5);
   });

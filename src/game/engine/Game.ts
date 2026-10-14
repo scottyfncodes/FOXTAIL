@@ -15,8 +15,9 @@ import { HOUSE_DOOR, GRID_W, GRID_H, TILE_SIZE, zoneAt, rectContains, isInBounds
 import { FRONT_DOOR, roomAt, GREENHOUSE_DOORS, BUILDING_DOORS, DOOR_OUTWARD, type GreenhouseDoor } from '../data/interior';
 import { FURNITURE_DEFS } from '../data/furniture';
 import { displaySlots, nurserySpots, placeFurniture, placeBlockReason, pickUpFurniture, findFurniture, fixtureOffset, footprint } from '../systems/furniture';
-import { ACE_REWARD, COURSE, COURSE_PAR, bestRound, recordAce, recordRound, toPar } from '../systems/putting';
-import { MINI_GAMES, findMiniGame, miniGameLabel, recordMiniGame, type MiniGameId, type MiniGameResult } from '../systems/minigames';
+import { ACE_REWARD, acesOn, courseBest, recordAce, recordCourseRound, recordHole, toPar } from '../systems/putting';
+import { GARDEN_COURSE, GARDEN_TEE_SPOT, LIVING_ROOM_COURSE, findCourse, type Course, type CourseId } from '../systems/puttingCourses';
+import { MINI_GAMES, findMiniGame, isPlayableMiniGame, miniGameLabel, recordMiniGame, type MiniGameId, type MiniGameResult } from '../systems/minigames';
 import { endPlay, startPlay, tickPlay, type PlayState } from '../systems/play';
 import { makeIndoorCamera, screenToTiles } from '../world/IndoorCamera';
 import { Camera as CameraClass } from './Camera';
@@ -208,6 +209,14 @@ export const INTERACT_PRIORITY: Record<InteractableKind, number> = {
 };
 
 /** Picks what a press of the button should act on: the highest priority within reach, nearest among equals. */
+/** What walking up to a putting course says: its best round, and what an ace is worth until every hole's been aced. */
+export function puttingLabel(rec: GameState['putting'], course: Course, verb: string): string {
+  const best = courseBest(rec, course);
+  const acesLeft = acesOn(rec, course) < course.holes.length;
+  if (best === null) return `${verb} · a hole in one is worth ${ACE_REWARD} coins`;
+  return `${verb} · best ${best} (${toPar(best, course.par)})${acesLeft ? ` · an ace pays ${ACE_REWARD}` : ''}`;
+}
+
 export function pickInteractable<T extends { kind: InteractableKind; dist: number }>(candidates: T[]): T | null {
   let best: T | null = null;
   for (const c of candidates) {
@@ -313,7 +322,7 @@ export class Game {
   onOpenGreenhouse: ((target: { kind: 'bed' | 'display'; id: string }) => void) | null = null;
   onOpenMarket: (() => void) | null = null;
   onOpenPond: ((pondId: string) => void) | null = null;
-  onOpenPutting: (() => void) | null = null;
+  onOpenPutting: ((course: CourseId) => void) | null = null;
   /** One of the little games around the property: acorns, stones, the maze, the laser pointer… */
   onOpenMiniGame: ((id: MiniGameId) => void) | null = null;
   onOpenPlantCard: ((plantId: string) => void) | null = null;
@@ -1337,6 +1346,9 @@ export class Game {
           consider({ kind: 'ghost', id: 'ghost', x: this.ghost.x, y: this.ghost.y, label: 'Something small and pale, sitting by the jack-o’-lantern', available: true }, this.ghost.x, this.ghost.y, 1.8);
         }
       }
+      // Scott's garden course: its first tee, under the last oaks at the woodland's edge.
+      const tee = GARDEN_TEE_SPOT;
+      consider({ kind: 'puttingMat', id: GARDEN_COURSE.id, x: tee.x, y: tee.y, label: puttingLabel(this.state.putting, GARDEN_COURSE, 'Play the garden course'), available: true }, tee.x, tee.y, 1.3);
       // The little games around the property, each where it's set up.
       for (const g of MINI_GAMES) {
         if (g.where === 'ranger') continue;
@@ -1373,11 +1385,8 @@ export class Game {
       const mat = findFurniture(this.state, 'lr-putting');
       if (mat) {
         const fp = footprint(mat.kind, mat.x, mat.y, mat.rot ?? 0);
-        const best = bestRound(this.state.putting);
-        // Until every hole has been aced once, the mat says what an ace is worth.
-        const acesLeft = this.state.putting.aces.length < COURSE.length;
-        const label = best === null ? `Play putt-putt · a hole in one is worth ${ACE_REWARD} coins` : `Play putt-putt · best ${best} (${toPar(best, COURSE_PAR)})${acesLeft ? ` · an ace pays ${ACE_REWARD}` : ''}`;
-        consider({ kind: 'puttingMat', id: mat.id, x: fp.x, y: fp.y, label, available: true }, fp.x + fp.w / 2, fp.y + fp.h / 2, 1.2);
+        const label = puttingLabel(this.state.putting, LIVING_ROOM_COURSE, 'Play putt-putt');
+        consider({ kind: 'puttingMat', id: LIVING_ROOM_COURSE.id, x: fp.x, y: fp.y, label, available: true }, fp.x + fp.w / 2, fp.y + fp.h / 2, 1.2);
       }
       // Ranger, wherever he's got to indoors: the laser pointer lives in Ellen's pocket.
       const laser = findMiniGame('catLaser')!;
@@ -1455,9 +1464,10 @@ export class Game {
     } else if (n.kind === 'bed' || n.kind === 'display') {
       this.onOpenGreenhouse?.({ kind: n.kind, id: n.id });
     } else if (n.kind === 'puttingMat') {
-      this.onOpenPutting?.();
+      this.onOpenPutting?.(findCourse(n.id)?.id ?? LIVING_ROOM_COURSE.id);
     } else if (n.kind === 'miniGame') {
-      this.onOpenMiniGame?.(n.id as MiniGameId);
+      // Only a game that's still set up somewhere: a stale id opens nothing.
+      if (isPlayableMiniGame(n.id)) this.onOpenMiniGame?.(n.id);
     } else if (n.kind === 'pumpkin') {
       this.carve(n.id);
     } else if (n.kind === 'ghost') {
@@ -2510,10 +2520,16 @@ export class Game {
     return ACE_REWARD;
   }
 
+  /** A hole of putt-putt finished in `strokes`: noted against the best ever on it (saved with the round). */
+  puttingHole(holeId: string, strokes: number): { best: boolean; first: boolean; previous: number | null } {
+    return recordHole(this.state.putting, holeId, strokes);
+  }
+
   /** A full round of putt-putt finished; true if it's a new best. */
-  finishPuttingRound(total: number): boolean {
-    const best = recordRound(this.state.putting, total);
-    if (best && this.state.putting.rounds > 1) this.audio.playToolChime();
+  finishPuttingRound(course: Course, total: number): boolean {
+    const hadBest = courseBest(this.state.putting, course) !== null;
+    const best = recordCourseRound(this.state.putting, course, total);
+    if (best && hadBest) this.audio.playToolChime();
     this.onStateTouched?.();
     saveGame(this.state);
     return best;

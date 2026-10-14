@@ -308,3 +308,88 @@ describe('cat laser: a session', () => {
     for (const s of [...a, ...f, ...p]) expect(s).toBeLessThan(12);
   });
 });
+
+describe('cat laser: Ranger on the run', () => {
+  it('chases a dot that runs off across the room, speeding up as he goes', () => {
+    const g = createLaser(21);
+    g.interest = 0.9;
+    const start = { x: g.cat.x, y: g.cat.y };
+    let aim = { x: start.x, y: start.y - 2.4 };
+    setPointer(g, aim);
+    for (let i = 0; i < 60; i++) stepLaser(g, STEP);
+    let peak = 0;
+    let chased = false;
+    for (let i = 0; i < 120 * 2; i++) {
+      // Away along the room at a brisk walking pace.
+      aim = { x: Math.max(0.6, aim.x - 2.4 * STEP), y: Math.min(ROOM_H - 0.6, aim.y + 2.0 * STEP) };
+      setPointer(g, aim);
+      stepLaser(g, STEP);
+      if (g.cat.mode === 'chase') chased = true;
+      peak = Math.max(peak, g.cat.speed);
+    }
+    expect(chased).toBe(true);
+    expect(peak).toBeGreaterThan(1.5);
+    expect(Math.hypot(g.cat.x - start.x, g.cat.y - start.y)).toBeGreaterThan(1);
+  });
+
+  it('skids when it doubles back behind him at full tilt, and turns round after it', () => {
+    const g = createLaser(22);
+    g.interest = 0.95;
+    g.cat.x = 1;
+    g.cat.y = 6.5;
+    g.cat.heading = 0;
+    g.cat.mode = 'chase';
+    g.cat.speed = 3;
+    setPointer(g, { x: 5.2, y: 6.5 });
+    for (let i = 0; i < 20; i++) stepLaser(g, STEP);
+    // Suddenly back behind him.
+    for (let i = 0; i < 10; i++) {
+      setPointer(g, { x: 0.6 + i * 0.01, y: 6.5 });
+      stepLaser(g, STEP);
+    }
+    const seen = new Set<string>();
+    for (let i = 0; i < 120; i++) {
+      setPointer(g, { x: 0.6, y: 6.5 });
+      stepLaser(g, STEP);
+      seen.add(g.cat.mode);
+      for (const e of g.events) seen.add(`event:${e}`);
+      g.events.length = 0;
+    }
+    expect(seen.has('skid')).toBe(true);
+    expect(seen.has('event:skid')).toBe(true);
+  });
+
+  it('swats at a dot he only just missed', () => {
+    let near = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const g = createLaser(seed);
+      const hand = aimless(seed);
+      while (!g.over) {
+        setPointer(g, hand(g, STEP));
+        stepLaser(g, STEP);
+        if (g.events.includes('near')) {
+          near++;
+          expect(g.cat.swat).toBe(true);
+          expect(g.events).toContain('miss');
+        }
+        g.events.length = 0;
+      }
+    }
+    expect(near).toBeGreaterThan(0);
+  });
+
+  it('sometimes winds up, thinks better of it, and winds up again', () => {
+    let balks = 0;
+    for (let seed = 1; seed <= 10; seed++) {
+      const g = createLaser(seed);
+      const hand = thoughtful(seed);
+      while (!g.over) {
+        setPointer(g, hand(g, STEP));
+        stepLaser(g, STEP);
+        balks += g.events.filter((e) => e === 'balk').length;
+        g.events.length = 0;
+      }
+    }
+    expect(balks).toBeGreaterThan(0);
+  });
+});

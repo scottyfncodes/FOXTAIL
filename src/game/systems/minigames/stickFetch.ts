@@ -93,7 +93,7 @@ export const FLAGS: Pt[] = [
 /** Where Scout sits, at Scott's feet. */
 export const HOME: Pt = { x: 2.2, y: 1.4 };
 
-export type Lie = 'grass' | 'bush' | 'puddle' | 'creek' | 'log';
+export type Lie = 'grass' | 'bush' | 'puddle' | 'creek' | 'log' | 'caught';
 
 export interface Stick {
   kind: StickKind;
@@ -115,7 +115,7 @@ export interface Stick {
   t: number;
 }
 
-export type ScoutMode = 'sit' | 'run' | 'distracted' | 'sniff' | 'dig' | 'pickup' | 'return' | 'shake' | 'drop' | 'wag';
+export type ScoutMode = 'sit' | 'run' | 'leap' | 'fooled' | 'distracted' | 'sniff' | 'dig' | 'pickup' | 'return' | 'shake' | 'drop' | 'wag';
 
 export interface Scout {
   x: number;
@@ -136,6 +136,11 @@ export interface Scout {
   distraction: 'butterfly' | 'smell';
   runFrom: number;
   moving: boolean;
+  /** That one was a good one (caught, or right by the flag): she's beside herself when she brings it back. */
+  delighted: boolean;
+  /** This throw, she's already had her one try at catching it, and whether it came off. */
+  leapTried?: boolean;
+  leapLucky?: boolean;
 }
 
 export interface ThrowScore {
@@ -149,10 +154,12 @@ export interface ThrowScore {
   accuracy: number;
   clean: number;
   proud: number;
+  /** Caught clean out of the air. */
+  caught: number;
   total: number;
 }
 
-export type FetchEvent = 'throw' | 'land' | 'bounce' | 'snag' | 'splash' | 'thunk' | 'wade' | 'puddle' | 'hop' | 'distracted' | 'dig' | 'pickup' | 'shake' | 'drop' | 'scored';
+export type FetchEvent = 'catch' | 'fooled' | 'throw' | 'land' | 'bounce' | 'snag' | 'splash' | 'thunk' | 'wade' | 'puddle' | 'hop' | 'distracted' | 'dig' | 'pickup' | 'shake' | 'drop' | 'scored';
 
 export type FetchPhase = 'aim' | 'flight' | 'fetch' | 'done';
 
@@ -187,7 +194,7 @@ export function createFetch(seed: number): FetchGame {
 }
 
 function newScout(): Scout {
-  return { x: HOME.x, y: HOME.y, heading: Math.PI / 2, mode: 'sit', modeT: 0, modeDur: 0, hop: 0, wet: false, carrying: false, hurry: false, distractAt: null, distraction: 'butterfly', runFrom: 0, moving: false };
+  return { x: HOME.x, y: HOME.y, heading: Math.PI / 2, mode: 'sit', modeT: 0, modeDur: 0, hop: 0, wet: false, carrying: false, hurry: false, distractAt: null, distraction: 'butterfly', runFrom: 0, moving: false, delighted: false };
 }
 
 export function flagFor(g: FetchGame): Pt {
@@ -380,15 +387,32 @@ export function simulateThrow(kind: StickKind, angle: number, power: number, see
   return s;
 }
 
+/** Points for Scout catching it out of the air: a treat, not a strategy. */
+export const CATCH_BONUS = 5;
+
+/**
+ * Scott makes as if to throw, and doesn't. She's off like a shot — and
+ * stops, and looks about, and trots back looking as if she knew all along.
+ * Only while she's sat waiting for a throw.
+ */
+export function fakeThrow(g: FetchGame): boolean {
+  const sc = g.scout;
+  if (g.phase !== 'aim' || (sc.mode !== 'sit' && sc.mode !== 'wag')) return false;
+  setScout(sc, 'fooled', 2.0);
+  g.events.push('fooled');
+  return true;
+}
+
 /** What a throw's worth: distance, nearness to the flag, a clean landing, and pride. */
 export function scoreThrow(kind: StickKind, at: Pt, lie: Lie, flag: Pt): ThrowScore {
   const distance = Math.hypot(at.x, at.y);
   const distPts = Math.round(distance * 0.5);
   const flagDist = Math.hypot(at.x - flag.x, at.y - flag.y);
   const accuracy = flagDist < 2 ? 15 : flagDist < 4 ? 10 : flagDist < 6 ? 5 : 0;
-  const clean = lie === 'grass' ? 3 : 0;
+  const clean = lie === 'grass' || lie === 'caught' ? 3 : 0;
   const proud = STICKS[kind].proud;
-  return { kind, lie, distance, distPts, flagDist, accuracy, clean, proud, total: distPts + accuracy + clean + proud };
+  const caught = lie === 'caught' ? CATCH_BONUS : 0;
+  return { kind, lie, distance, distPts, flagDist, accuracy, clean, proud, caught, total: distPts + accuracy + clean + proud + caught };
 }
 
 // ------------------------------------------------------------ a session
@@ -410,6 +434,8 @@ export function throwStick(g: FetchGame, kind: StickKind, angle: number, power: 
   sc.distractAt = g.rng() < 0.35 ? 0.3 + g.rng() * 0.4 : null;
   sc.distraction = g.rng() < 0.5 ? 'butterfly' : 'smell';
   sc.runFrom = 0;
+  sc.leapTried = false;
+  sc.leapLucky = false;
   g.events.push('throw');
   return true;
 }
@@ -460,8 +486,28 @@ function stepScout(g: FetchGame, dt: number) {
       break;
     case 'run': {
       if (!s || sc.modeT < 0) break;
-      // Where it'll come down, or where it is: she watches it and runs under it.
+      // Where it is: she watches it and runs under it.
       const target = { x: s.x, y: s.y };
+      // Caught up with it as it comes down, low enough to reach: she goes up for it — and, about
+      // half the time, she gets it. (She decides once, as it drops into reach.)
+      const reach = !s.rest && s.kind !== 'branch' && s.t > 0.4 && s.vz < 0 && s.z < 1.1 && Math.hypot(s.x - sc.x, s.y - sc.y) < 0.75;
+      if (reach && !sc.leapTried) {
+        sc.leapTried = true;
+        sc.leapLucky = g.rng() < 0.5;
+      }
+      if (reach && sc.leapLucky) {
+        s.rest = true;
+        s.lie = 'caught';
+        s.vx = s.vy = s.vz = 0;
+        s.spin = 0;
+        g.pending = scoreThrow(s.kind, s, 'caught', flagFor(g));
+        g.phase = 'fetch';
+        sc.carrying = true;
+        sc.heading = Math.atan2(s.y - sc.y, s.x - sc.x) || sc.heading;
+        g.events.push('catch');
+        setScout(sc, 'leap', 0.5);
+        break;
+      }
       const d = Math.hypot(target.x - sc.x, target.y - sc.y);
       // Snagged in a bush, she gets as far as its edge and digs in.
       const bush = s.rest && s.lie === 'bush' ? bushAt(s) : undefined;
@@ -485,6 +531,33 @@ function stepScout(g: FetchGame, dt: number) {
       // Not past the stick while it's still in the air.
       const speed = s.rest || d > 1 ? RUN_SPEED * hurry : 2;
       moveScout(g, target, speed, dt, bush);
+      break;
+    }
+    case 'leap':
+      // Up, the stick in her jaws, and down again.
+      sc.hop = Math.sin(Math.min(1, sc.modeT / sc.modeDur) * Math.PI);
+      if (s) {
+        s.x = sc.x + Math.cos(sc.heading) * 0.5;
+        s.y = sc.y + Math.sin(sc.heading) * 0.5;
+        s.z = 0.45 + sc.hop * 0.55;
+      }
+      if (sc.modeT >= sc.modeDur) {
+        sc.hop = 0;
+        setScout(sc, 'return');
+      }
+      break;
+    case 'fooled': {
+      // Off up the meadow — where is it? — and back, a bit sheepish.
+      const out = { x: HOME.x - 0.4, y: HOME.y + 3.2 };
+      if (sc.modeT < 0.55) moveScout(g, out, 8, dt);
+      else if (sc.modeT > 1.35) {
+        moveScout(g, HOME, 4, dt);
+        if (Math.hypot(HOME.x - sc.x, HOME.y - sc.y) < 0.1 || sc.modeT >= sc.modeDur + 1) {
+          sc.x = HOME.x;
+          sc.y = HOME.y;
+          setScout(sc, 'sit');
+        }
+      }
       break;
     }
     case 'distracted':
@@ -546,6 +619,7 @@ function stepScout(g: FetchGame, dt: number) {
         }
         g.events.push('drop');
         if (g.pending) {
+          sc.delighted = g.pending.caught > 0 || g.pending.accuracy >= 10;
           g.scores.push(g.pending);
           g.total += g.pending.total;
           g.events.push('scored');
@@ -557,6 +631,7 @@ function stepScout(g: FetchGame, dt: number) {
 }
 
 function finishThrow(g: FetchGame) {
+  g.scout.delighted = false;
   g.n++;
   g.stick = null;
   g.pending = null;

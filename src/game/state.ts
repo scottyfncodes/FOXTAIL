@@ -358,6 +358,10 @@ export interface PuttingRecord {
   course?: string;
   /** Holes aced at least once, by hole id. */
   aces: string[];
+  /** Fewest strokes ever taken on each hole, by hole id (any course). Missing on older saves. */
+  holeBests?: Record<string, number>;
+  /** Courses other than the living-room mat (whose record is the fields above), by course id. */
+  courses?: Record<string, { rounds: number; best: number | null }>;
 }
 
 /** One of the little games around the property (see systems/minigames). */

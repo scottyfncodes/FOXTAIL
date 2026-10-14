@@ -11,13 +11,10 @@ import { PlantCard } from './ui/PlantCard';
 import { GroundCard } from './ui/GroundCard';
 import { PuttingPanel } from './ui/PuttingPanel';
 import { PondPanel } from './ui/PondPanel';
-import { AcornPitchPanel } from './ui/minigames/AcornPitchPanel';
-import { TwigJengaPanel } from './ui/minigames/TwigJengaPanel';
 import { RockSkipPanel } from './ui/minigames/RockSkipPanel';
 import { GardenMazePanel } from './ui/minigames/GardenMazePanel';
 import { CatLaserPanel } from './ui/minigames/CatLaserPanel';
 import { StickFetchPanel } from './ui/minigames/StickFetchPanel';
-import { SlingshotPanel } from './ui/minigames/SlingshotPanel';
 import { FrogJumpPanel } from './ui/minigames/FrogJumpPanel';
 import type { MiniGameId } from './game/systems/minigames';
 import type { MiniGamePanel } from './ui/MiniGamePanel';
@@ -43,13 +40,10 @@ const putting = new PuttingPanel(game);
 const pond = new PondPanel(game);
 // The little games around the property, each opened by walking up to where it's set up.
 const miniGames: Record<MiniGameId, MiniGamePanel> = {
-  acornPitch: new AcornPitchPanel(game),
-  twigJenga: new TwigJengaPanel(game),
   rockSkip: new RockSkipPanel(game),
   gardenMaze: new GardenMazePanel(game),
   catLaser: new CatLaserPanel(game),
   stickFetch: new StickFetchPanel(game),
-  slingshot: new SlingshotPanel(game),
   frogJump: new FrogJumpPanel(game),
 };
 
@@ -59,7 +53,7 @@ hud.onBasket = () => basket.open();
 game.onOpenGreenhouse = (target) => greenhouse.open(target);
 game.onOpenMarket = () => market.open();
 game.onOpenPond = (id) => pond.open(id);
-game.onOpenPutting = () => putting.open();
+game.onOpenPutting = (course) => putting.openCourse(course);
 game.onOpenMiniGame = (id) => miniGames[id]?.open();
 game.onOpenPlantCard = (id) => plantCard.open(id);
 game.onOpenGroundCard = (target) => groundCard.open(target);

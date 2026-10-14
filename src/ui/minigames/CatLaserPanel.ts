@@ -32,6 +32,15 @@ interface Heart {
   t0: number;
 }
 
+/** A scuff on the boards where he skidded, or a little puff where he landed. */
+interface Mark {
+  x: number;
+  y: number;
+  a: number;
+  t0: number;
+  kind: 'scuff' | 'puff';
+}
+
 const A = CAT_APPEARANCE;
 
 export class CatLaserPanel extends MiniGamePanel {
@@ -41,6 +50,9 @@ export class CatLaserPanel extends MiniGamePanel {
   private running = false;
   private ending = false;
   private hearts: Heart[] = [];
+  private marks: Mark[] = [];
+  /** When something was last said in the corner: "So close!" */
+  private quip: { text: string; t0: number } | null = null;
   private shownCard = '';
   private seed = 0;
   /** Pixels per room unit and the room's top-left on the canvas. */
@@ -59,6 +71,8 @@ export class CatLaserPanel extends MiniGamePanel {
     this.running = false;
     this.ending = false;
     this.hearts = [];
+    this.marks = [];
+    this.quip = null;
     this.shownCard = '';
     this.refreshCard();
     this.setStatus(`Touch and drag to shine the dot; lift to switch it off. Dart it near Ranger and stop. ${this.bestLine()}`);
@@ -112,6 +126,9 @@ export class CatLaserPanel extends MiniGamePanel {
       }
     }
     for (const e of g.events) {
+      if (e === 'skid' || e === 'miss') this.marks.push({ x: g.cat.x, y: g.cat.y, a: g.cat.heading, t0: t, kind: 'scuff' });
+      if (e === 'catch' || e === 'miss') this.marks.push({ x: g.cat.x, y: g.cat.y, a: g.cat.heading, t0: t, kind: 'puff' });
+      if (e === 'near') this.quip = { text: Math.random() < 0.5 ? 'So close!' : 'By a whisker!', t0: t };
       if (e === 'catch') {
         for (let i = 0; i < 3; i++) this.hearts.push({ x: g.cat.x + (i - 1) * 0.22, y: g.cat.y - 0.3, t0: t + i * 120 });
         // The goal reached: a genuinely good moment.
@@ -120,6 +137,7 @@ export class CatLaserPanel extends MiniGamePanel {
     }
     g.events.length = 0;
     this.hearts = this.hearts.filter((h) => t - h.t0 < 1400);
+    this.marks = this.marks.filter((m) => t - m.t0 < 1200);
     this.refreshCard();
     if (g.over && !this.ending) {
       this.ending = true;
@@ -163,6 +181,7 @@ export class CatLaserPanel extends MiniGamePanel {
       ctx.ellipse(Math.min(g.base.x, COUCH.w), Math.min(g.base.y, COUCH.h), 0.2, 0.2, 0, 0, Math.PI * 2);
       ctx.fill();
     }
+    for (const m of this.marks) this.drawMark(ctx, m, t);
     if (g.moth) this.drawMoth(ctx, g.moth.x, g.moth.y, t);
     // Caught, the dot's under his paws: drawn first, so his paws cover it.
     if (g.on && !g.hidden && g.cat.mode === 'caught') this.drawDot(ctx, t);
@@ -171,6 +190,21 @@ export class CatLaserPanel extends MiniGamePanel {
     for (const h of this.hearts) this.drawHeart(ctx, h, t);
     ctx.restore();
     this.drawGauge(ctx);
+    if (this.quip && t - this.quip.t0 < 1300) {
+      const u = (t - this.quip.t0) / 1300;
+      ctx.save();
+      ctx.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1;
+      ctx.font = '600 14px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(20,30,20,0.6)';
+      const w = ctx.measureText(this.quip.text).width + 22;
+      ctx.beginPath();
+      ctx.roundRect(this.cw / 2 - w / 2, 10, w, 26, 13);
+      ctx.fill();
+      ctx.fillStyle = '#f4ecd8';
+      ctx.fillText(this.quip.text, this.cw / 2, 28);
+      ctx.restore();
+    }
     if (!this.running && !this.finished) {
       // Before the first touch: a soft hint where to start.
       ctx.save();
@@ -338,6 +372,33 @@ export class CatLaserPanel extends MiniGamePanel {
     ctx.fill();
   }
 
+  /** Two short pale streaks on the boards where his paws slid; or a little ring of dust where he landed. */
+  private drawMark(ctx: CanvasRenderingContext2D, m: Mark, t: number) {
+    const u = (t - m.t0) / 1200;
+    if (u < 0 || u > 1) return;
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(m.a);
+    if (m.kind === 'scuff') {
+      ctx.strokeStyle = `rgba(255,236,200,${0.35 * (1 - u)})`;
+      ctx.lineWidth = 0.035;
+      ctx.lineCap = 'round';
+      for (const side of [-0.12, 0.12]) {
+        ctx.beginPath();
+        ctx.moveTo(-0.45, side);
+        ctx.lineTo(0.15, side * 1.1);
+        ctx.stroke();
+      }
+    } else {
+      ctx.strokeStyle = `rgba(230,210,180,${0.4 * (1 - u)})`;
+      ctx.lineWidth = 0.025;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 0.3 + u * 0.35, 0.22 + u * 0.25, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   private drawHeart(ctx: CanvasRenderingContext2D, h: Heart, t: number) {
     const u = (t - h.t0) / 1400;
     if (u < 0) return;
@@ -389,8 +450,9 @@ export class CatLaserPanel extends MiniGamePanel {
     const c = g.cat;
     const mode = c.mode;
     const sitting = mode === 'watch' || mode === 'search' || mode === 'stare' || mode === 'moth' || mode === 'groom' || (mode === 'miss' && c.modeT > 0.45);
-    const crouch = mode === 'stalk' || mode === 'wiggle' || mode === 'caught';
-    const stretch = mode === 'pounce' || mode === 'zoomies' || (mode === 'miss' && c.modeT <= 0.45);
+    const crouch = mode === 'stalk' || mode === 'wiggle' || mode === 'caught' || mode === 'skid';
+    const stretch = mode === 'pounce' || mode === 'zoomies' || mode === 'chase' || (mode === 'miss' && c.modeT <= 0.45);
+    const running = mode === 'zoomies' || mode === 'chase';
     const flop = mode === 'flop' || mode === 'content';
     const hop = c.hop;
     // Licking a paw after a miss, as if he meant it; grooming when he's lost interest.
@@ -403,16 +465,28 @@ export class CatLaserPanel extends MiniGamePanel {
     ctx.fill();
 
     ctx.save();
-    ctx.translate(c.x, c.y - hop * 0.35);
-    ctx.rotate(c.heading);
+    // Winding up: the wiggle deepens, and just before the leap he draws back on his haunches.
+    const windUp = mode === 'wiggle' ? Math.min(1, c.modeT / Math.max(0.2, c.modeDur)) : 0;
+    const drawBack = windUp > 0.75 && !c.balked ? (windUp - 0.75) * 4 * 0.07 : 0;
+    // A running cat's body rises and falls with his stride.
+    const stride = running ? Math.abs(Math.sin(t / (mode === 'chase' ? 70 - c.speed * 6 : 40))) * 0.04 : 0;
+    ctx.translate(c.x - Math.cos(c.heading) * drawBack, c.y - Math.sin(c.heading) * drawBack - hop * 0.35 - stride);
+    // Skidding, his back end swings out a little as he slides.
+    ctx.rotate(c.heading + (mode === 'skid' ? Math.sin(Math.min(1, c.modeT / 0.5) * Math.PI) * 0.35 : 0));
     // Drawn a little larger than life, so his face reads on a phone.
     const k = (1 + hop * 0.18) * 1.2;
     ctx.scale(k, k);
+    // In the air he's long; touching down he squashes, then rights himself.
+    const land = (mode === 'caught' || mode === 'miss') && c.modeT < 0.16 ? Math.sin((c.modeT / 0.16) * Math.PI) : 0;
+    if (mode === 'pounce') ctx.scale(1 + hop * 0.22, 1 - hop * 0.12);
+    else if (land) ctx.scale(1 - land * 0.12, 1 + land * 0.14);
 
     // Ears up and forward when he's keen, swept back when he's hunting, slack when he's bored.
     const keen = g.interest;
-    const wig = mode === 'wiggle' ? Math.sin(t / 26) * 0.06 : 0;
-    const tailSway = Math.sin(t / (mode === 'stalk' || mode === 'wiggle' ? 110 : 520)) * (mode === 'stalk' || mode === 'wiggle' ? 0.08 : 0.18);
+    const wig = mode === 'wiggle' ? Math.sin(t / 26) * (0.03 + 0.05 * windUp) : 0;
+    // A keen cat's tail-tip twitches quick and small; a relaxed one sways slow and wide.
+    const hunting = mode === 'stalk' || mode === 'wiggle';
+    const tailSway = Math.sin(t / (hunting ? 110 : 520 - keen * 380)) * (hunting ? 0.08 : 0.18 - keen * 0.08);
 
     if (flop) {
       this.drawFlopped(ctx, t, mode === 'content');
@@ -454,7 +528,7 @@ export class CatLaserPanel extends MiniGamePanel {
       paw(-0.28 + 0, -0.22 + wig);
       paw(-0.28, 0.22 + wig);
     } else if (stretch) {
-      const run = mode === 'zoomies' ? Math.sin(t / 40) * 0.08 : 0;
+      const run = running ? Math.sin(t / (mode === 'chase' ? 70 - c.speed * 6 : 40)) * 0.1 : 0;
       paw(0.6 + run, -0.1);
       paw(0.6 - run, 0.1);
       paw(-0.55 - run, -0.12);
@@ -516,6 +590,14 @@ export class CatLaserPanel extends MiniGamePanel {
     ctx.save();
     ctx.translate(headX, 0);
     ctx.rotate(rel);
+    if (c.swat && mode === 'miss' && c.modeT > 0.1 && c.modeT < 0.7) {
+      // A swipe at where it was, claws and all.
+      const sw = Math.sin(((c.modeT - 0.1) / 0.6) * Math.PI);
+      ctx.fillStyle = A.furLight;
+      ctx.beginPath();
+      ctx.ellipse(0.2 + sw * 0.22, 0.1 - sw * 0.08, 0.08, 0.06, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     if (licking) {
       // A front paw raised to his mouth.
       ctx.fillStyle = A.furLight;
@@ -523,8 +605,8 @@ export class CatLaserPanel extends MiniGamePanel {
       ctx.ellipse(0.18, 0.02, 0.08, 0.06, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    const earMode = mode === 'stalk' || mode === 'wiggle' ? 'back' : keen > 0.55 || mode === 'pounce' || mode === 'zoomies' ? 'up' : keen < 0.3 ? 'slack' : 'mid';
-    this.drawHead(ctx, t, earMode, mode === 'caught' && c.modeT > 0.25, mode === 'stalk' || mode === 'wiggle' || mode === 'pounce');
+    const earMode = mode === 'stalk' || mode === 'wiggle' || mode === 'chase' ? 'back' : keen > 0.55 || mode === 'pounce' || mode === 'zoomies' ? 'up' : keen < 0.3 ? 'slack' : 'mid';
+    this.drawHead(ctx, t, earMode, mode === 'caught' && c.modeT > 0.25, mode === 'stalk' || mode === 'wiggle' || mode === 'pounce' || mode === 'chase' || mode === 'skid' || (keen > 0.75 && mode === 'watch'));
     ctx.restore();
     ctx.restore();
   }
