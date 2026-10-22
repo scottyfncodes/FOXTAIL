@@ -26,7 +26,6 @@ export const RETIRED_MINI_GAMES: readonly string[] = ['acornPitch', 'twigJenga',
 export interface MiniGameDef {
   id: MiniGameId;
   name: string;
-  emoji: string;
   /** Where it's found outdoors (tile coords, centre of the prop), or 'ranger': wherever Ranger is, indoors. */
   where: { zone: OutdoorZoneId; x: number; y: number } | 'ranger';
   /** What walking up to it says, before the best score. */
@@ -47,7 +46,6 @@ export const MINI_GAMES: MiniGameDef[] = [
   {
     id: 'rockSkip',
     name: 'Rock Skip',
-    emoji: '🪨',
     // A heap of flat stones on the creek bank, below Scott's fishing bend.
     where: { zone: 'creek', x: 44.5, y: 36.5 },
     prompt: 'Skip stones on the creek',
@@ -57,7 +55,6 @@ export const MINI_GAMES: MiniGameDef[] = [
   {
     id: 'gardenMaze',
     name: 'Garden Maze',
-    emoji: '🌿',
     // A hedge arch in the meadow, west of the greenhouse.
     where: { zone: 'meadow', x: 49.5, y: 41.5 },
     prompt: 'Walk the garden maze',
@@ -67,7 +64,6 @@ export const MINI_GAMES: MiniGameDef[] = [
   {
     id: 'catLaser',
     name: 'Cat Laser',
-    emoji: '🐈',
     where: 'ranger',
     prompt: 'Play laser pointer with Ranger',
     unit: 'pounces',
@@ -76,7 +72,6 @@ export const MINI_GAMES: MiniGameDef[] = [
   {
     id: 'stickFetch',
     name: 'Stick Fetch',
-    emoji: '🐕',
     // A bucket of good sticks out on the open meadow, where there's room to throw.
     where: { zone: 'meadow', x: 78.5, y: 30.5 },
     prompt: 'Throw sticks for Scout',
@@ -86,7 +81,6 @@ export const MINI_GAMES: MiniGameDef[] = [
   {
     id: 'frogJump',
     name: 'Frog Jump',
-    emoji: '🐸',
     // The lily pads in the slack water on the creek's west bank.
     where: { zone: 'creek', x: 39.5, y: 23.5 },
     prompt: 'Help the frog across the lily pads',

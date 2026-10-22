@@ -8,9 +8,9 @@
 
 export type SeasonTheme = 'classic' | 'october';
 
-export const THEMES: { id: SeasonTheme; label: string; icon: string }[] = [
-  { id: 'classic', label: 'Classic', icon: '\u{1F33F}' },
-  { id: 'october', label: 'October', icon: '\u{1F383}' },
+export const THEMES: { id: SeasonTheme; label: string }[] = [
+  { id: 'classic', label: 'Classic' },
+  { id: 'october', label: 'October' },
 ];
 
 const THEME_KEY = 'foxtail-season';

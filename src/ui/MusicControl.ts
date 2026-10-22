@@ -1,5 +1,6 @@
 import type { MusicManager } from '../game/engine/MusicManager';
 import { el } from './dom';
+import { icon } from './icons';
 import { THEMES, getTheme, setTheme, onThemeChange } from '../game/season';
 
 /**
@@ -8,7 +9,7 @@ import { THEMES, getTheme, setTheme, onThemeChange } from '../game/season';
  * the music itself.
  */
 export class MusicControl {
-  readonly button = el('button', 'icon-btn music-btn', '\u{1F3B5}');
+  readonly button = el('button', 'icon-btn music-btn');
   readonly menu = el('div', 'music-menu');
   private toggle = el('button', 'music-toggle');
   private slider = el('input', 'music-volume');
@@ -17,6 +18,7 @@ export class MusicControl {
   private open = false;
 
   constructor(private music: MusicManager) {
+    this.button.append(icon('music'));
     this.button.setAttribute('aria-label', 'Music');
     this.button.setAttribute('aria-haspopup', 'true');
     this.button.addEventListener('click', () => this.setOpen(!this.open));
@@ -44,7 +46,7 @@ export class MusicControl {
     const themeHead = el('div', 'music-head theme-head');
     themeHead.append(el('span', 'music-title', 'Season'));
     for (const t of THEMES) {
-      const b = el('button', 'theme-choice', `${t.icon} ${t.label}`);
+      const b = el('button', 'theme-choice', t.label);
       b.dataset.theme = t.id;
       b.setAttribute('role', 'radio');
       b.addEventListener('click', () => setTheme(t.id));

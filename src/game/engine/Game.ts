@@ -639,7 +639,7 @@ export class Game {
         continue;
       }
       sc.showPlant = { plantId: p.id, since: now };
-      this.pushToast(`Scott’s waving you over — something’s come up on its own in ${regionLabel(st, p.location.zone)}. Follow him.`, 'discovery', 'important');
+      this.pushToast(`Scott’s waving you over: something’s come up on its own in ${regionLabel(st, p.location.zone)}. Follow him.`, 'discovery', 'important');
       return { id: `show-${p.id}`, kind: 'show', zone: zoneAt(p.location.x + 0.7, p.location.y), x: p.location.x + 0.7, y: p.location.y, face: 'left' };
     }
     return null;
@@ -690,7 +690,7 @@ export class Game {
       st.foxFinds.push(find);
       sc.leadTo = { x, y, findId: find.id };
       sc.behavior = 'leading';
-      this.pushToast('Scout’s caught a scent and she’s off — follow her and see what she’s found.', 'discovery');
+      this.pushToast('Scout’s caught a scent and she’s off. Follow her and see what she’s found.', 'discovery');
       return;
     }
   }
@@ -747,7 +747,7 @@ export class Game {
       const complete = news.grown >= news.total && news.total > 1;
       const text = complete
         ? `${specimenName(g.defId, g.variantId)} took. Every form of ${PLANTS[g.defId]?.name ?? 'it'} is in your field journal now.`
-        : `${specimenName(g.defId, g.variantId)} took — it’s in your field journal now.`;
+        : `${specimenName(g.defId, g.variantId)} took. It’s in your field journal now.`;
       this.onToast?.({ id: makeUid('toast'), text, kind: 'discovery', significance: complete ? 'major' : 'important', journal: news });
     }
 
@@ -770,9 +770,9 @@ export class Game {
           this.hint('rooted', 'Rooted plants give cuttings. Grow two of a kind to establish it.', 'important', () => !isEstablished(this.state, plant.defId));
         } else this.pushToast(`Your ${name} is now ${STAGE_LABEL[up.to].toLowerCase()}.`, 'growth');
       } else if (up.to === 'large' && !plant.bornWild) {
-        this.pushToast(`Your ${name} in ${zoneLabel(plant.location.zone, this.state)} has grown large — it may start to spread.`, 'growth');
+        this.pushToast(`Your ${name} in ${zoneLabel(plant.location.zone, this.state)} has grown large. It may start to spread.`, 'growth');
         // Now that spreading is about to begin, a bed is worth knowing about.
-        if (this.state.gardenBeds.length === 0) this.hint('beds', 'Large plants spread. A garden bed (🌿) keeps them where you put them.', 'important', () => this.outdoors() && this.state.gardenBeds.length === 0);
+        if (this.state.gardenBeds.length === 0) this.hint('beds', 'Large plants spread. A garden bed (the leafy garden button, top right) keeps them where you put them.', 'important', () => this.outdoors() && this.state.gardenBeds.length === 0);
       } else if (up.to === 'specimen' && !plant.bornWild) {
         this.pushToast(`Your ${name} in ${zoneLabel(plant.location.zone, this.state)} is a magnificent specimen now.`, 'growth', 'important');
       }
@@ -1094,7 +1094,7 @@ export class Game {
     if (p.inGreenhouse) return;
     if (moving && !this.riding() && this.state.paths.length === 0 && this.groundSpeed() < 0.75) {
       this.thicketSeconds += dtSeconds;
-      if (this.thicketSeconds > 4) this.hint('paths', 'Thick going. Carve a path (🌿) and the way stays clear.', 'important', () => this.outdoors() && this.state.paths.length === 0);
+      if (this.thicketSeconds > 4) this.hint('paths', 'Thick going. Carve a path (the leafy garden button) and the way stays clear.', 'important', () => this.outdoors() && this.state.paths.length === 0);
     }
     if (isNight(this.state.clock.totalMinutes) && !this.state.tools.lantern) {
       this.hint('dusk', 'Dark now. Some things only show themselves after dark.', 'normal', () => this.outdoors() && isNight(this.state.clock.totalMinutes));
@@ -1117,7 +1117,7 @@ export class Game {
       const rarity = RARITY_LABEL[r];
       this.audio.playDiscoveryChime();
       if (found.newSpecies) this.announce(`Something new has come up among your plants: ${fullName(plant.defId, plant.variantId)} (${rarity}).`, r);
-      else if (found.newVariant) this.announce(`New variant: ${fullName(plant.defId, plant.variantId)} (${rarity}) — it sprouted by itself among your plants!`, r);
+      else if (found.newVariant) this.announce(`New variant: ${fullName(plant.defId, plant.variantId)} (${rarity}). It sprouted by itself among your plants!`, r);
       else this.pushToast(`A ${specimenName(plant.defId, plant.variantId)} has come up among your plants.`, 'discovery', 'normal');
       this.flourish(plant.location.x, plant.location.y, r, found.newSpecies || found.newVariant);
       this.onStateTouched?.();
@@ -1274,12 +1274,12 @@ export class Game {
         if (isGardenPlanter(d.decorId)) {
           // A garden trellis is a planter, like the one indoors: walking up to it opens it. It moves with the 🪑 button.
           const plant = occupantOf(this.state, { slotId: d.id });
-          const label = plant ? `${specimenName(plant.defId, plant.variantId)} — ${STAGE_LABEL[stageName(plant)]}` : `Empty ${name.toLowerCase()}`;
+          const label = plant ? `${specimenName(plant.defId, plant.variantId)} · ${STAGE_LABEL[stageName(plant)]}` : `Empty ${name.toLowerCase()}`;
           consider({ kind: 'display', id: d.id, x: d.x, y: d.y, label, available: true }, d.x, d.y, 1.0);
         } else if (d.decorId === 'gardenPond') {
           // A pond is tended, not carried (the garden's arrange mode still moves it).
           const cap = pondCapacity(d);
-          const label = cap === 0 ? 'The pond — too small for koi' : `Tend the pond · ${d.koi?.length ?? 0} of ${cap} koi`;
+          const label = cap === 0 ? 'The pond (too small for koi)' : `Tend the pond · ${d.koi?.length ?? 0} of ${cap} koi`;
           const size = pondSize(d);
           consider({ kind: 'pond', id: d.id, x: d.x, y: d.y, label, available: true }, d.x, d.y, Math.max(1.2, Math.max(size.w, size.h) / 2 + 0.3));
         } else consider({ kind: 'decor', id: d.id, x: d.x, y: d.y, label: `Move the ${name}`, available: true }, d.x, d.y, 1.0);
@@ -1289,7 +1289,7 @@ export class Game {
         if (!c) continue;
         const seen = hasFound(this.state, c.defId, c.variantId);
         const known = hasFound(this.state, c.defId);
-        const label = seen ? `Take a cutting — ${specimenName(c.defId, c.variantId)}` : known ? `Take a cutting — an unusual ${PLANTS[c.defId].name}?` : 'Take a cutting — something you’ve never seen';
+        const label = seen ? `Take a cutting: ${specimenName(c.defId, c.variantId)}` : known ? `Take a cutting: an unusual ${PLANTS[c.defId].name}?` : 'Take a cutting: something you’ve never seen';
         consider({ kind: 'spot', id: spot.id, x: spot.x, y: spot.y, label, available: true }, spot.x + 0.5, spot.y + 0.5);
       }
       for (const plant of Object.values(this.state.plants)) {
@@ -1298,9 +1298,9 @@ export class Game {
         const name = specimenName(plant.defId, plant.variantId);
         const label =
           block === 'not-rooted'
-            ? `${name} seedling — too young for cuttings`
+            ? `${name} seedling, too young for cuttings`
             : block === 'recovering'
-              ? `${name} — recovering from its last cutting`
+              ? `${name}, recovering from its last cutting`
               : `Take a cutting from ${name}`;
         consider({ kind: 'wildPlant', id: plant.id, x: plant.location.x, y: plant.location.y, label, available: !block || block === 'basket-full' }, plant.location.x, plant.location.y, 1.0);
       }
@@ -1360,9 +1360,9 @@ export class Game {
       consider({ kind: 'market', id: 'market', x: mx, y: my, label: 'Plant Stand & Supply', available: true }, mx, my, this.riding() ? 2.4 : 1.6);
       if (!this.riding()) {
         for (const d of BUILDING_DOORS) {
-          consider({ kind: 'greenhouseDoor', id: d.id, x: d.outside.x, y: d.outside.y, label: d.id === 'house' ? 'In the back door — home' : 'Into the Greenhouse', available: true }, d.outside.x + 0.5, d.outside.y + 0.5);
+          consider({ kind: 'greenhouseDoor', id: d.id, x: d.outside.x, y: d.outside.y, label: d.id === 'house' ? 'In the back door, home' : 'Into the Greenhouse', available: true }, d.outside.x + 0.5, d.outside.y + 0.5);
         }
-        consider({ kind: 'houseDoor', id: 'house', x: HOUSE_DOOR.x, y: HOUSE_DOOR.y, label: 'Go inside — home', available: true }, HOUSE_DOOR.x + 0.5, HOUSE_DOOR.y + 0.5);
+        consider({ kind: 'houseDoor', id: 'house', x: HOUSE_DOOR.x, y: HOUSE_DOOR.y, label: 'Go inside, home', available: true }, HOUSE_DOOR.x + 0.5, HOUSE_DOOR.y + 0.5);
       }
       const truck = this.state.truck;
       if (truck && !this.riding() && !scottDriving(this.state)) {
@@ -1373,12 +1373,12 @@ export class Game {
       const occupants = occupantsByPlace(this.state);
       for (const bed of nurserySpots(this.state)) {
         const plant = occupants.beds.get(bed.id);
-        const label = plant ? `${specimenName(plant.defId, plant.variantId)} — ${STAGE_LABEL[stageName(plant)]}` : 'Empty nursery bed';
+        const label = plant ? `${specimenName(plant.defId, plant.variantId)} · ${STAGE_LABEL[stageName(plant)]}` : 'Empty nursery bed';
         consider({ kind: 'bed', id: bed.id, x: bed.x, y: bed.y, label, available: true }, bed.x + 0.5, bed.y + 0.5);
       }
       for (const slot of displaySlots(this.state)) {
         const plant = occupants.slots.get(slot.id);
-        const label = plant ? `${specimenName(plant.defId, plant.variantId)} — ${STAGE_LABEL[stageName(plant)]}` : 'Empty display spot';
+        const label = plant ? `${specimenName(plant.defId, plant.variantId)} · ${STAGE_LABEL[stageName(plant)]}` : 'Empty display spot';
         const cy = slot.kind === 'hanging' ? slot.y + 1.2 : slot.y + 0.5;
         consider({ kind: 'display', id: slot.id, x: slot.x, y: slot.y, label, available: true }, slot.x + 0.5, cy);
       }
@@ -1499,7 +1499,7 @@ export class Game {
     const name = specimenName(res.item.defId, res.item.variantId);
     if (res.sport) {
       const r = specimenRarity(res.item.defId, res.item.variantId);
-      this.announce(`${res.newVariant ? 'New variant! ' : ''}This cutting came out different — a ${fullName(res.item.defId, res.item.variantId)} (${RARITY_LABEL[r]}).`, r);
+      this.announce(`${res.newVariant ? 'New variant! ' : ''}This cutting came out different: a ${fullName(res.item.defId, res.item.variantId)} (${RARITY_LABEL[r]}).`, r);
       if (plant.location.kind === 'wild') this.flourish(plant.location.x, plant.location.y, r, res.newVariant);
     } else {
       this.pushToast(`Took a cutting of ${name}.${this.stowedNote()}`, 'info');
@@ -1776,7 +1776,7 @@ export class Game {
     const m = this.tools.mode;
     const holding = (m.kind === 'arrange' || m.kind === 'yard') && (!!m.pending || !!m.selectedId);
     const ok = this.tools.rotateSelected();
-    if (!ok && holding) this.pushToast('No room to turn it here — move it somewhere clearer first.', 'info');
+    if (!ok && holding) this.pushToast('No room to turn it here. Move it somewhere clearer first.', 'info');
     return ok;
   }
 
@@ -1861,7 +1861,7 @@ export class Game {
       const keepsake = firstEver ? findKeepsake(GOLF_BALL_CURIOSITY) : undefined;
       if (keepsake) this.pushToast(keepsake.note, 'info');
     } else {
-      this.pushToast(`A lost golf ball — ${b.name} (×${g.count}).`, 'discovery', 'normal');
+      this.pushToast(`A lost golf ball: ${b.name} (×${g.count}).`, 'discovery', 'normal');
     }
   }
 
@@ -1956,8 +1956,8 @@ export class Game {
     this.carryingDecorId = null;
     if (!boardTruck(this.state)) return;
     this.audio.playToolChime();
-    this.pushToast('Driving — Scout’s jumped in the back. Thickets can’t slow the truck, and anything you gather rides in the back once your basket is full.', 'info');
-    this.hint('truckPark', 'To get out, press E with nothing else in reach — or tap the 🚚 button.', 'important', () => this.riding());
+    this.pushToast('Driving. Scout’s jumped in the back. Thickets can’t slow the truck, and anything you gather rides in the back once your basket is full.', 'info');
+    this.hint('truckPark', 'To get out, press E with nothing else in reach, or tap the truck button.', 'important', () => this.riding());
     this.onStateTouched?.();
   }
 
@@ -1975,7 +1975,7 @@ export class Game {
     sc.y = this.state.player.y + 0.4;
     sc.facing = 'down';
     const n = this.state.truck!.bed.length;
-    this.pushToast(n ? `Parked. ${n} plant${n === 1 ? '' : 's'} in the back — they’re within reach while you’re beside it.` : 'Parked.', 'info');
+    this.pushToast(n ? `Parked. ${n} plant${n === 1 ? '' : 's'} in the back. They’re within reach while you’re beside it.` : 'Parked.', 'info');
     this.onStateTouched?.();
   }
 
@@ -2598,7 +2598,7 @@ export class Game {
     this.audio.playToolChime();
     if (itemId === 'miniTruck') {
       deliverTruck(this.state, (tx, ty) => this.isOpenGround(tx, ty) && !this.plantOnTile(tx, ty) && !isBlockedOutdoor(tx + 0.5, ty + 0.5, this.blockingSet, stallRect(this.state)));
-      this.pushToast(`Bought the Mini Truck. It’s parked in the lane by the house — room for ${TRUCK_BED_CAP} plants in the back.`, 'discovery');
+      this.pushToast(`Bought the Mini Truck. It’s parked in the lane by the house, with room for ${TRUCK_BED_CAP} plants in the back.`, 'discovery');
       this.onStateTouched?.();
       return;
     }
@@ -2614,7 +2614,7 @@ export class Game {
         : item.category === 'greenhouse'
           ? item.repeatable
             ? `Bought a ${item.name}. Set it down indoors: tap the arrange button at home.`
-            : `${item.name} — done. Go and see.`
+            : `${item.name}: done. Go and see.`
           : `Bought ${item.name}.`,
       'coins',
       item.category === 'greenhouse' && !item.repeatable ? 'important' : 'minor'

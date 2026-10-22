@@ -50,7 +50,7 @@ export class BasketPanel {
           info.appendChild(note('Pot it in a nursery bed so it can root.', 'row-note'));
         } else if (block === 'not-established') {
           const grown = state.collection[item.defId]?.grown ?? 0;
-          info.appendChild(note(`Grow ${ESTABLISH_THRESHOLD} ${PLANTS[item.defId].name} to establish it (${grown}/${ESTABLISH_THRESHOLD}) — then it can go on display or out in the wild.`, 'row-note'));
+          info.appendChild(note(`Grow ${ESTABLISH_THRESHOLD} ${PLANTS[item.defId].name} to establish it (${grown}/${ESTABLISH_THRESHOLD}), then it can go on display or out in the wild.`, 'row-note'));
         } else if (outdoors) {
           actions.appendChild(
             button('Plant…', () => {

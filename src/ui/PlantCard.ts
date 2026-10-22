@@ -104,13 +104,13 @@ export class PlantCard {
     const compost = el('div', 'compost-box');
     const others = Object.values(state.plants).filter((p) => p !== plant && p.defId === plant.defId && p.variantId === plant.variantId).length + state.basket.filter((b) => b.defId === plant.defId && b.variantId === plant.variantId).length;
     if (!this.confirmCompost) {
-      compost.appendChild(note(idx >= 3 ? 'Settled in for good now — too big to move. If it’s in the wrong place, it can go on the compost.' : 'Not where you wanted it? It can go on the compost.', 'row-note'));
+      compost.appendChild(note(idx >= 3 ? 'Settled in for good now, too big to move. If it’s in the wrong place, it can go on the compost.' : 'Not where you wanted it? It can go on the compost.', 'row-note'));
       compost.appendChild(button('Compost…', () => {
         this.confirmCompost = true;
         this.render();
       }, 'secondary-btn compost-btn'));
     } else {
-      const lines: string[] = ['It’ll be gone for good — take a cutting first if you want one.'];
+      const lines: string[] = ['It’ll be gone for good. Take a cutting first if you want one.'];
       if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 2 && others === 0) lines.push('It’s the only one you have.');
       compost.appendChild(note(lines.join(' '), `row-note${others === 0 ? ' warn' : ''}`));
       const row = el('div', 'action-row');

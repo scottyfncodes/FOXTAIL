@@ -132,7 +132,7 @@ export class PuttingPanel extends CanvasGamePanel {
   }
 
   protected start() {
-    this.panel.setTitle(`⛳ ${this.course.name}`);
+    this.panel.setTitle(this.course.name);
     this.hole = 0;
     this.strokes = [];
     this.notes = [];
@@ -205,7 +205,7 @@ export class PuttingPanel extends CanvasGamePanel {
     }
     if (this.phase === 'aim') {
       if (this.strokes[this.hole] > 0) this.status.textContent = 'Line it up again.';
-      else if (this.hole === 0) this.status.textContent = `Touch anywhere, pull back and let go to putt — further back, harder. ${h.tip ?? ''}`.trim();
+      else if (this.hole === 0) this.status.textContent = `Touch anywhere, pull back and let go to putt. Further back, harder. ${h.tip ?? ''}`.trim();
       else this.status.textContent = h.tip ?? 'Pull back and let go.';
     } else if (this.phase === 'rolling') {
       const best = courseBestFor(rec, this.course);

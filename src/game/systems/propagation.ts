@@ -36,7 +36,7 @@ export function cuttingOdds(state: GameState, plant: Pick<OwnedPlant, 'defId' | 
   const fail = cuttingFailChance(state, plant);
   if (fail <= 0) return null;
   const takes = Math.round((1 - fail) * 10);
-  return takes >= 10 ? null : `Cuttings from it take about ${takes} times in 10${state.owned.includes('rootingKit') ? '' : ' — better with a rooting kit'}.`;
+  return takes >= 10 ? null : `Cuttings from it take about ${takes} times in 10${state.owned.includes('rootingKit') ? '' : ', better with a rooting kit'}.`;
 }
 
 /**

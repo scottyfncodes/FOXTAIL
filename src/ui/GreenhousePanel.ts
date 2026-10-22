@@ -111,7 +111,7 @@ export class GreenhousePanel {
   private renderDisplayChoice(slotId: string) {
     const state = this.game.state;
     const body = this.panel.body;
-    body.appendChild(note('Your collection. Plants on display stay here for good and keep growing — the rarer, the better they look.'));
+    body.appendChild(note('Your collection. Plants on display stay here for good and keep growing. The rarer, the better they look.'));
     const eligible = reachable(state).filter((i) => !placementBlockReason(state, i));
     if (eligible.length === 0) {
       const waiting = reachable(state).find((i) => placementBlockReason(state, i) === 'not-established');
@@ -179,14 +179,14 @@ export class GreenhousePanel {
       note(
         next !== null
           ? `${STAGE_LABEL[STAGES[idx]]}. ${STAGE_LABEL[STAGES[idx + 1]]} in ${realTime(next)}.`
-          : `${STAGE_LABEL[STAGES[idx]]} — fully grown, and still filling out.`,
+          : `${STAGE_LABEL[STAGES[idx]]}: fully grown, and still filling out.`,
         'growth-note'
       )
     );
 
     const est = isEstablished(state, plant.defId);
     const grown = state.collection[plant.defId]?.grown ?? 0;
-    if (!est) body.appendChild(note(`${def.name}: ${grown} of ${ESTABLISH_THRESHOLD} grown. Establish it by raising ${ESTABLISH_THRESHOLD} to “Established” — take a cutting from this one to get the second.`));
+    if (!est) body.appendChild(note(`${def.name}: ${grown} of ${ESTABLISH_THRESHOLD} grown. Establish it by raising ${ESTABLISH_THRESHOLD} to “Established”. Take a cutting from this one to get the second.`));
 
     if (plant.location.kind === 'display') {
       body.appendChild(el('h4', 'section-head', 'Pot'));
@@ -214,7 +214,7 @@ export class GreenhousePanel {
     if (crossBtn) actions.appendChild(crossBtn);
     const odds = block === 'not-rooted' ? null : cuttingOdds(state, plant);
     if (odds) body.appendChild(note(odds, 'row-note'));
-    const liftLabel = plant.location.kind === 'nursery' && est && idx >= 1 ? 'Lift — to display or plant out' : 'Lift into basket';
+    const liftLabel = plant.location.kind === 'nursery' && est && idx >= 1 ? 'Lift to display or plant out' : 'Lift into basket';
     actions.appendChild(button(liftLabel, () => {
       this.game.lift(plant.id);
       this.panel.close();

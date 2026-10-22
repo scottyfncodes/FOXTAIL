@@ -121,8 +121,8 @@ export class MarketPanel {
         Object.values(state.plants).filter((p) => p.defId === item.defId && p.variantId === item.variantId).length;
       if (rarityRank(rarity) >= 2 && others === 0) info.appendChild(note('Your only one. Propagate it first, and you could keep one and sell one.', 'row-note warn'));
       const glut = soldToday(state, item.defId);
-      if (glut > 0) info.appendChild(note(`${glut} already sold today — buyers are paying less for more of the same. Prices recover tomorrow.`, 'row-note'));
-      else if (before > 0) info.appendChild(note(`Priced as the ${before === 1 ? 'second' : before === 2 ? 'third' : `${before + 1}th`} ${PLANTS[item.defId].name} sold today — each one fetches a little less.`, 'row-note'));
+      if (glut > 0) info.appendChild(note(`${glut} already sold today, so buyers are paying less for more of the same. Prices recover tomorrow.`, 'row-note'));
+      else if (before > 0) info.appendChild(note(`Priced as the ${before === 1 ? 'second' : before === 2 ? 'third' : `${before + 1}th`} ${PLANTS[item.defId].name} sold today. Each one fetches a little less.`, 'row-note'));
       if (!canSell(item.defId)) {
         info.appendChild(note('The stall won’t take this one.', 'row-note'));
         row.append(portrait(item.defId, item.variantId, Math.max(0.6, stageFloat(item.growth)), item.seed, 56), info, button('Not for sale', () => {}, 'secondary-btn', true));
@@ -192,7 +192,7 @@ export class MarketPanel {
     if (past.length) {
       const list = el('div', 'board-past');
       list.appendChild(el('div', 'entry-sub dim', 'Notes the stall has kept:'));
-      for (const n of past.slice(0, 4)) list.appendChild(el('div', 'board-past-note', `“${n.text}” — the ${n.what}`));
+      for (const n of past.slice(0, 4)) list.appendChild(el('div', 'board-past-note', `“${n.text}” (the ${n.what})`));
       board.appendChild(list);
     }
     body.appendChild(board);
@@ -229,7 +229,7 @@ export class MarketPanel {
         if (!group.length) continue;
         const info = PURPOSE_INFO[purpose];
         const sub = el('div', `shop-subhead purpose-${purpose}`);
-        sub.append(el('span', 'purpose-icon', info.icon), document.createTextNode(info.label));
+        sub.textContent = info.label;
         body.appendChild(sub);
         body.appendChild(this.itemList(group));
       }
@@ -264,7 +264,7 @@ export class MarketPanel {
   private renderResell() {
     const state = this.game.state;
     const body = this.panel.body;
-    body.appendChild(note(`The market buys back anything you haven’t set out — decor, furniture, koi not in a pond — for ${Math.round(RESALE_RATE * 100)}% of its list price. Pick up a placed piece first to sell it.`));
+    body.appendChild(note(`The market buys back anything you haven’t set out (decor, furniture, koi not in a pond) for ${Math.round(RESALE_RATE * 100)}% of its list price. Pick up a placed piece first to sell it.`));
     const items = resellables(state);
     if (!items.length) {
       body.appendChild(el('div', 'empty-state', 'Nothing to sell back. Only pieces still in stock, and koi not in a pond, can be sold.'));
@@ -315,18 +315,8 @@ export class MarketPanel {
       if (isShopItemNew(state, item.id)) name.appendChild(el('span', 'new-tag', 'NEW'));
       this.shown.add(item.id);
       info.appendChild(name);
-      if (item.purpose || item.blurb) {
-        const line = el('div', 'shop-blurb');
-        if (item.purpose) {
-          const p = PURPOSE_INFO[item.purpose];
-          const badge = el('span', 'purpose-badge', p.icon);
-          badge.title = p.label;
-          badge.setAttribute('aria-label', p.label);
-          line.appendChild(badge);
-        }
-        if (item.blurb) line.appendChild(document.createTextNode(item.blurb));
-        info.appendChild(line);
-      }
+      // The purpose is already the subhead above; the row's edge tint repeats it.
+      if (item.blurb) info.appendChild(el('div', 'shop-blurb', item.blurb));
       info.appendChild(el('div', 'entry-sub', item.description));
       // Drawn at the size they're laid in the garden, inside the text column so the row stays text-then-price.
       if (item.id === 'steppingStones') info.appendChild(stonesPreview());

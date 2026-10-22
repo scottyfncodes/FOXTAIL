@@ -19,21 +19,22 @@ describe('market Buy tab', () => {
     document.body.innerHTML = '';
   });
 
-  it('groups greenhouse items by purpose, production first, with an icon badge on every greenhouse row', () => {
+  it('groups greenhouse items by purpose, production first, with the purpose named in each subhead', () => {
     const { body } = setup();
     const subheads = Array.from(body.querySelectorAll('.shop-subhead')).map((h) => h.textContent);
-    expect(subheads).toEqual(['🌱Production', '🏡Space', '🪴Display']);
+    expect(subheads).toEqual(['Production', 'Space', 'Display']);
     const production = Array.from(body.querySelectorAll('.shop-row.purpose-production .entry-name')).map((n) => n.textContent);
     expect(production).toEqual(expect.arrayContaining(['Double Nursery Bed', 'Grow Lights']));
     // The standing grow lamps are gone; the grow lights do their job.
     expect(production).not.toContain('Grow Lamp');
     expect(production).not.toContain('Nursery Bed');
     expect(production).not.toContain('Extra Nursery Beds');
+    // Not colour alone: every tinted row sits under a subhead that names its purpose.
     for (const row of Array.from(body.querySelectorAll('.shop-row[class*="purpose-"]'))) {
-      const badge = row.querySelector('.purpose-badge')!;
-      // Not colour alone: every badge has an icon and an accessible label.
-      expect(badge.textContent).toBeTruthy();
-      expect(badge.getAttribute('aria-label')).toBeTruthy();
+      const purpose = Array.from(row.classList).find((c) => c.startsWith('purpose-'))!;
+      const prev = row.parentElement!.previousElementSibling;
+      expect(prev?.classList.contains('shop-subhead')).toBe(true);
+      expect(prev?.classList.contains(purpose)).toBe(true);
     }
     // The other four categories are still there, ungrouped.
     const heads = Array.from(body.querySelectorAll('.section-head')).map((h) => h.textContent);

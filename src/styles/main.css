@@ -143,6 +143,41 @@ button {
   box-shadow: var(--shadow);
 }
 
+/* The game's own drawn icons (src/ui/icons.ts): an ink line in the text colour. */
+.ft-icon {
+  display: inline-flex;
+  width: 1.15em;
+  height: 1.15em;
+  flex-shrink: 0;
+}
+.ft-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.icon-btn .ft-icon {
+  width: 24px;
+  height: 24px;
+}
+.hud-chip .chip-icon {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+}
+.hud-chip .chip-icon .ft-icon {
+  width: 100%;
+  height: 100%;
+}
+.land-icon .ft-icon {
+  width: 22px;
+  height: 22px;
+  vertical-align: middle;
+}
+.curio-icon .ft-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--leaf-strong);
+}
+
 .icon-btn.badge::after {
   content: attr(data-badge);
   position: absolute;
@@ -1653,8 +1688,8 @@ button {
   letter-spacing: 0.1em;
 }
 
-/* Market: greenhouse items grouped by what they're for. The icon carries
-   the meaning; the edge tint only reinforces it. */
+/* Market: greenhouse items grouped by what they're for. The subhead says
+   it; the edge tint only reinforces it. */
 .shop-subhead {
   display: flex;
   align-items: center;
@@ -1663,11 +1698,6 @@ button {
   font-weight: 600;
   color: var(--ink-brown-dim);
   margin: 12px 0 6px;
-}
-
-.purpose-icon {
-  font-size: 14px;
-  line-height: 1;
 }
 
 .shop-blurb {
@@ -1680,25 +1710,9 @@ button {
   margin: 2px 0 1px;
 }
 
-.purpose-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1;
-  background: rgba(90, 66, 34, 0.1);
-  flex-shrink: 0;
-}
-
 .entry-row.purpose-production { border-left-color: var(--leaf); }
-.entry-row.purpose-production .purpose-badge { background: var(--leaf-soft); }
 .entry-row.purpose-display { border-left-color: var(--stamp); }
-.entry-row.purpose-display .purpose-badge { background: var(--stamp-soft); }
 .entry-row.purpose-space { border-left-color: #b8862a; }
-.entry-row.purpose-space .purpose-badge { background: rgba(184, 134, 42, 0.16); }
 
 .new-tag {
   display: inline-block;

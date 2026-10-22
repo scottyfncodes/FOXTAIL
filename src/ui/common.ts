@@ -26,7 +26,7 @@ export function rarityBadge(r: Rarity): HTMLElement {
   const rank = Math.min(4, rarityRank(r));
   const wrap = el('span', `rarity rarity-${r}`);
   // The top tier fills every pip and gains one more, in the same quiet style.
-  const pips = r === 'mythic' ? '●●●●●✦' : '●'.repeat(rank + 1) + '○'.repeat(4 - rank);
+  const pips = r === 'mythic' ? '●●●●●◆' : '●'.repeat(rank + 1) + '○'.repeat(4 - rank);
   wrap.append(el('span', 'rarity-pips', pips), el('span', 'rarity-word', RARITY_LABEL[r]));
   return wrap;
 }
