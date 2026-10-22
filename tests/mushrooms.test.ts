@@ -113,7 +113,7 @@ describe('the valley’s own cannabis', () => {
     expect(p.location.x < 50 || p.location.x > 70 || p.location.y < 20 || p.location.y > 40).toBe(true);
     expect(p.bornWild).toBe(true);
     expect(p.growth).toBe(0);
-    // Not yet found: it waits to be noticed, but (being secret) the world draws no sparkle over it.
+    // Not yet found: it waits to be noticed, but (being secret) the world draws no pickup cue over it.
     expect(p.unnoticed).toBe(true);
     expect(PLANTS[p.defId].secret).toBe(true);
   });

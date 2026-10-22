@@ -445,10 +445,11 @@ export function groundCacheCovers(gc: Pick<GroundCache, 'key' | 'lush' | 'bounds
 
 /**
  * Whether anything of a wild plant drawn at (x, y) — its shadow, its sprite
- * (mirrored or not, swaying either way) and any sparkle over it — could
- * land inside a view of w×h CSS px. Generous by a few pixels.
+ * (mirrored or not, swaying either way) and any pickup cue round it (the
+ * breathing ring on the ground and the little leaf above) — could land
+ * inside a view of w×h CSS px. Generous by a few pixels.
  */
-export function wildPlantOnScreen(x: number, y: number, tile: number, spread: number, sprite: { w: number; h: number; oy: number } | null, sparkle: boolean, w: number, h: number): boolean {
+export function wildPlantOnScreen(x: number, y: number, tile: number, spread: number, sprite: { w: number; h: number; oy: number } | null, cue: boolean, w: number, h: number): boolean {
   // Shadow.
   let minX = x - spread;
   let maxX = x + spread;
@@ -463,14 +464,19 @@ export function wildPlantOnScreen(x: number, y: number, tile: number, spread: nu
     minY = Math.min(minY, by - sprite.oy);
     maxY = Math.max(maxY, by - sprite.oy + sprite.h);
   }
-  if (sparkle) {
-    minX = Math.min(minX, x - tile * 0.4);
-    maxX = Math.max(maxX, x + tile * 0.4);
-    minY = Math.min(minY, y - tile * 0.65);
+  if (cue) {
+    minX = Math.min(minX, x - tile * 0.5);
+    maxX = Math.max(maxX, x + tile * 0.5);
+    minY = Math.min(minY, y - tile * 0.6);
+    maxY = Math.max(maxY, y + tile * 0.3);
   }
   const m = 4;
   return maxX > -m && minX < w + m && maxY > -m && minY < h + m;
 }
+
+/** The little leaf over a find you've never had in hand, and over the rarest ones. */
+const PICKUP_LEAF = '#fff4c2';
+const PICKUP_LEAF_RARE = '#ffe28a';
 
 /** Time constant for weather drifting in and out, in ms. */
 const WEATHER_FADE_MS = 3500;
@@ -1917,11 +1923,11 @@ export class Renderer {
     const spread = tile * (0.12 + sf * 0.1) * look.size;
     const titan = p.titanAt !== undefined;
     const sprite = this.sprites.get(p.defId, p.variantId, sf, p.seed, tile, 'ground', this.dpr);
-    // The valley's secret plants never sparkle: nothing marks them out but themselves.
-    const sparkle = !!p.unnoticed && !PLANTS[p.defId]?.secret;
-    if (!wildPlantOnScreen(s.x, s.y, tile, spread, sprite, sparkle, camera.viewW, camera.viewH)) {
+    // The valley's secret plants are never marked: nothing gives them away but themselves.
+    const cue = !!p.unnoticed && !PLANTS[p.defId]?.secret;
+    if (!wildPlantOnScreen(s.x, s.y, tile, spread, sprite, cue, camera.viewW, camera.viewH)) {
       // Wholly off the canvas: nothing it draws would land. Leave the brush as drawing it would have.
-      ctx.fillStyle = sparkle ? '#fff4c2' : 'rgba(10,24,8,0.22)';
+      ctx.fillStyle = 'rgba(10,24,8,0.22)';
       return;
     }
     // A plant in a garden bed fills out only as far as the bed: its leaves,
@@ -1937,6 +1943,8 @@ export class Renderer {
     ctx.beginPath();
     ctx.ellipse(s.x, s.y + tile * 0.04, spread, spread * 0.4, 0, 0, Math.PI * 2);
     ctx.fill();
+    // Not yet picked: the same breathing gold ring a patch you've never had wears.
+    if (cue) drawPatchRing(ctx, s.x, s.y + tile * 0.04, tile, 'new', now, p.seed);
     if (titan) {
       // A Titan's deep pool of shade, wider than its own leaves.
       ctx.fillStyle = 'rgba(8,20,6,0.16)';
@@ -1952,10 +1960,10 @@ export class Renderer {
     if (sprite) this.blitPlantSprite(sprite, s.x, s.y + tile * 0.05, p.seed, 'ground', now, state.weather.condition === 'rain');
     ctx.globalAlpha = 1;
     if (bed) ctx.restore();
-    if (sparkle) this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, '#fff4c2', 3);
-    const cue = this.mysteryCues?.get(p.id);
-    if (cue === 'star') this.drawStarGlints(s.x, s.y - tile * (0.25 + sf * 0.12) * look.size, tile, now, p.seed);
-    else if (cue === 'eclipse') this.drawEclipse(s.x, s.y - tile * (0.14 + sf * 0.05) * look.size, tile * (0.08 + sf * 0.02) * look.size, now, p.seed);
+    if (cue) this.drawPickupLeaf(s.x, s.y - tile * 0.35, tile, now, PICKUP_LEAF, p.seed);
+    const mystery = this.mysteryCues?.get(p.id);
+    if (mystery === 'star') this.drawNightGlints(s.x, s.y - tile * (0.25 + sf * 0.12) * look.size, tile, now, p.seed);
+    else if (mystery === 'eclipse') this.drawEclipse(s.x, s.y - tile * (0.14 + sf * 0.05) * look.size, tile * (0.08 + sf * 0.02) * look.size, now, p.seed);
   }
 
   /** Whether a big plant at (wx, wy) stands in front of a patch with something in it, or a garden piece. */
@@ -1971,7 +1979,7 @@ export class Renderer {
   }
 
   /** Two or three points of light deep in a big plant's leaves, each there only for a moment. */
-  private drawStarGlints(x: number, y: number, tile: number, now: number, seed: number) {
+  private drawNightGlints(x: number, y: number, tile: number, now: number, seed: number) {
     const { ctx } = this;
     ctx.save();
     for (let i = 0; i < 3; i++) {
@@ -1982,18 +1990,15 @@ export class Renderer {
       const px = x + Math.cos(i * 2.3 + (seed % 7)) * tile * 0.2;
       const py = y + Math.sin(i * 1.7 + (seed % 5)) * tile * 0.12;
       const r = tile * 0.035 * (0.7 + a * 0.5);
-      ctx.globalAlpha = 0.8 * a;
+      // A round bead of light, like dew on a waxy leaf: a faint halo and a bright core.
       ctx.fillStyle = '#fff6d8';
+      ctx.globalAlpha = 0.25 * a;
       ctx.beginPath();
-      ctx.moveTo(px, py - r * 2.2);
-      ctx.lineTo(px + r * 0.4, py - r * 0.4);
-      ctx.lineTo(px + r * 2.2, py);
-      ctx.lineTo(px + r * 0.4, py + r * 0.4);
-      ctx.lineTo(px, py + r * 2.2);
-      ctx.lineTo(px - r * 0.4, py + r * 0.4);
-      ctx.lineTo(px - r * 2.2, py);
-      ctx.lineTo(px - r * 0.4, py - r * 0.4);
-      ctx.closePath();
+      ctx.arc(px, py, r * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.85 * a;
+      ctx.beginPath();
+      ctx.arc(px, py, r * 0.75, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
@@ -2017,37 +2022,43 @@ export class Renderer {
     ctx.restore();
   }
 
-  /** A few twinkling points: something here is worth walking over to. */
-  private drawSparkle(x: number, y: number, tile: number, now: number, color: string, count: number) {
+  /**
+   * A small leaf turning slowly in the air over something worth walking over
+   * to, outlined so it reads on grass, rock and water alike.
+   */
+  private drawPickupLeaf(x: number, y: number, tile: number, now: number, color: string, seed: number) {
     const { ctx } = this;
+    const t = now * 0.0021 + (seed % 97);
+    const len = tile * 0.13;
+    const wid = len * 0.42;
+    ctx.save();
+    ctx.translate(x, y + Math.sin(t) * tile * 0.035);
+    ctx.rotate(-0.5 + Math.sin(t * 0.8) * 0.35);
+    ctx.globalAlpha = 0.8 + 0.2 * Math.sin(t * 1.3);
+    ctx.beginPath();
+    ctx.moveTo(-len, 0);
+    ctx.quadraticCurveTo(0, -wid * 1.6, len, 0);
+    ctx.quadraticCurveTo(0, wid * 1.6, -len, 0);
+    ctx.closePath();
     ctx.fillStyle = color;
-    for (let i = 0; i < count; i++) {
-      const ph = now * 0.003 + i * 2.1;
-      const a = 0.5 + 0.5 * Math.sin(ph);
-      const px = x + Math.cos(i * 2.4 + now * 0.0007) * tile * 0.28;
-      const py = y + Math.sin(i * 1.7 + now * 0.0009) * tile * 0.18;
-      const r = tile * 0.05 * a;
-      ctx.globalAlpha = 0.35 + a * 0.6;
-      ctx.beginPath();
-      ctx.moveTo(px, py - r * 2);
-      ctx.lineTo(px + r * 0.5, py - r * 0.5);
-      ctx.lineTo(px + r * 2, py);
-      ctx.lineTo(px + r * 0.5, py + r * 0.5);
-      ctx.lineTo(px, py + r * 2);
-      ctx.lineTo(px - r * 0.5, py + r * 0.5);
-      ctx.lineTo(px - r * 2, py);
-      ctx.lineTo(px - r * 0.5, py - r * 0.5);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, tile * 0.018);
+    ctx.strokeStyle = 'rgba(30,44,18,0.6)';
+    ctx.stroke();
+    // Its midrib and a stub of stem.
+    ctx.beginPath();
+    ctx.moveTo(-len * 1.25, 0);
+    ctx.lineTo(len * 0.7, 0);
+    ctx.lineWidth = Math.max(0.6, tile * 0.012);
+    ctx.stroke();
+    ctx.restore();
   }
 
   /**
    * A wild patch shows the actual plant growing there — the plant itself
    * is the clue. Its ground says what it is to you at a glance: a pale gold
    * ring that breathes for a form you've never had in your hands (with a
-   * curious sparkle; rarer ones shimmer more), a quiet green ring for one
+   * little leaf turning over it, gold for the rarest), a quiet green ring for one
    * you've found but not yet grown (the journal is still waiting on it), and
    * just soft earth for one already in the journal. A patch you've snipped
    * this season shows its raked earth and a sprout, so you know it'll be back.
@@ -2086,7 +2097,7 @@ export class Renderer {
     if (rank >= 2) this.glowMarker(s.x, s.y - tile * 0.2, tile, rank >= 3 ? '#f0d27a' : '#bfe6d4', now);
     // A Giant's patch shows a plant already well up: there's no mistaking what grows there.
     this.drawPlantSprite(s.x, s.y + tile * 0.04, tile, content.defId, content.variantId, PLANTS[content.defId]?.giant ? 2.4 : 1.5, content.seed, 'ground', now);
-    if (mark === 'new') this.drawSparkle(s.x, s.y - tile * 0.35, tile, now, rank >= 3 ? '#ffe28a' : '#ffffff', 2 + Math.min(3, rank));
+    if (mark === 'new') this.drawPickupLeaf(s.x, s.y - tile * 0.35, tile, now, rank >= 3 ? PICKUP_LEAF_RARE : PICKUP_LEAF, spot.x * 7 + spot.y);
   }
 
   /** A small wooden plaque on a post, with the name Ellen gave the place. */
@@ -2838,7 +2849,7 @@ export class Renderer {
       flourish(mid.x, mid.y - tile * 0.95, tile * 0.09, Math.sin(u * Math.PI));
     }
     if (smiling(kiss.t)) {
-      // A couple of small hearts or sparkles drifting up while they smile.
+      // A couple of small hearts or rings drifting up while they smile.
       const u = (kiss.t - DIP_END) / (1 - DIP_END);
       for (let i = 0; i < 2; i++) {
         const k = (u * 1.6 + i * 0.5) % 1;
@@ -2860,18 +2871,15 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
-  /** A little four-point twinkle, for the spin and the boop. */
+  /** A little gold ring, like a ripple in the air, for the spin and the boop. */
   private drawTwinkle(hx: number, hy: number, r: number, alpha: number) {
     const { ctx } = this;
     ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-    ctx.fillStyle = '#f6d860';
+    ctx.strokeStyle = '#f6d860';
+    ctx.lineWidth = Math.max(1, r * 0.32);
     ctx.beginPath();
-    ctx.moveTo(hx, hy - r);
-    ctx.quadraticCurveTo(hx + r * 0.15, hy - r * 0.15, hx + r, hy);
-    ctx.quadraticCurveTo(hx + r * 0.15, hy + r * 0.15, hx, hy + r);
-    ctx.quadraticCurveTo(hx - r * 0.15, hy + r * 0.15, hx - r, hy);
-    ctx.quadraticCurveTo(hx - r * 0.15, hy - r * 0.15, hx, hy - r);
-    ctx.fill();
+    ctx.arc(hx, hy, r * 0.7, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.globalAlpha = 1;
   }
 
@@ -5560,7 +5568,7 @@ export class Renderer {
           }
           ctx.restore();
           this.drawPot(s.x, potY, tile, plant.location.kind === 'display' ? plant.location.potId : 'terracotta');
-          if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 3) this.drawSparkle(s.x, top + tile * 0.4, tile, now, '#ffe9a8', 2);
+          if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 3) this.drawPickupLeaf(s.x, top + tile * 0.4, tile, now, PICKUP_LEAF_RARE, plant.seed);
           return;
         }
         break;
@@ -5591,7 +5599,7 @@ export class Renderer {
         ctx.fill();
         if (!plant) return;
         this.drawPlantSprite(s.x, s.y - tile * 0.1, tile * 1.18, plant.defId, plant.variantId, stageFloat(plant.growth), plant.seed, 'pot', now);
-        if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 3) this.drawSparkle(s.x, s.y - tile * 0.8, tile, now, '#ffe9a8', 2);
+        if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 3) this.drawPickupLeaf(s.x, s.y - tile * 0.8, tile, now, PICKUP_LEAF_RARE, plant.seed);
         return;
       }
       case 'table': {
@@ -5659,7 +5667,7 @@ export class Renderer {
     const potId = plant.location.kind === 'display' ? plant.location.potId : 'terracotta';
     this.drawPot(s.x, potY, tile, potId);
     this.drawPlantSprite(s.x, potY + tile * 0.02, tile, plant.defId, plant.variantId, stageFloat(plant.growth), plant.seed, mode, now);
-    if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 3) this.drawSparkle(s.x, potY - tile * 0.5, tile, now, '#ffe9a8', 2);
+    if (rarityRank(specimenRarity(plant.defId, plant.variantId)) >= 3) this.drawPickupLeaf(s.x, potY - tile * 0.5, tile, now, PICKUP_LEAF_RARE, plant.seed);
   }
 
   /**
