@@ -107,7 +107,7 @@ describe('wild plants off the edge of the screen', () => {
     };
   }
 
-  it('are only skipped when nothing of them — shadow, sprite either way round and swaying, sparkle — could land on screen', () => {
+  it('are only skipped when nothing of them — shadow, sprite either way round and swaying, pickup cue — could land on screen', () => {
     const rand = rng(7);
     const W = 402;
     const H = 874;
@@ -120,8 +120,8 @@ describe('wild plants off the edge of the screen', () => {
       const w = tile * (0.3 + rand() * 3);
       const h = tile * (0.3 + rand() * 4);
       const sprite = rand() < 0.1 ? null : { w, h, ox: w / 2, oy: h * (0.5 + rand() * 0.5) };
-      const sparkle = rand() < 0.3;
-      if (wildPlantOnScreen(x, y, tile, spread, sprite, sparkle, W, H)) continue;
+      const cue = rand() < 0.3;
+      if (wildPlantOnScreen(x, y, tile, spread, sprite, cue, W, H)) continue;
       skipped++;
       // Everything it would have drawn, as points.
       const pts: [number, number][] = [
@@ -142,8 +142,13 @@ describe('wild plants off the edge of the screen', () => {
             ])
               pts.push([x + flip * lx + sway * ly, by + ly]);
       }
-      if (sparkle) {
-        for (const sx of [-0.28 - 0.1, 0.28 + 0.1]) for (const sy of [-0.18 - 0.1, 0.18 + 0.1]) pts.push([x + sx * tile, y - tile * 0.35 + sy * tile]);
+      if (cue) {
+        // The breathing ring on the ground, at its widest, with its shadow stroke.
+        const rx = tile * 0.44 + tile * 0.033;
+        const ry = tile * 0.176 + tile * 0.033;
+        pts.push([x - rx, y + tile * 0.04], [x + rx, y + tile * 0.04], [x, y + tile * 0.04 - ry], [x, y + tile * 0.04 + ry]);
+        // The leaf turning above it: stem to tip, bobbing either way.
+        for (const sx of [-0.17, 0.17]) for (const sy of [-0.035 - 0.1, 0.035 + 0.1]) pts.push([x + sx * tile, y - tile * 0.35 + sy * tile]);
       }
       const xs = pts.map((p) => p[0]);
       const ys = pts.map((p) => p[1]);
