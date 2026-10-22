@@ -61,18 +61,18 @@ export class ModeBar {
 
     if (m.kind === 'plant') {
       const name = specimenName(m.ghost.defId, m.ghost.variantId);
-      status.textContent = m.check.block ? 'Not there — drag it somewhere else' : m.plantId ? `Move the ${name} here?` : `Plant the ${name} here?`;
+      status.textContent = m.check.block ? 'Not there. Drag it somewhere else' : m.plantId ? `Move the ${name} here?` : `Plant the ${name} here?`;
       row.append(cancel, bigButton(m.plantId ? '✓ Move' : '✓ Plant', 'confirm', () => this.game.confirmTool(), !!m.check.block));
     } else if (m.kind === 'bed') {
       const cost = this.game.tools.bedCost();
       status.textContent = !m.a
         ? `Drag across the ground to mark out a bed · you have ${state.coins} coins`
         : m.block === 'coins'
-          ? `Costs ${cost} coins — you have ${state.coins}`
+          ? `Costs ${cost} coins, you have ${state.coins}`
           : m.block === 'too-small'
             ? 'Drag it a little bigger'
             : m.block
-              ? 'Not there — try another stretch of ground'
+              ? 'Not there. Try another stretch of ground'
               : `Dig it? ${cost} coins`;
       const shape = bigButton(m.shape === 'rect' ? '▭' : '◯', 'shape', () => this.game.tools.setBedShape(m.shape === 'rect' ? 'oval' : 'rect'));
       shape.setAttribute('aria-label', 'Change shape');
@@ -86,10 +86,10 @@ export class ModeBar {
           : p.block === 'bed'
             ? 'Paths go around garden beds, not through them'
             : p.block === 'coins'
-              ? `Costs ${p.cost} coins — you have ${state.coins}`
+              ? `Costs ${p.cost} coins, you have ${state.coins}`
               : p.block
                 ? 'Water or the house is in the way'
-                : `Carve it? ${p.cost} coins${p.trees.length || p.rocks.length ? ` · clears ${[p.trees.length ? `${p.trees.length} tree${p.trees.length === 1 ? '' : 's'}` : '', p.rocks.length ? `${p.rocks.length} rock${p.rocks.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')}` : ''}${pathToolsNeeded(state, p).length ? ` (the crew brings ${toolList(pathToolsNeeded(state, p))} — cheaper with your own)` : ''}${p.plants.length ? ` · ${p.plants.length} of your plants dug up` : ''}`;
+                : `Carve it? ${p.cost} coins${p.trees.length || p.rocks.length ? ` · clears ${[p.trees.length ? `${p.trees.length} tree${p.trees.length === 1 ? '' : 's'}` : '', p.rocks.length ? `${p.rocks.length} rock${p.rocks.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')}` : ''}${pathToolsNeeded(state, p).length ? ` (the crew brings ${toolList(pathToolsNeeded(state, p))}, cheaper with your own)` : ''}${p.plants.length ? ` · ${p.plants.length} of your plants dug up` : ''}`;
       row.append(cancel, bigButton('✓ Carve', 'confirm', () => this.game.confirmTool(), !this.game.tools.canConfirm()));
     } else if (m.kind === 'clear') {
       const p = m.preview;
@@ -101,8 +101,8 @@ export class ModeBar {
           : p.block === 'too-big'
             ? 'That’s too much to clear in one go'
             : p.block === 'coins'
-                ? `Costs ${p.cost} coins — you have ${state.coins}`
-                : `Clear it? ${p.cost} coins${what.length ? ` · takes out ${what.join(', ')}` : ''}${pathToolsNeeded(state, p).length ? ` (the crew brings ${toolList(pathToolsNeeded(state, p))} — cheaper with your own)` : ''}`;
+                ? `Costs ${p.cost} coins, you have ${state.coins}`
+                : `Clear it? ${p.cost} coins${what.length ? ` · takes out ${what.join(', ')}` : ''}${pathToolsNeeded(state, p).length ? ` (the crew brings ${toolList(pathToolsNeeded(state, p))}, cheaper with your own)` : ''}`;
       const shape = bigButton(m.shape === 'square' ? '◻' : '○', 'shape', () => this.game.tools.setClearingShape(m.shape === 'square' ? 'circle' : 'square'));
       shape.setAttribute('aria-label', 'Change shape');
       row.append(cancel, shape, bigButton('✓ Clear', 'confirm', () => this.game.confirmTool(), !this.game.tools.canConfirm()));
@@ -122,7 +122,7 @@ export class ModeBar {
     const nameOf = (id: string) => SHOP_ITEMS.find((s) => s.id === id)?.name ?? 'piece';
     if (m.pending) {
       const name = nameOf(m.pending.decorId).toLowerCase();
-      status.textContent = m.pending.block ? `Not there — drag the ${name} onto open ground` : `Set the ${name} down here?`;
+      status.textContent = m.pending.block ? `Not there. Drag the ${name} onto open ground` : `Set the ${name} down here?`;
       row.append(bigButton('↻', 'shape', () => this.game.rotateSelected()));
       row.append(bigButton('✕', 'cancel', () => this.game.tools.storeSelected()), bigButton('✓ Place', 'confirm', () => this.game.confirmTool(), !!m.pending.block));
       this.root.append(status, row);
@@ -137,13 +137,13 @@ export class ModeBar {
     const sel = m.selectedId ? state.decor.find((d) => d.id === m.selectedId) : undefined;
     if (sel) {
       const occupied = occupantOf(state, { slotId: sel.id });
-      status.textContent = occupied ? `${nameOf(sel.decorId)} · with its ${specimenName(occupied.defId, occupied.variantId)} — drag to move them together` : `${nameOf(sel.decorId)} · drag to move`;
+      status.textContent = occupied ? `${nameOf(sel.decorId)} · with its ${specimenName(occupied.defId, occupied.variantId)} · drag to move them together` : `${nameOf(sel.decorId)} · drag to move`;
       row.append(bigButton('↻', 'shape', () => this.game.rotateSelected()));
       row.append(bigButton('Put away', 'secondary', () => this.game.tools.storeSelected(), !!occupied), done);
       this.root.append(status, row);
       return;
     }
-    status.textContent = 'Drag anything to move it — the stall too. Drag the ground to look around.';
+    status.textContent = 'Drag anything to move it, the stall too. Drag the ground to look around.';
     const stocked = DECOR_IDS.filter((id) => (state.decorStock[id] ?? 0) > 0);
     if (stocked.length) {
       const tray = el('div', 'stock-tray');
@@ -158,7 +158,7 @@ export class ModeBar {
     const done = bigButton('Done', 'confirm', () => this.game.cancelTool());
     if (m.pending) {
       const def = FURNITURE_DEFS[m.pending.kind];
-      status.textContent = m.pending.block ? `Not there — drag the ${def.name.toLowerCase()} somewhere clear` : `Set the ${def.name.toLowerCase()} down here?`;
+      status.textContent = m.pending.block ? `Not there. Drag the ${def.name.toLowerCase()} somewhere clear` : `Set the ${def.name.toLowerCase()} down here?`;
       row.append(bigButton('↻', 'shape', () => this.game.rotateSelected()));
       row.append(bigButton('✕', 'cancel', () => this.game.tools.storeSelected()), bigButton('✓ Place', 'confirm', () => this.game.confirmTool(), !!m.pending.block));
       this.root.append(status, row);
@@ -168,7 +168,7 @@ export class ModeBar {
     if (sel) {
       const def = FURNITURE_DEFS[sel.kind];
       const occupied = occupantOf(state, { slotId: sel.id }) ?? occupantOf(state, { bedId: sel.id });
-      status.textContent = occupied ? `${def.name} · with its ${specimenName(occupied.defId, occupied.variantId)} — drag to move them together` : `${def.name} · drag to move`;
+      status.textContent = occupied ? `${def.name} · with its ${specimenName(occupied.defId, occupied.variantId)} · drag to move them together` : `${def.name} · drag to move`;
       row.append(bigButton('↻', 'shape', () => this.game.rotateSelected()));
       // The living room's own furniture moves but stays: there's nowhere to put a couch away.
       if (!def.fixed) row.append(bigButton('Put away', 'secondary', () => this.game.tools.storeSelected(), !!occupied));

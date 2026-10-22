@@ -493,7 +493,7 @@ const BED_BLOCK_TEXT: Record<string, string> = {
   'too-big': 'Too big for one bed',
   coins: 'Not enough coins',
   blocked: 'Trees, rocks or water in the way',
-  patch: 'A wild patch grows there — leave it be',
+  patch: 'A wild patch grows there. Leave it be',
   overlap: 'Overlaps another bed',
 };
 
@@ -618,7 +618,7 @@ export function drawPathPreview(ctx: Ctx, camera: Camera, points: number[], prev
         : preview.plants.length
           ? `Composts ${preview.plants.length} of your plants`
           : preview.block === 'coins'
-            ? `${preview.cost} coins — not enough`
+            ? `${preview.cost} coins, not enough`
             : `${preview.cost} coins${preview.trees.length ? ` · ${preview.trees.length} tree${preview.trees.length === 1 ? '' : 's'}` : ''}${preview.rocks.length ? ` · ${preview.rocks.length} rock${preview.rocks.length === 1 ? '' : 's'}` : ''}`;
   label(ctx, s.x, s.y - tile * 0.8, text, !!preview.block && preview.block !== 'too-short', tile);
 }

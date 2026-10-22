@@ -19,11 +19,11 @@ export type ShopPurpose = 'production' | 'display' | 'space' | 'utility';
  */
 export type ShopRole = 'foundation' | 'expansion' | 'decoration';
 
-export const PURPOSE_INFO: Record<ShopPurpose, { icon: string; label: string }> = {
-  production: { icon: '🌱', label: 'Production' },
-  display: { icon: '🪴', label: 'Display' },
-  space: { icon: '🏡', label: 'Space' },
-  utility: { icon: '🔧', label: 'Utility' },
+export const PURPOSE_INFO: Record<ShopPurpose, { label: string }> = {
+  production: { label: 'Production' },
+  display: { label: 'Display' },
+  space: { label: 'Space' },
+  utility: { label: 'Utility' },
 };
 
 /** The order greenhouse groups appear in: growing capacity first. */
@@ -74,7 +74,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'plantStand', name: 'Plant Stand', category: 'greenhouse', price: 45, repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 plant', description: 'A round wooden stand for one plant. Put it anywhere in the greenhouse.' },
   { id: 'ironPedestal', name: 'Iron Pedestal', category: 'greenhouse', price: 80, after: 'plantStand', repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 plant', description: 'A tall wrought-iron pedestal that lifts one plant up into the light.' },
   { id: 'ceilingHook', name: 'Ceiling Hook', category: 'greenhouse', price: 40, after: 'hangingHooks', repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Hangs 1 plant', description: 'A single hook: hang one more pot from the roof, above anything you like.' },
-  { id: 'wallTrellis', name: 'Wall Trellis', category: 'greenhouse', price: 95, after: 'plantShelf', repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot vines can climb', description: 'A tall cedar lattice. Any vine or trailer planted at its foot climbs it instead of trailing — best along a wall.' },
+  { id: 'wallTrellis', name: 'Wall Trellis', category: 'greenhouse', price: 95, after: 'plantShelf', repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot vines can climb', description: 'A tall cedar lattice. Any vine or trailer planted at its foot climbs it instead of trailing. Best along a wall.' },
   { id: 'pottingTable', name: 'Potting Table', category: 'greenhouse', price: 85, after: 'plantStand', repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 plant', description: 'A long, scrubbed table. Sets one plant at a comfortable height. Turns to fit along any wall.' },
   { id: 'floorPlanter', name: 'Floor Planter', category: 'greenhouse', price: 110, after: 'ironPedestal', repeatable: true, purpose: 'display', role: 'expansion', blurb: 'Display spot for 1 big plant', description: 'A deep glazed planter that sits on the floor. Big plants love the extra root room.' },
   { id: 'wateringCan', name: 'Watering Can', category: 'greenhouse', price: 15, repeatable: true, purpose: 'display', role: 'decoration', blurb: 'Decoration', description: 'A dented brass can. Purely for the look of the place.' },
@@ -112,9 +112,9 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'basketMedium', name: 'Collector’s Satchel', category: 'equipment', price: 80, description: 'Carry up to 10 plants.' },
   { id: 'basketLarge', name: 'Field Pack', category: 'equipment', price: 340, after: 'basketMedium', description: 'Carry up to 16 plants.' },
   { id: 'rootingKit', name: 'Rooting Kit', category: 'equipment', price: 260, description: 'Hormone powder and sharp snips. Plants recover twice as fast after you take a cutting, and cuttings throw sports (mutations) more often.' },
-  { id: 'rockHammer', name: 'Rock Hammer', category: 'equipment', price: 150, description: 'A sledge and a pry bar. Needed before any rock can be broken up and hauled away — for a single rock, or for a path that runs through one.' },
-  { id: 'chainsaw', name: 'Chainsaw', category: 'equipment', price: 420, after: 'rockHammer', description: 'Needed before a tree can be felled or a bush grubbed out — one at a time, or for a path that runs through trees.' },
-  { id: 'miniTruck', name: 'Mini Truck', category: 'equipment', price: 2800, description: 'A little flatbed truck, delivered to the lane by the house. Drive it anywhere the ground is open — twice as fast as walking, and thickets don’t slow it — and carry a dozen more plants in the back. Park it by the stall to sell the whole load, or by the greenhouse door to pot straight from the bed.' },
+  { id: 'rockHammer', name: 'Rock Hammer', category: 'equipment', price: 150, description: 'A sledge and a pry bar. Needed before any rock can be broken up and hauled away, for a single rock or for a path that runs through one.' },
+  { id: 'chainsaw', name: 'Chainsaw', category: 'equipment', price: 420, after: 'rockHammer', description: 'Needed before a tree can be felled or a bush grubbed out, one at a time or for a path that runs through trees.' },
+  { id: 'miniTruck', name: 'Mini Truck', category: 'equipment', price: 2800, description: 'A little flatbed truck, delivered to the lane by the house. Drive it anywhere the ground is open (twice as fast as walking, and thickets don’t slow it) and carry a dozen more plants in the back. Park it by the stall to sell the whole load, or by the greenhouse door to pot straight from the bed.' },
 
   // Market stall
   { id: 'stallAwning', name: 'Striped Awning', category: 'stall', price: 120, description: 'Draws a crowd. Everything sells for 10% more.' },

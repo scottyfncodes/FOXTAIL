@@ -10,6 +10,7 @@ import { coin, golfBallPortrait, golfRarityBadge, portrait } from './common';
 import { specimenName } from '../game/data/plants';
 import { findGolfBall } from '../game/data/golfBalls';
 import { MusicControl } from './MusicControl';
+import { icon, setIcon, type IconName } from './icons';
 
 function formatClock(totalMinutes: number): string {
   const m = minuteOfDay(totalMinutes);
@@ -44,7 +45,7 @@ const ACTION_VERBS: Record<string, string> = {
   ghost: 'WAVE',
 };
 
-const WEATHER_ICON: Record<string, string> = { clear: '☀', rain: '☔', overcast: '☁' };
+const WEATHER_ICON: Record<string, IconName> = { clear: 'sun', rain: 'rain', overcast: 'cloud' };
 
 function setText(node: Node, text: string) {
   if (node.textContent !== text) node.textContent = text;
@@ -99,18 +100,21 @@ export class HUD {
   root = el('div', 'hud');
   private zoneChip = el('div', 'hud-chip');
   private timeChip = el('div', 'hud-chip');
+  private weatherIcon = el('span', 'chip-icon');
+  private clockText = document.createTextNode('');
+  private nightIcon = icon('moon', 'ft-icon chip-icon');
   private coinChip = el('div', 'hud-chip coins');
   private coinText = document.createTextNode('');
-  private journalBtn = el('button', 'icon-btn', '\u{1F4D3}');
-  private basketBtn = el('button', 'icon-btn', '\u{1F9FA}');
+  private journalBtn = el('button', 'icon-btn');
+  private basketBtn = el('button', 'icon-btn');
   /**
    * One button for working the place with your hands. Outdoors it opens
    * the garden menu (bed, path, arrange); indoors it arranges the house.
    * While a tool is in hand it's the way to stop.
    */
-  private toolBtn = el('button', 'icon-btn tool-btn', '\u{1F33F}');
+  private toolBtn = el('button', 'icon-btn tool-btn');
   /** Shown only behind the wheel: park the truck and get out. */
-  private truckBtn = el('button', 'icon-btn truck-btn', '\u{1F69A}');
+  private truckBtn = el('button', 'icon-btn truck-btn');
   private landMenu = el('div', 'land-menu');
   private modeBar: ModeBar;
   private musicControl: MusicControl;
@@ -135,6 +139,11 @@ export class HUD {
     left.style.gap = '8px';
     left.style.flexWrap = 'wrap';
     this.coinChip.append(coin(), this.coinText);
+    this.timeChip.append(this.weatherIcon, this.clockText, this.nightIcon);
+    this.journalBtn.append(icon('journal'));
+    this.basketBtn.append(icon('basket'));
+    this.truckBtn.append(icon('truck'));
+    setIcon(this.toolBtn, 'sprig');
     left.append(this.zoneChip, this.timeChip, this.coinChip);
     const right = el('div', 'hud-buttons');
     this.musicControl = new MusicControl(game.audio.music);
@@ -181,9 +190,12 @@ export class HUD {
   }
 
   private buildLandMenu() {
-    const item = (icon: string, label: string, onClick: () => void) => {
+    const item = (glyph: string | IconName, label: string, onClick: () => void) => {
       const b = el('button', 'land-item');
-      b.append(el('span', 'land-icon', icon), el('span', 'land-label', label));
+      const mark = el('span', 'land-icon');
+      if (glyph === 'chair') mark.append(icon('chair'));
+      else mark.textContent = glyph;
+      b.append(mark, el('span', 'land-label', label));
       b.addEventListener('click', () => {
         this.setLandMenu(false);
         onClick();
@@ -196,7 +208,7 @@ export class HUD {
       item('〰', 'Carve a path', () => this.game.beginPath()),
       item('◻', 'Clear a square', () => this.game.beginClearing('square')),
       item('○', 'Clear a circle', () => this.game.beginClearing('circle')),
-      item('\u{1FA91}', 'Arrange the garden', () => this.game.beginArrange())
+      item('chair', 'Arrange the garden', () => this.game.beginArrange())
     );
     this.landMenu.addEventListener('pointerdown', (e) => e.stopPropagation());
   }
@@ -236,7 +248,7 @@ export class HUD {
     setText(this.zoneChip, cover >= 0.01 ? `${place} · ${Math.round(cover * 100)}% yours` : place);
     setText(this.coinText, String(state.coins));
     const tools = this.game.tools.active;
-    setText(this.toolBtn, tools ? '✕' : state.player.inGreenhouse ? '\u{1FA91}' : '\u{1F33F}');
+    setIcon(this.toolBtn, tools ? null : state.player.inGreenhouse ? 'chair' : 'sprig', '✕');
     setStyle(this.truckBtn, 'display', this.game.riding() ? '' : 'none');
     setAttr(this.toolBtn, 'aria-label', tools ? 'Stop' : state.player.inGreenhouse ? 'Arrange the house' : 'Garden');
     if (state.player.inGreenhouse && this.landMenuOpen) this.setLandMenu(false);
@@ -244,7 +256,9 @@ export class HUD {
     this.root.classList.toggle('arrange-active', this.game.tools.mode.kind === 'arrange' || this.game.tools.mode.kind === 'yard');
     this.modeBar.update();
     const night = isNight(state.clock.totalMinutes);
-    setText(this.timeChip, `${WEATHER_ICON[state.weather.condition]} ${formatClock(state.clock.totalMinutes)}${night ? ' \u{1F319}' : ''}`);
+    setIcon(this.weatherIcon, WEATHER_ICON[state.weather.condition] ?? 'sun');
+    setText(this.clockText, formatClock(state.clock.totalMinutes));
+    setStyle(this.nightIcon, 'display', night ? '' : 'none');
 
     const n = tools ? null : this.game.nearest;
     this.interactionPrompt.classList.toggle('visible', !!n);

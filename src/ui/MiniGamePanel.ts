@@ -18,7 +18,7 @@ export abstract class MiniGamePanel extends CanvasGamePanel {
     protected id: MiniGameId
   ) {
     const def = findMiniGame(id)!;
-    super(game, `${def.emoji} ${def.name}`, `mg-${id}`);
+    super(game, def.name, `mg-${id}`);
     this.def = def;
   }
 

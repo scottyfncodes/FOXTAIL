@@ -170,7 +170,7 @@ export class StartOverlay {
     card.appendChild(hero);
     card.appendChild(el('h1', undefined, 'FOXTAIL'));
     card.appendChild(el('div', 'start-tagline', 'a quiet game about wild houseplants'));
-    card.appendChild(el('div', 'start-october', '🎃 something is out there tonight 🎃'));
+    card.appendChild(el('div', 'start-october', 'something is out there tonight'));
 
     const sum = isNew ? null : this.summary();
     if (sum) {
@@ -192,7 +192,7 @@ export class StartOverlay {
         el(
           'p',
           undefined,
-          'You’re Ellen, a plant collector, and Scout — scruffy, one-eyed, never far — is at your side. A little greenhouse, an empty market stall, and a whole valley of wild houseplants waiting to be found. Somewhere out there, a fox knows where the rarest ones grow.'
+          'You’re Ellen, a plant collector, and Scout (scruffy, one-eyed, never far) is at your side. A little greenhouse, an empty market stall, and a whole valley of wild houseplants waiting to be found. Somewhere out there, a fox knows where the rarest ones grow.'
         )
       );
     }

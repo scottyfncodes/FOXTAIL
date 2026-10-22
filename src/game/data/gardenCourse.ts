@@ -248,7 +248,7 @@ export const GARDEN_HOLES: Hole[] = [
     id: 'g-dell',
     name: 'The Fairy Dell',
     par: 3,
-    tip: 'Over the mound, dead straight — or round it.',
+    tip: 'Over the mound, dead straight, or round it.',
     w: GARDEN_W,
     l: GARDEN_L,
     tee: { x: 2.5, y: 8.2 },

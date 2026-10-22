@@ -30,7 +30,7 @@ export const PLANTS: Record<string, PlantDef> = {
     look: { hue: 105, sat: 48, light: 38, accentHue: 55, variegation: 'marble', variegationColor: GOLD, size: 1 },
     variants: [
       { id: 'golden', name: 'Golden', rarity: 'common', description: 'Green leaves brushed with gold.', look: {} },
-      { id: 'marbleQueen', name: 'Marble Queen', rarity: 'uncommon', description: 'Heavily streaked with cream — more white than green in places.', look: { variegation: 'splash', variegationColor: CREAM, light: 42 } },
+      { id: 'marbleQueen', name: 'Marble Queen', rarity: 'uncommon', description: 'Heavily streaked with cream, more white than green in places.', look: { variegation: 'splash', variegationColor: CREAM, light: 42 } },
       { id: 'neon', name: 'Neon', rarity: 'rare', description: 'Electric chartreuse, almost glowing in the shade.', look: { hue: 72, sat: 85, light: 55, variegation: 'none' } },
       { id: 'manjula', name: 'Manjula', rarity: 'veryRare', description: 'Wavy, rounded leaves splashed silver, cream and green all at once.', look: { variegation: 'splash', variegationColor: WHITE, ruffled: true, leafWidth: 1.25 } },
       { id: 'moonrunner', name: 'Moonrunner', rarity: 'unheardOf', sportOnly: true, description: 'Silver-white leaves veined with a cold light that shows after dark. No nursery has ever listed it.', look: { hue: 200, sat: 15, light: 70, variegation: 'glow', variegationColor: [190, 90, 75] } },
@@ -74,7 +74,7 @@ export const PLANTS: Record<string, PlantDef> = {
     variants: [
       { id: 'standard', name: 'Standard', rarity: 'uncommon', description: 'Matte green coins.', look: {} },
       { id: 'sugar', name: 'Sugar', rarity: 'rare', description: 'Every coin is dusted with fine silver speckles.', look: { variegation: 'speckle', variegationColor: SILVER } },
-      { id: 'whiteSplash', name: 'White Splash', rarity: 'veryRare', description: 'Coins randomly splashed with pure white — no two alike.', look: { variegation: 'splash', variegationColor: WHITE } },
+      { id: 'whiteSplash', name: 'White Splash', rarity: 'veryRare', description: 'Coins randomly splashed with pure white. No two alike.', look: { variegation: 'splash', variegationColor: WHITE } },
       { id: 'lantern', name: 'Lantern', rarity: 'unheardOf', sportOnly: true, description: 'Coins of amber glass that hold the day’s light and let it go at night.', look: { hue: 40, sat: 80, light: 58, variegation: 'glow', variegationColor: [45, 100, 70] } },
     ],
     growthRate: 1.0,
@@ -109,7 +109,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'rare',
     habitat: ['meadow', 'overgrownClearing'],
     landscape: 'flower',
-    description: 'A fan of long-stalked paddle leaves, and — once it’s big enough — flowers like the heads of orange cranes, each with one blue tongue. It takes years to bloom and is worth every one.',
+    description: 'A fan of long-stalked paddle leaves, and (once it’s big enough) flowers like the heads of orange cranes, each with one blue tongue. It takes years to bloom and is worth every one.',
     hint: 'Paddles held up to the sun, in a fan. Something bright may perch among them one day.',
     look: { hue: 118, sat: 40, light: 34, accentHue: 28, accentSat: 95, accentLight: 58, variegation: 'none', size: 1.3, flowers: true },
     variants: [
@@ -182,7 +182,7 @@ export const PLANTS: Record<string, PlantDef> = {
       { id: 'adansonii', name: 'Adansonii', rarity: 'uncommon', description: 'Glossy green, riddled with holes.', look: {} },
       { id: 'laniata', name: 'Laniata', rarity: 'rare', description: 'Bigger, glossier leaves with the holes crowded along the midrib.', look: { light: 30, sat: 52, leafWidth: 0.95, size: 1 } },
       { id: 'albo', name: 'Albo', rarity: 'veryRare', description: 'Sectors of pure white cut across the holes.', look: { variegation: 'splash', variegationColor: WHITE } },
-      { id: 'obliqua', name: 'Obliqua', rarity: 'extremelyRare', description: 'More hole than leaf — a paper-thin lattice that collectors have crossed oceans for.', look: { light: 40, sat: 40, leafWidth: 1.05 } },
+      { id: 'obliqua', name: 'Obliqua', rarity: 'extremelyRare', description: 'More hole than leaf: a paper-thin lattice that collectors have crossed oceans for.', look: { light: 40, sat: 40, leafWidth: 1.05 } },
       { id: 'lacelight', name: 'Lacelight', rarity: 'unheardOf', sportOnly: true, description: 'Leaves gone the green of deep sea glass; through every hole, a faint light.', look: { hue: 190, sat: 40, light: 30, variegation: 'glow', variegationColor: [175, 100, 78] } },
     ],
     growthRate: 1.2,
@@ -198,7 +198,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'common',
     habitat: ['woodland', 'dampForest'],
     landscape: 'jungle',
-    description: 'Big, soft, painted leaves — cream, lime and green — on a thick cane. Its sap numbs the tongue, which is how it got its unkind name.',
+    description: 'Big, soft, painted leaves (cream, lime and green) on a thick cane. Its sap numbs the tongue, which is how it got its unkind name.',
     hint: 'Broad painted leaves in the dappled shade. Don’t chew.',
     look: { hue: 112, sat: 42, light: 36, accentHue: 80, variegation: 'marble', variegationColor: CREAM, size: 1.15, leafWidth: 1.15 },
     variants: [
@@ -263,7 +263,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'uncommon',
     habitat: ['woodland', 'overgrownClearing'],
     landscape: 'jungle',
-    description: 'A little tree hung with huge, leathery leaves shaped like violins. Famously sulky about being moved — but it grows tall once it settles.',
+    description: 'A little tree hung with huge, leathery leaves shaped like violins. Famously sulky about being moved, but it grows tall once it settles.',
     hint: 'A small tree whose leaves are shaped like violins.',
     look: { hue: 112, sat: 46, light: 30, accentHue: 85, accentSat: 55, accentLight: 48, variegation: 'veins', variegationColor: [95, 38, 42], size: 1.3, fiddle: true },
     variants: [
@@ -311,7 +311,7 @@ export const PLANTS: Record<string, PlantDef> = {
     look: { hue: 100, sat: 36, light: 36, accentHue: 70, accentSat: 30, accentLight: 70, variegation: 'veins', variegationColor: [75, 35, 72], size: 1.2, leafWidth: 1.05 },
     variants: [
       { id: 'audrey', name: 'Audrey', rarity: 'rare', description: 'Matte green leaves traced with cream veins.', look: {} },
-      { id: 'krishna', name: 'Krishna', rarity: 'veryRare', description: 'Every leaf folded into a little cup at the base — the legend says, for stealing butter.', look: { leafWidth: 0.75, ruffled: true, size: 1.05 } },
+      { id: 'krishna', name: 'Krishna', rarity: 'veryRare', description: 'Every leaf folded into a little cup at the base. The legend says, for stealing butter.', look: { leafWidth: 0.75, ruffled: true, size: 1.05 } },
       { id: 'ghost', name: 'Ghost', rarity: 'unheardOf', sportOnly: true, description: 'Velvet leaves gone the grey of moth wings, veined with light.', look: { hue: 90, sat: 8, light: 70, variegation: 'glow', variegationColor: [70, 60, 88] } },
     ],
     growthRate: 0.8,
@@ -421,7 +421,7 @@ export const PLANTS: Record<string, PlantDef> = {
       { id: 'rattlesnake', name: 'Rattlesnake', rarity: 'uncommon', description: 'Long wavy leaves spotted dark green, like a snake’s back.', look: {} },
       { id: 'pinstripe', name: 'Pinstripe', rarity: 'rare', description: 'Near-black leaves ruled with fine pink lines.', look: { hue: 130, sat: 35, light: 22, variegation: 'veins', variegationColor: [340, 70, 72], ruffled: false, leafWidth: 0.95 } },
       { id: 'medallion', name: 'Medallion', rarity: 'veryRare', description: 'Big round leaves feathered silver and dark green, backed in deep purple.', look: { light: 30, variegation: 'marble', variegationColor: SILVER, ruffled: false, leafWidth: 1.35 } },
-      { id: 'whiteFusion', name: 'White Fusion', rarity: 'extremelyRare', description: 'Marbled white and green with lilac undersides — beautiful, and notoriously difficult.', look: { light: 44, variegation: 'splash', variegationColor: WHITE, ruffled: false, leafWidth: 1.1, accentHue: 285, accentLight: 60 } },
+      { id: 'whiteFusion', name: 'White Fusion', rarity: 'extremelyRare', description: 'Marbled white and green with lilac undersides: beautiful, and notoriously difficult.', look: { light: 44, variegation: 'splash', variegationColor: WHITE, ruffled: false, leafWidth: 1.1, accentHue: 285, accentLight: 60 } },
       { id: 'peacockEye', name: 'Peacock Eye', rarity: 'unheardOf', sportOnly: true, description: 'The spots are eyes now, teal and violet, and they watch you back after dark.', look: { hue: 180, sat: 45, light: 26, variegation: 'glow', variegationColor: [285, 85, 70] } },
     ],
     growthRate: 0.85,
@@ -648,12 +648,12 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'common',
     habitat: ['rockyClearing'],
     landscape: 'arid',
-    description: 'Flat pads stacked two by two like rabbit ears, dotted with soft-looking tufts. Don’t pet it — those tufts are glochids, and they get everywhere.',
+    description: 'Flat pads stacked two by two like rabbit ears, dotted with soft-looking tufts. Don’t pet it. Those tufts are glochids, and they get everywhere.',
     hint: 'Polka-dotted ears poking up between the stones.',
     look: { hue: 95, sat: 38, light: 44, accentHue: 52, accentSat: 90, accentLight: 66, variegation: 'none', size: 0.95, spines: [50, 85, 70], spineLength: 0, flowers: true },
     variants: [
       { id: 'golden', name: 'Golden', rarity: 'common', description: 'Fresh green pads with golden polka dots.', look: {} },
-      { id: 'albata', name: 'Albata', rarity: 'uncommon', description: 'Snow-white dots — the “angel wings” form.', look: { spines: [60, 15, 96], light: 46 } },
+      { id: 'albata', name: 'Albata', rarity: 'uncommon', description: 'Snow-white dots: the “angel wings” form.', look: { spines: [60, 15, 96], light: 46 } },
       { id: 'rufida', name: 'Rufida', rarity: 'rare', description: 'Blue-grey pads freckled with cinnamon-red tufts.', look: { hue: 150, sat: 18, light: 46, spines: [18, 60, 42] } },
       { id: 'variegata', name: 'Variegata', rarity: 'veryRare', description: 'Pads splashed with buttery cream, every one different.', look: { variegation: 'splash', variegationColor: CREAM } },
       { id: 'seaGlass', name: 'Sea Glass', rarity: 'unheardOf', sportOnly: true, description: 'Pads of frosted turquoise, the spines white and faintly bright.', look: { hue: 175, sat: 55, light: 62, variegation: 'glow', variegationColor: [180, 100, 85], spines: [180, 40, 92] } },
@@ -676,7 +676,7 @@ export const PLANTS: Record<string, PlantDef> = {
     variants: [
       { id: 'golden', name: 'Golden', rarity: 'uncommon', description: 'The classic ball of gold.', look: {} },
       { id: 'albispinus', name: 'Albispinus', rarity: 'rare', description: 'Every spine bleached bone white.', look: { spines: [50, 15, 94] } },
-      { id: 'inermis', name: 'Inermis', rarity: 'veryRare', description: 'Almost spineless — just soft woolly buttons down smooth green ribs.', look: { spineLength: 0.15, light: 40 } },
+      { id: 'inermis', name: 'Inermis', rarity: 'veryRare', description: 'Almost spineless, just soft woolly buttons down smooth green ribs.', look: { spineLength: 0.15, light: 40 } },
       { id: 'emberBarrel', name: 'Ember Barrel', rarity: 'unheardOf', sportOnly: true, description: 'A ball of dark coal, its ribs lit orange from within.', look: { hue: 20, sat: 40, light: 20, variegation: 'glow', variegationColor: [25, 100, 60], spines: [25, 90, 60] } },
     ],
     growthRate: 0.6,
@@ -691,7 +691,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'uncommon',
     habitat: ['rockyClearing'],
     landscape: 'strange',
-    description: 'A ball with no green at all, so bright it can’t feed itself — it rides on the shoulders of a plainer cactus. Only seems to turn up after dark.',
+    description: 'A ball with no green at all, so bright it can’t feed itself, so it rides on the shoulders of a plainer cactus. Only seems to turn up after dark.',
     hint: 'Something glows like a sweet on a stick, only by moonlight.',
     look: { hue: 355, sat: 80, light: 52, accentHue: 330, accentSat: 60, accentLight: 82, variegation: 'none', size: 0.9, spines: [40, 20, 80], spineLength: 0.4, grafted: true, flowers: true },
     variants: [
@@ -737,7 +737,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'rare',
     habitat: ['rockyClearing'],
     landscape: 'strange',
-    description: 'A column wrapped in long, shaggy white hair — sunscreen for the cactus, and a very good beard.',
+    description: 'A column wrapped in long, shaggy white hair: sunscreen for the cactus, and a very good beard.',
     hint: 'A little grey-haired figure standing very still.',
     look: { hue: 120, sat: 25, light: 40, accentHue: 340, accentSat: 55, accentLight: 70, variegation: 'none', size: 0.85, spines: [50, 8, 95], spineLength: 0.3, hairy: true, leafWidth: 1.25 },
     variants: [
@@ -823,7 +823,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'uncommon',
     habitat: ['rockyClearing'],
     landscape: 'vine',
-    description: 'Ropes of plump, powder-blue leaves that tumble over ledges. Brush past it and it drops leaves — each one a new plant.',
+    description: 'Ropes of plump, powder-blue leaves that tumble over ledges. Brush past it and it drops leaves, each one a new plant.',
     hint: 'Blue ropes spilling off a ledge.',
     look: { hue: 160, sat: 22, light: 58, accentHue: 330, variegation: 'none', size: 1.05 },
     variants: [
@@ -866,7 +866,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'uncommon',
     habitat: ['overgrownClearing'],
     landscape: 'flower',
-    description: 'Thick waxy leaves on long vines, and — once it’s old enough — clusters of star-shaped flowers that smell of honey at night.',
+    description: 'Thick waxy leaves on long vines, and (once it’s old enough) clusters of star-shaped flowers that smell of honey at night.',
     hint: 'Waxy stars hanging from the tangle.',
     look: { hue: 120, sat: 35, light: 32, accentHue: 345, accentSat: 55, accentLight: 82, variegation: 'none', size: 1, leafWidth: 0.9, flowers: true },
     variants: [
@@ -892,7 +892,7 @@ export const PLANTS: Record<string, PlantDef> = {
     look: { hue: 110, sat: 35, light: 26, accentHue: 355, accentSat: 60, accentLight: 45, variegation: 'speckle', variegationColor: SILVER, size: 0.95, leafWidth: 0.75, flowers: true },
     variants: [
       { id: 'maculata', name: 'Maculata', rarity: 'uncommon', description: 'Silver dots on olive angel wings.', look: {} },
-      { id: 'wightii', name: 'Wightii', rarity: 'rare', description: 'Bigger, brighter dots — almost more silver than leaf.', look: { variegationColor: WHITE, leafWidth: 0.85 } },
+      { id: 'wightii', name: 'Wightii', rarity: 'rare', description: 'Bigger, brighter dots, almost more silver than leaf.', look: { variegationColor: WHITE, leafWidth: 0.85 } },
       { id: 'galaxy', name: 'Galaxy', rarity: 'unheardOf', sportOnly: true, description: 'The dots are lit: a leaf full of stars on a black sky.', look: { hue: 260, sat: 35, light: 14, variegation: 'glow', variegationColor: [55, 60, 92] } },
     ],
     growthRate: 1.05,
@@ -950,7 +950,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'common',
     habitat: ['creek', 'dampForest'],
     landscape: 'strange',
-    description: 'A rosette no bigger than a coin, every spoon-shaped leaf bristling with hairs tipped in glue. It sparkles in the sun like it’s just been rained on — and anything that lands stays.',
+    description: 'A rosette no bigger than a coin, every spoon-shaped leaf bristling with hairs tipped in glue. It sparkles in the sun like it’s just been rained on, and anything that lands stays.',
     hint: 'Something tiny sparkles in the wet ground.',
     look: { hue: 95, sat: 45, light: 42, accentHue: 352, accentSat: 72, accentLight: 46, variegation: 'none', size: 0.7, flowers: true },
     variants: [
@@ -971,7 +971,7 @@ export const PLANTS: Record<string, PlantDef> = {
     rarity: 'uncommon',
     habitat: ['creek'],
     landscape: 'strange',
-    description: 'Every leaf ends in a hinged trap fringed with teeth. Brush two of the trigger hairs inside and it snaps shut — so please don’t.',
+    description: 'Every leaf ends in a hinged trap fringed with teeth. Brush two of the trigger hairs inside and it snaps shut. So please don’t.',
     hint: 'Little green mouths, open by the water.',
     look: { hue: 100, sat: 50, light: 40, accentHue: 355, accentSat: 68, accentLight: 44, variegation: 'none', size: 0.85 },
     variants: [

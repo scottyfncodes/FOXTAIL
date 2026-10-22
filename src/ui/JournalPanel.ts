@@ -18,6 +18,7 @@ import { drawPumpkin } from '../game/world/OctoberArt';
 import { markSolutionRead, mysteryNotes, type MysteryId } from '../game/systems/mysteries';
 import { isOctober } from '../game/season';
 import { GIANTS, giantTotals, giantsAwake } from '../game/systems/giants';
+import { icon as drawnIcon } from './icons';
 
 type Tab = 'plants' | 'giants' | 'regions' | 'curiosities' | 'golf' | 'october';
 
@@ -156,7 +157,7 @@ export class JournalPanel {
         });
       } else {
         // Found but not yet grown: still a silhouette, with a nudge to grow it.
-        card.append(portrait(def.id, def.variants[0].id, 2.6, 4, 76, true), el('div', 'card-name unknown', '???'), el('div', 'card-hint', rec ? 'Found — grow it to record it.' : def.hint));
+        card.append(portrait(def.id, def.variants[0].id, 2.6, 4, 76, true), el('div', 'card-name unknown', '???'), el('div', 'card-hint', rec ? 'Found. Grow it to record it.' : def.hint));
       }
       grid.appendChild(card);
     }
@@ -190,7 +191,7 @@ export class JournalPanel {
 
     const est = isEstablished(state, defId);
     body.appendChild(
-      el('div', `establish${est ? ' done' : ''}`, est ? 'Established — you can display it and plant it out.' : `${rec.grown} of ${ESTABLISH_THRESHOLD} grown — establish it to display it or plant it out.`)
+      el('div', `establish${est ? ' done' : ''}`, est ? 'Established. You can display it and plant it out.' : `${rec.grown} of ${ESTABLISH_THRESHOLD} grown. Establish it to display it or plant it out.`)
     );
 
     // Variant checklist: grown ones are shown, the rest are "???" (a found one says so).
@@ -204,7 +205,7 @@ export class JournalPanel {
         row.title = v.description;
       } else {
         const locked = !rec.variants.includes(v.id) && !variantAllowed(state, def.id, v.id);
-        row.append(portrait(def.id, v.id, 2.8, 7, 44, true), el('span', 'variant-name', rec.variants.includes(v.id) ? '??? · found — grow it to record it' : locked ? '??? · after the one above' : '???'));
+        row.append(portrait(def.id, v.id, 2.8, 7, 44, true), el('span', 'variant-name', rec.variants.includes(v.id) ? '??? · found, grow it to record it' : locked ? '??? · after the one above' : '???'));
         if (locked) row.title = 'Each form comes after the last: find the one above first, or grow it on and see what its cuttings do.';
       }
       vlist.appendChild(row);
@@ -273,7 +274,7 @@ export class JournalPanel {
           this.render();
         });
       } else {
-        card.append(portrait(def.id, def.variants[0].id, 3.2, 4, 76, true), el('div', 'card-name unknown', rec ? def.name : '???'), el('div', 'card-hint', rec ? 'Found — grow it to record it.' : def.hint));
+        card.append(portrait(def.id, def.variants[0].id, 3.2, 4, 76, true), el('div', 'card-name unknown', rec ? def.name : '???'), el('div', 'card-hint', rec ? 'Found. Grow it to record it.' : def.hint));
       }
       grid.appendChild(card);
     }
@@ -287,11 +288,12 @@ export class JournalPanel {
     const found = CURIOSITIES.filter((c) => state.curiosities[c.id]).length;
     body.appendChild(el('div', 'collection-summary', `${found} of ${CURIOSITIES.length} noted`));
     const list = el('div', 'entry-list');
-    const glyph = { creature: '\u{1F438}', insect: '\u{1F98B}', oddity: '\u{1FAA8}' } as const;
+    const glyph = { creature: 'frog', insect: 'butterfly', oddity: 'stone' } as const;
     for (const c of [...CURIOSITIES].sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity))) {
       const rec = state.curiosities[c.id];
       const row = el('div', `entry-row${rec ? '' : ' missing'}`);
-      const icon = el('div', 'curio-icon', rec ? glyph[c.kind] : '?');
+      const icon = el('div', 'curio-icon', rec ? undefined : '?');
+      if (rec) icon.append(drawnIcon(glyph[c.kind]));
       const info = el('div', 'entry-info');
       if (rec) {
         info.append(el('div', 'entry-name', c.name), el('div', 'entry-sub', c.description), rarityBadge(c.rarity));

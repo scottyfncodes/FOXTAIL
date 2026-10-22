@@ -241,7 +241,7 @@ export class RockSkipPanel extends MiniGamePanel {
       sub = `Clattered up the far bank: +${BANK_BONUS}`;
       this.game.audio.playDiscoveryChime();
     } else if (s.skips === 0) {
-      sub = s.x < 4 ? 'Not much behind that one.' : 'Too steep — it went straight in.';
+      sub = s.x < 4 ? 'Not much behind that one.' : 'Too steep. It went straight in.';
     } else {
       const touches = s.goodTouches ? ` · ${s.goodTouches} good touch${s.goodTouches === 1 ? '' : 'es'}` : '';
       sub = `${metres} m out${touches}`;
