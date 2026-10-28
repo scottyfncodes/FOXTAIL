@@ -191,11 +191,11 @@ describe('offline progression is persistent, deterministic and bounded', () => {
     expect(mid.plants.p0.growth).toBeGreaterThan(before);
   });
 
+  // How long the catch-up takes is checked in tests/perf (npm run test:perf),
+  // so a busy machine can't fail the correctness checks here.
   it('a year away is capped: a full garden, not a broken one', () => {
     const s = garden();
-    const t = performance.now();
     returnAfter(s, 24 * 365 * 10, mulberry32(7));
-    expect(performance.now() - t).toBeLessThan(5000);
     expect(count(s)).toBeLessThanOrEqual(WILD_TOTAL_CAP);
     expect(ecologyMinutesFor(10 * 365 * 24 * HOUR)).toBe(ecologyMinutesFor(365 * 24 * HOUR));
     for (const p of Object.values(s.plants)) {
@@ -216,7 +216,7 @@ describe('offline progression is persistent, deterministic and bounded', () => {
     expect(loaded.clock.lastRealTimestamp).toBeLessThanOrEqual(Date.now());
   });
 
-  it('a garden left for a week stays fast to catch up, even when it is already dense', () => {
+  it('a garden left for a week catches up within the cap, even when it is already dense', () => {
     const s = createNewGame();
     s.clock.lastRealTimestamp = T0;
     const rand = mulberry32(11);
@@ -227,9 +227,7 @@ describe('offline progression is persistent, deterministic and bounded', () => {
       if (!open(Math.floor(x), Math.floor(y))) continue;
       plant(s, `d${n++}`, ['pothos', 'bostonFern', 'moss', 'bamboo', 'hosta'][n % 5], x, y, STAGE_AT.specimen);
     }
-    const t = performance.now();
     returnAfter(s, 24 * 7, rand);
-    expect(performance.now() - t).toBeLessThan(4000);
     expect(count(s)).toBeLessThanOrEqual(WILD_TOTAL_CAP);
   });
 });

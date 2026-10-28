@@ -96,7 +96,8 @@ describe('what you plant takes the region over', () => {
     for (const z of Object.keys(lush.zoneCount) as OutdoorZoneId[]) expect(lush.zoneCount[z]).toBeLessThanOrEqual(WILD_ZONE_CAP);
   });
 
-  it('a full valley left for a week still catches up quickly', () => {
+  // How long this takes is checked in tests/perf (npm run test:perf).
+  it('a full valley left for a week catches up within the cap', () => {
     const s = createNewGame();
     s.clock.lastRealTimestamp = T0;
     const rand = mulberry32(11);
@@ -107,9 +108,7 @@ describe('what you plant takes the region over', () => {
       if (!open(Math.floor(x), Math.floor(y)) || zoneAt(Math.floor(x), Math.floor(y)) === 'greenhouse') continue;
       plant(s, `d${n++}`, ['pothos', 'bostonFern', 'moss', 'bamboo', 'hosta'][n % 5], x, y, STAGE_AT.specimen);
     }
-    const t = performance.now();
     returnAfter(s, 24 * 7, 11);
-    expect(performance.now() - t).toBeLessThan(4000);
     expect(count(s)).toBeLessThanOrEqual(WILD_TOTAL_CAP);
   });
 });
