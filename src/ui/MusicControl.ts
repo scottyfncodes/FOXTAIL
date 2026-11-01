@@ -1,7 +1,7 @@
 import type { MusicManager } from '../game/engine/MusicManager';
 import { el } from './dom';
 import { icon } from './icons';
-import { THEMES, getTheme, setTheme, onThemeChange } from '../game/season';
+import { SEASONAL_THEMES_ENABLED, THEMES, getTheme, setTheme, onThemeChange } from '../game/season';
 
 /**
  * A small music button in the HUD and the popover it opens: music on or off,
@@ -55,7 +55,8 @@ export class MusicControl {
     this.themeRow.setAttribute('role', 'radiogroup');
     this.themeRow.setAttribute('aria-label', 'Season');
     onThemeChange(() => this.refresh());
-    this.menu.append(head, this.slider, this.nowPlaying, themeHead, this.themeRow);
+    this.menu.append(head, this.slider, this.nowPlaying);
+    if (SEASONAL_THEMES_ENABLED) this.menu.append(themeHead, this.themeRow);
     // Taps inside the popover mustn't reach the game world beneath it.
     this.menu.addEventListener('pointerdown', (e) => e.stopPropagation());
     window.addEventListener('pointerdown', (e) => {
