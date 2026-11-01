@@ -15,6 +15,13 @@ export const THEMES: { id: SeasonTheme; label: string }[] = [
 
 const THEME_KEY = 'foxtail-season';
 
+/**
+ * Whether the October look is offered at all. Off out of season: the game
+ * always starts in Classic, whatever the calendar or the device remembers,
+ * and the Season switch is hidden. Flip back on next October.
+ */
+export const SEASONAL_THEMES_ENABLED = false;
+
 let active: SeasonTheme = 'classic';
 const listeners = new Set<(t: SeasonTheme) => void>();
 
@@ -29,8 +36,8 @@ export function preferredTheme(now: Date = new Date()): SeasonTheme {
   return now.getMonth() === 9 ? 'october' : 'classic';
 }
 
-export function initTheme(now: Date = new Date()): SeasonTheme {
-  active = preferredTheme(now);
+export function initTheme(now: Date = new Date(), enabled: boolean = SEASONAL_THEMES_ENABLED): SeasonTheme {
+  active = enabled ? preferredTheme(now) : 'classic';
   return active;
 }
 

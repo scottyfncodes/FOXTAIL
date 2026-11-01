@@ -327,7 +327,11 @@ journal stays finished.
 
 ## October
 
-The 🎵 button's popover also has a **Season** switch: **Classic**, or
+October is switched off for now: the game always opens in Classic and the
+Season switch is hidden. Set `SEASONAL_THEMES_ENABLED` in
+`src/game/season.ts` back to `true` to bring it back.
+
+When on, the 🎵 button's popover also has a **Season** switch: **Classic**, or
 **October**. It follows the calendar until you choose, then remembers your
 choice on the device. It only changes how the valley looks and what may
 happen in it: the save, the plants, the coins and everything else carry

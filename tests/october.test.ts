@@ -96,8 +96,14 @@ describe('the seasonal look', () => {
     expect(preferredTheme(new Date(2026, 9, 31))).toBe('classic');
     setTheme('october');
     expect(preferredTheme(new Date(2026, 2, 1))).toBe('october');
-    expect(initTheme(new Date(2026, 2, 1))).toBe('october');
+    expect(initTheme(new Date(2026, 2, 1), true)).toBe('october');
     expect(isOctober()).toBe(true);
+  });
+
+  it('starts in Classic whatever was remembered while the seasonal look is switched off', () => {
+    setTheme('october');
+    expect(initTheme(new Date(2026, 9, 31), false)).toBe('classic');
+    expect(isOctober()).toBe(false);
   });
 
   it('tells whoever is listening when it changes, and can be switched back and forth', () => {
