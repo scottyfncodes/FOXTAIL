@@ -1,5 +1,20 @@
 export type InteractHandler = () => void;
 
+/** How far (as a share of the joystick's reach) a thumb can rest before Ellen moves. */
+export const JOYSTICK_DEADZONE = 0.15;
+
+/**
+ * Turns the thumb's offset (each axis -1..1 of the joystick's reach) into a
+ * walking vector. A thumb resting near the centre doesn't nudge her; past the
+ * deadzone, speed ramps from zero so there's no jump at its edge.
+ */
+export function joystickVector(x: number, y: number): { x: number; y: number } {
+  const len = Math.hypot(x, y);
+  if (len <= JOYSTICK_DEADZONE) return { x: 0, y: 0 };
+  const scale = Math.min(1, (len - JOYSTICK_DEADZONE) / (1 - JOYSTICK_DEADZONE)) / len;
+  return { x: x * scale, y: y * scale };
+}
+
 export class Input {
   private keys = new Set<string>();
   private joyVector = { x: 0, y: 0 };
@@ -76,7 +91,7 @@ export class Input {
         dy = (dy / len) * radius;
       }
       setThumb(dx, dy);
-      this.joyVector = { x: dx / radius, y: dy / radius };
+      this.joyVector = joystickVector(dx / radius, dy / radius);
     };
     const end = (e: PointerEvent) => {
       if (e.pointerId !== this.joyPointerId) return;

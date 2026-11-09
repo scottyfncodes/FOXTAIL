@@ -1,78 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Foxtail: the fox asleep among the houseplants, under a garden moon. -->
-  <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1c4a41"/>
-      <stop offset="0.55" stop-color="#143a33"/>
-      <stop offset="1" stop-color="#0c2521"/>
-    </linearGradient>
-    <radialGradient id="moonglow" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#f8e9b8" stop-opacity="0.55"/>
-      <stop offset="0.5" stop-color="#f8e9b8" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#f8e9b8" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="fur" x1="0" y1="0" x2="0.3" y2="1">
-      <stop offset="0" stop-color="#f4923f"/>
-      <stop offset="1" stop-color="#d8652a"/>
-    </linearGradient>
-    <linearGradient id="leafDark" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2f7a60"/>
-      <stop offset="1" stop-color="#1e5a44"/>
-    </linearGradient>
-    <linearGradient id="leafLight" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3f9a6f"/>
-      <stop offset="1" stop-color="#2a7454"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" fill="url(#sky)"/>
+  <!-- Foxtail: Scout's face. One bright eye, one closed over an old scar, a leaf tucked behind the ear. -->
+  <rect width="512" height="512" fill="#123a33"/>
   <g id="art">
-    <!-- Moon -->
-    <circle cx="392" cy="118" r="128" fill="url(#moonglow)"/>
-    <circle cx="392" cy="118" r="58" fill="#f8e9b8"/>
-    <circle cx="372" cy="102" r="9" fill="#ecd9a2" opacity="0.7"/>
-    <circle cx="408" cy="134" r="6" fill="#ecd9a2" opacity="0.7"/>
-
-    <!-- Leaves behind: a monstera, two pothos hearts, a frond -->
-    <g fill="url(#leafDark)">
-      <path d="M92 440 C 20 380, 40 260, 150 232 C 190 300, 170 400, 92 440 Z"/>
-      <path d="M430 452 C 500 392, 496 280, 392 250 C 340 320, 356 410, 430 452 Z"/>
-    </g>
-    <path d="M150 232 C 118 262, 112 320, 130 372" stroke="#d9e8c9" stroke-opacity="0.35" stroke-width="7" fill="none" stroke-linecap="round"/>
-    <path d="M392 250 C 420 282, 428 336, 414 392" stroke="#d9e8c9" stroke-opacity="0.35" stroke-width="7" fill="none" stroke-linecap="round"/>
-    <g fill="url(#leafLight)">
-      <path d="M296 226 C 296 176, 356 160, 366 206 C 372 236, 330 262, 296 296 C 262 262, 220 236, 226 206 C 236 160, 296 176, 296 226 Z"/>
-    </g>
-    <path d="M296 230 L 296 290" stroke="#d9e8c9" stroke-opacity="0.45" stroke-width="6" stroke-linecap="round"/>
-    <g stroke="#2f7a5c" stroke-width="10" stroke-linecap="round" fill="none">
-      <path d="M60 300 C 100 250, 160 240, 210 262"/>
-      <path d="M78 296 L 92 268"/><path d="M106 278 L 116 250"/><path d="M138 264 L 146 236"/><path d="M172 256 L 180 230"/>
-    </g>
-
-    <!-- Fox, curled -->
-    <ellipse cx="272" cy="330" rx="170" ry="118" fill="url(#fur)"/>
-    <!-- Tail wraps round the front, white at the tip -->
-    <path d="M418 300 C 486 370, 392 470, 246 440 C 178 426, 132 402, 138 356" stroke="#e2742f" stroke-width="66" stroke-linecap="round" fill="none"/>
-    <path d="M418 300 C 486 370, 392 470, 246 440 C 178 426, 132 402, 138 356" stroke="#f4923f" stroke-width="44" stroke-linecap="round" fill="none" opacity="0.55"/>
-    <path d="M212 436 C 170 424, 134 400, 138 356" stroke="#fbe7c8" stroke-width="54" stroke-linecap="round" fill="none"/>
-    <!-- Head -->
-    <path d="M132 214 L 116 118 L 196 176 Z" fill="#e2742f"/>
-    <path d="M140 200 L 130 140 L 184 182 Z" fill="#7a3a1c"/>
-    <path d="M226 186 L 256 108 L 284 200 Z" fill="#e2742f"/>
-    <path d="M236 190 L 256 132 L 270 196 Z" fill="#7a3a1c"/>
-    <circle cx="200" cy="248" r="80" fill="url(#fur)"/>
-    <ellipse cx="170" cy="282" rx="56" ry="40" fill="#fbe7c8"/>
-    <circle cx="130" cy="272" r="13" fill="#3b2418"/>
-    <path d="M208 234 q 16 14 32 0" stroke="#3b2418" stroke-width="7" stroke-linecap="round" fill="none"/>
-    <path d="M150 302 q 12 10 24 0" stroke="#3b2418" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.8"/>
-    <ellipse cx="238" cy="276" rx="16" ry="10" fill="#f2b28a" opacity="0.6"/>
-
-    <!-- Fireflies -->
-    <g fill="#fff0b0">
-      <circle cx="90" cy="150" r="5" opacity="0.9"/>
-      <circle cx="60" cy="200" r="3" opacity="0.6"/>
-      <circle cx="470" cy="230" r="4" opacity="0.8"/>
-      <circle cx="446" cy="300" r="3" opacity="0.5"/>
-      <circle cx="330" cy="110" r="3" opacity="0.5"/>
+    <g transform="scale(0.5)">
+  
+  <circle cx="512" cy="560" r="400" fill="#1c4a41"/>
+  <!-- ears -->
+  <path d="M232 470 L 214 150 L 452 330 Z" fill="#e2742f"/>
+  <path d="M262 430 L 252 228 L 412 344 Z" fill="#7a3a1c"/>
+  <path d="M792 470 L 810 150 L 572 330 Z" fill="#e2742f"/>
+  <path d="M762 430 L 772 228 L 612 344 Z" fill="#7a3a1c"/>
+  <!-- head -->
+  <path d="M512 300 C 700 300 830 420 830 560 C 830 640 760 700 680 740 L 512 880 L 344 740 C 264 700 194 640 194 560 C 194 420 324 300 512 300 Z" fill="#f08a3a"/>
+  <!-- cheeks -->
+  <path d="M194 560 C 260 600 340 640 420 700 L 512 880 L 344 740 C 264 700 194 640 194 560 Z" fill="#fbe7c8"/>
+  <path d="M830 560 C 764 600 684 640 604 700 L 512 880 L 680 740 C 760 700 830 640 830 560 Z" fill="#fbe7c8"/>
+  <!-- nose -->
+  <path d="M468 818 L 556 818 L 512 872 Z" fill="#2b1a12"/>
+  <!-- open eye -->
+  <ellipse cx="376" cy="560" rx="44" ry="52" fill="#2b1a12"/>
+  <circle cx="390" cy="542" r="14" fill="#fbe7c8"/>
+  <!-- closed eye with scar -->
+  <path d="M600 566 q 48 30 96 0" stroke="#2b1a12" stroke-width="22" stroke-linecap="round" fill="none"/>
+  <path d="M636 486 L 676 640" stroke="#7a3a1c" stroke-width="14" stroke-linecap="round"/>
+  <!-- leaf tucked behind the ear -->
+  <path d="M780 300 C 900 240 960 330 900 420 C 850 400 800 360 780 300 Z" fill="#3f9a6f"/>
+  <path d="M790 306 C 840 340 880 380 900 420" stroke="#d9e8c9" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.6"/>
     </g>
   </g>
 </svg>
