@@ -975,14 +975,37 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: max(14px, env(safe-area-inset-bottom));
+  bottom: max(2px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   color: rgba(244, 236, 216, 0.42);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-size: 12px;
   z-index: 1;
   pointer-events: none;
+}
+.start-cast {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0 16px;
+}
+/* The maker's credit: quiet, under the cast, and the only part of the footer you can tap. */
+.start-maker {
+  pointer-events: auto;
+  color: rgba(244, 236, 216, 0.5);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+}
+.start-maker:hover,
+.start-maker:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 @media (max-height: 720px) {
   .start-hero { width: 88px; height: 88px; border-radius: 24px; }

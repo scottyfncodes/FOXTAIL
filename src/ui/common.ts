@@ -71,6 +71,7 @@ export function realTime(gameMinutes: number): string {
 /** A little gold coin, for anywhere a number of coins is shown. */
 export function coin(): HTMLElement {
   const c = el('span', 'coin');
+  c.setAttribute('role', 'img');
   c.setAttribute('aria-label', 'coins');
   return c;
 }

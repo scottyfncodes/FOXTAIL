@@ -144,6 +144,7 @@ export class HUD {
     this.basketBtn.append(icon('basket'));
     this.truckBtn.append(icon('truck'));
     setIcon(this.toolBtn, 'sprig');
+    this.toolBtn.setAttribute('aria-label', 'Garden');
     left.append(this.zoneChip, this.timeChip, this.coinChip);
     const right = el('div', 'hud-buttons');
     this.musicControl = new MusicControl(game.audio.music);

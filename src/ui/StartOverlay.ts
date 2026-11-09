@@ -115,6 +115,10 @@ export class StartOverlay {
     isNew: boolean,
     private summary: () => StartSummary | null = () => null
   ) {
+    // A modal over the game until you step outside: its own landmark for screen readers.
+    this.root.setAttribute('role', 'dialog');
+    this.root.setAttribute('aria-modal', 'true');
+    this.root.setAttribute('aria-label', 'Foxtail');
     this.render(isNew);
     document.body.appendChild(this.root);
   }
@@ -216,6 +220,14 @@ export class StartOverlay {
       card.appendChild(resetLink);
     }
     this.root.appendChild(card);
-    this.root.appendChild(el('div', 'start-foot', 'Ellen · Scout · Scott · Ranger · and the fox'));
+    const foot = el('footer', 'start-foot');
+    foot.appendChild(el('div', 'start-cast', 'Ellen · Scout · Scott · Ranger · and the fox'));
+    const maker = el('a', 'start-maker', 'by HaveAnApp');
+    maker.setAttribute('href', 'https://haveanapp.com');
+    maker.setAttribute('target', '_blank');
+    maker.setAttribute('rel', 'noopener');
+    maker.setAttribute('data-haveanapp', '');
+    foot.appendChild(maker);
+    this.root.appendChild(foot);
   }
 }
