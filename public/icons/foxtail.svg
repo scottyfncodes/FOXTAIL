@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Foxtail: Scout's face. One bright eye, one closed over an old scar, a leaf tucked behind the ear. -->
+  <!-- Foxtail: the fox, bright-eyed, with a leaf tucked behind the ear. -->
   <rect width="512" height="512" fill="#123a33"/>
   <g id="art">
     <g transform="scale(0.5)">
@@ -17,12 +17,11 @@
   <path d="M830 560 C 764 600 684 640 604 700 L 512 880 L 680 740 C 760 700 830 640 830 560 Z" fill="#fbe7c8"/>
   <!-- nose -->
   <path d="M468 818 L 556 818 L 512 872 Z" fill="#2b1a12"/>
-  <!-- open eye -->
+  <!-- eyes -->
   <ellipse cx="376" cy="560" rx="44" ry="52" fill="#2b1a12"/>
   <circle cx="390" cy="542" r="14" fill="#fbe7c8"/>
-  <!-- closed eye with scar -->
-  <path d="M600 566 q 48 30 96 0" stroke="#2b1a12" stroke-width="22" stroke-linecap="round" fill="none"/>
-  <path d="M636 486 L 676 640" stroke="#7a3a1c" stroke-width="14" stroke-linecap="round"/>
+  <ellipse cx="648" cy="560" rx="44" ry="52" fill="#2b1a12"/>
+  <circle cx="662" cy="542" r="14" fill="#fbe7c8"/>
   <!-- leaf tucked behind the ear -->
   <path d="M780 300 C 900 240 960 330 900 420 C 850 400 800 360 780 300 Z" fill="#3f9a6f"/>
   <path d="M790 306 C 840 340 880 380 900 420" stroke="#d9e8c9" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.6"/>
