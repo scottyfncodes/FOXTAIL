@@ -16,6 +16,20 @@ const PATHS = {
   /** Arranging: a ladder-back chair. */
   chair:
     '<path d="M7 3.5v17M7 12.5h10M17 12.5v8M7 6.5h6.5M7 9.5h6.5"/><path d="M13.5 3.5v9"/>',
+  /** Dig a bed: a straight-sided bed with something coming up in it. */
+  bedRect:
+    '<rect x="3" y="14" width="18" height="6.5" rx="1.5"/><path d="M12 17V6.5"/><path d="M12 10c0-3 1.7-4.9 4.4-5.3C16.4 7.6 15 9.6 12 10z"/><path d="M12 13.2c-.5-2.600-2.300-4.100-5.100-4.200.3 2.600 2.200 4.200 5.100 4.200z"/>',
+  /** A round bed, the same seedling in it. */
+  bedRound:
+    '<ellipse cx="12" cy="17" rx="9" ry="3.75"/><path d="M12 17V6.5"/><path d="M12 10c0-3 1.7-4.9 4.4-5.3C16.4 7.6 15 9.6 12 10z"/><path d="M12 13.2c-.5-2.600-2.300-4.100-5.100-4.200.3 2.600 2.200 4.200 5.100 4.200z"/>',
+  /** Carve a path: two edges winding away. */
+  path: '<path d="M4.5 20.5C6 15.5 12.8 14 12.5 9.5 12.3 7 10.5 5.5 11 3.5"/><path d="M13.5 20.5c1-3.5 6.3-5 5.8-10.5-.3-3-3.3-4.5-3.3-6.5"/>',
+  /** Clear a square: ground marked out, nothing in it. */
+  clearSquare: '<rect x="4.5" y="4.5" width="15" height="15" rx="1.5" stroke-dasharray="2.5 3.5"/>',
+  /** Clear a circle. */
+  clearCircle: '<circle cx="12" cy="12" r="7.75" stroke-dasharray="2.5 3.59"/>',
+  /** Stop what's in hand: a plain cross. */
+  stop: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
   /** The mini truck, from the side. */
   truck:
     '<path d="M2.5 16.5V9.5h10v7"/><path d="M12.5 11.5h4.2l3.3 3.2v1.8h-1.2"/><path d="M8.6 16.5h6"/><circle cx="6.5" cy="17" r="1.9"/><circle cx="16.5" cy="17" r="1.9"/>',

@@ -12,7 +12,11 @@
   --danger: #c9614a;
   --radius: 14px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, 'Segoe UI', system-ui, sans-serif;
+  /* A naturalist's notebook: a warm book serif that already lives on the
+     device (nothing to download, works offline). The stack ends in serifs so
+     a phone with none of the first few (Android, Linux) still lands on one
+     (Noto Serif) rather than falling through to its system sans. */
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, 'Noto Serif', 'Droid Serif', serif;
 
   /* Ellen's field-journal palette — used to reskin panels (journal, basket,
      station) as pages from her own notebook, kept separate from the world/
@@ -166,11 +170,6 @@ button {
 .hud-chip .chip-icon .ft-icon {
   width: 100%;
   height: 100%;
-}
-.land-icon .ft-icon {
-  width: 22px;
-  height: 22px;
-  vertical-align: middle;
 }
 .curio-icon .ft-icon {
   width: 28px;
@@ -1558,9 +1557,8 @@ button {
 }
 
 .land-icon {
-  font-size: 20px;
-  width: 24px;
-  text-align: center;
+  width: 22px;
+  height: 22px;
 }
 
 .mode-bar {
@@ -2675,4 +2673,121 @@ body.theme-october .filter-chip.active {
 }
 body.theme-october .collection-meter-fill {
   background: linear-gradient(90deg, #c8641e, #e89a3c);
+}
+
+
+/* ---------- Finish ---------- */
+
+/* Behind the title screen the HUD isn't there: not drawn, not focusable, not announced. */
+.hud[inert] {
+  visibility: hidden;
+}
+
+/* A menu the player has just opened is read first: news steps back underneath it. */
+.toast-stack {
+  transition: opacity 0.16s ease;
+}
+.toast-stack.under-menu {
+  z-index: 9;
+  opacity: 0.5;
+}
+
+/* A phone on its side has room for three rows, not six: the garden menu goes two abreast. */
+@media (max-height: 500px) {
+  .land-menu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .land-item {
+    min-height: 48px;
+  }
+}
+
+/* The action, pressed with nothing in reach: the button shakes its head once, and the prompt says so. */
+.action-btn.no {
+  animation: action-no 0.18s ease;
+}
+@keyframes action-no {
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+.interaction-prompt.nothing {
+  color: var(--ink-dim);
+  pointer-events: none;
+}
+.interaction-prompt.nothing kbd {
+  display: none;
+}
+
+/* The title on a phone held sideways: the name on the left, what to do on the
+   right, so the whole card sits in the sky and the valley keeps its strip. */
+.start-brand,
+.start-body {
+  display: contents;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .start-card {
+    flex-direction: row;
+    justify-content: center;
+    gap: 40px;
+    max-width: 720px;
+    padding: 0 0 8px;
+  }
+  .start-brand,
+  .start-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .start-brand {
+    flex: 0 0 auto;
+  }
+  .start-body {
+    flex: 0 1 360px;
+    min-width: 0;
+  }
+  .start-overlay h1 {
+    margin-top: 4px;
+  }
+  .start-tagline {
+    margin-top: 0;
+  }
+  .start-overlay .primary-btn {
+    margin-top: 4px;
+  }
+  /* The cast and the credit share one line along the bottom edge. */
+  .start-foot {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+/* The cast: one line where there's room, and on a phone held upright two
+   even lines, broken between the halves so no name or dot is left hanging. */
+.start-cast-part {
+  white-space: nowrap;
+}
+.start-cast-sep {
+  white-space: pre;
+}
+@media (max-width: 480px) {
+  .start-cast-part {
+    display: block;
+  }
+  .start-cast-sep {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-btn.no {
+    animation: none;
+  }
 }

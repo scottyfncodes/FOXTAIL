@@ -29,6 +29,8 @@ export class Panel {
 
   constructor(title: string, opts: { tabs?: boolean } = {}) {
     this.titleEl.textContent = title;
+    // The mark is a multiplication sign: say what it does.
+    this.closeBtn.setAttribute('aria-label', 'Close');
     this.closeBtn.addEventListener('click', () => this.close());
     this.header.append(this.titleEl, this.closeBtn);
     this.panel.append(this.header);

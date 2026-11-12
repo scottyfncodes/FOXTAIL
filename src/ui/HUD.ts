@@ -45,6 +45,10 @@ const ACTION_VERBS: Record<string, string> = {
   ghost: 'WAVE',
 };
 
+/** What the prompt says, and for how long, when the action is pressed in the open. */
+const NOTHING_IN_REACH = 'Nothing in reach';
+const NOTHING_IN_REACH_MS = 900;
+
 const WEATHER_ICON: Record<string, IconName> = { clear: 'sun', rain: 'rain', overcast: 'cloud' };
 
 function setText(node: Node, text: string) {
@@ -127,6 +131,8 @@ export class HUD {
   private joystickThumb = el('div', 'joystick-thumb');
   private actionBtn = el('button', 'action-btn', 'SNIP');
   private lastVerb = '';
+  /** Until when (performance.now) the prompt says there's nothing in reach. */
+  private nothingUntil = 0;
 
   onJournal: (() => void) | null = null;
   onBasket: (() => void) | null = null;
@@ -168,9 +174,10 @@ export class HUD {
     this.buildLandMenu();
     this.interactionPrompt.append(el('kbd', undefined, 'E'), this.promptLabel);
     this.root.append(top, this.interactionPrompt, touch, this.landMenu, this.musicControl.menu, this.modeBar.root);
-    // Notifications sit above everything, open panels included, so news
-    // still gets through while a plant, bed or planter is open.
-    document.body.appendChild(this.toastStack);
+    // News sits beside the HUD in the game's own layer: over the world and
+    // the HUD, faintly through an open panel's backdrop, and (see
+    // setLandMenu) under a menu the player has just opened.
+    (document.getElementById('app') ?? document.body).appendChild(this.toastStack);
 
     this.musicControl.button.addEventListener('click', () => this.setLandMenu(false));
     this.journalBtn.addEventListener('click', () => this.onJournal?.());
@@ -188,15 +195,13 @@ export class HUD {
     this.game.input.bindJoystick(this.joystickZone, this.joystickThumb);
     this.game.input.bindActionButton(this.actionBtn);
     this.game.onToast = (t) => this.showToast(t);
+    this.game.onNothingInReach = () => this.nothingInReach();
   }
 
   private buildLandMenu() {
-    const item = (glyph: string | IconName, label: string, onClick: () => void) => {
+    const item = (mark: IconName, label: string, onClick: () => void) => {
       const b = el('button', 'land-item');
-      const mark = el('span', 'land-icon');
-      if (glyph === 'chair') mark.append(icon('chair'));
-      else mark.textContent = glyph;
-      b.append(mark, el('span', 'land-label', label));
+      b.append(icon(mark, 'ft-icon land-icon'), el('span', 'land-label', label));
       b.addEventListener('click', () => {
         this.setLandMenu(false);
         onClick();
@@ -204,11 +209,11 @@ export class HUD {
       return b;
     };
     this.landMenu.append(
-      item('▭', 'Dig a bed', () => this.game.beginBed('rect')),
-      item('◯', 'Round bed', () => this.game.beginBed('oval')),
-      item('〰', 'Carve a path', () => this.game.beginPath()),
-      item('◻', 'Clear a square', () => this.game.beginClearing('square')),
-      item('○', 'Clear a circle', () => this.game.beginClearing('circle')),
+      item('bedRect', 'Dig a bed', () => this.game.beginBed('rect')),
+      item('bedRound', 'Round bed', () => this.game.beginBed('oval')),
+      item('path', 'Carve a path', () => this.game.beginPath()),
+      item('clearSquare', 'Clear a square', () => this.game.beginClearing('square')),
+      item('clearCircle', 'Clear a circle', () => this.game.beginClearing('circle')),
       item('chair', 'Arrange the garden', () => this.game.beginArrange())
     );
     this.landMenu.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -218,6 +223,24 @@ export class HUD {
     if (open) this.musicControl.setOpen(false);
     this.landMenuOpen = open;
     this.landMenu.classList.toggle('open', open);
+    // A menu she has just opened is read first: news waits underneath it.
+    this.toastStack.classList.toggle('under-menu', open);
+  }
+
+  /**
+   * Behind the title screen the HUD is not there at all: not seen, not
+   * focused, not announced. It comes alive when Ellen steps outside.
+   */
+  setLive(live: boolean) {
+    this.root.toggleAttribute('inert', !live);
+  }
+
+  /** The action was pressed with nothing in reach: say so, briefly, rather than say nothing. */
+  private nothingInReach() {
+    this.nothingUntil = performance.now() + NOTHING_IN_REACH_MS;
+    this.actionBtn.classList.remove('nod', 'no');
+    void this.actionBtn.offsetWidth;
+    this.actionBtn.classList.add('no');
   }
 
   private showToast(t: ToastEvent) {
@@ -249,7 +272,7 @@ export class HUD {
     setText(this.zoneChip, cover >= 0.01 ? `${place} · ${Math.round(cover * 100)}% yours` : place);
     setText(this.coinText, String(state.coins));
     const tools = this.game.tools.active;
-    setIcon(this.toolBtn, tools ? null : state.player.inGreenhouse ? 'chair' : 'sprig', '✕');
+    setIcon(this.toolBtn, tools ? 'stop' : state.player.inGreenhouse ? 'chair' : 'sprig');
     setStyle(this.truckBtn, 'display', this.game.riding() ? '' : 'none');
     setAttr(this.toolBtn, 'aria-label', tools ? 'Stop' : state.player.inGreenhouse ? 'Arrange the house' : 'Garden');
     if (state.player.inGreenhouse && this.landMenuOpen) this.setLandMenu(false);
@@ -262,7 +285,10 @@ export class HUD {
     setStyle(this.nightIcon, 'display', night ? '' : 'none');
 
     const n = tools ? null : this.game.nearest;
-    this.interactionPrompt.classList.toggle('visible', !!n);
+    const nothing = !n && !tools && performance.now() < this.nothingUntil;
+    this.interactionPrompt.classList.toggle('visible', !!n || nothing);
+    this.interactionPrompt.classList.toggle('nothing', nothing);
+    if (nothing) setText(this.promptLabel, NOTHING_IN_REACH);
     setStyle(this.actionBtn, 'opacity', n ? '1' : '0.55');
     // Something in reach: the button wakes up, and gives a small nod each time it's something new.
     const verb = n ? ACTION_VERBS[n.kind] ?? 'GO' : '';

@@ -108,6 +108,7 @@ const HILLS = `
 
 export class StartOverlay {
   root = el('div', 'start-overlay');
+  private startBtn: HTMLButtonElement | null = null;
 
   constructor(
     private onStart: () => void,
@@ -121,6 +122,7 @@ export class StartOverlay {
     this.root.setAttribute('aria-label', 'Foxtail');
     this.render(isNew);
     document.body.appendChild(this.root);
+    window.addEventListener('keydown', this.onKey);
   }
 
   private render(isNew: boolean) {
@@ -171,10 +173,14 @@ export class StartOverlay {
     img.alt = '';
     img.draggable = false;
     hero.appendChild(img);
-    card.appendChild(hero);
-    card.appendChild(el('h1', undefined, 'FOXTAIL'));
-    card.appendChild(el('div', 'start-tagline', 'a quiet game about wild houseplants'));
-    card.appendChild(el('div', 'start-october', 'something is out there tonight'));
+    // Two groups, the name and what to do: stacked upright, side by side on a phone held sideways.
+    const brand = el('div', 'start-brand');
+    const body = el('div', 'start-body');
+    brand.appendChild(hero);
+    brand.appendChild(el('h1', undefined, 'FOXTAIL'));
+    brand.appendChild(el('div', 'start-tagline', 'a quiet game about wild houseplants'));
+    brand.appendChild(el('div', 'start-october', 'something is out there tonight'));
+    card.append(brand, body);
 
     const sum = isNew ? null : this.summary();
     if (sum) {
@@ -189,10 +195,10 @@ export class StartOverlay {
       stat(sum.plants, 'growing');
       stat(sum.species, 'found');
       stat(sum.coins, 'coins');
-      card.appendChild(row);
-      card.appendChild(el('p', undefined, `You’ve been away ${awayText(sum.awayMs)}. Your plants have been growing without you, and the valley may look a little different.`));
+      body.appendChild(row);
+      body.appendChild(el('p', undefined, `You’ve been away ${awayText(sum.awayMs)}. Your plants have been growing without you, and the valley may look a little different.`));
     } else {
-      card.appendChild(
+      body.appendChild(
         el(
           'p',
           undefined,
@@ -204,10 +210,11 @@ export class StartOverlay {
     const btn = el('button', 'primary-btn', isNew ? 'Step Outside' : 'Continue');
     btn.addEventListener('click', () => {
       this.root.classList.add('leaving');
+      window.removeEventListener('keydown', this.onKey);
       window.setTimeout(() => this.root.remove(), 420);
       this.onStart();
     });
-    card.appendChild(btn);
+    body.appendChild(btn);
 
     if (!isNew) {
       const resetLink = el('button', 'start-reset', 'Start a new game');
@@ -217,11 +224,14 @@ export class StartOverlay {
           this.render(true);
         }
       });
-      card.appendChild(resetLink);
+      body.appendChild(resetLink);
     }
     this.root.appendChild(card);
     const foot = el('footer', 'start-foot');
-    foot.appendChild(el('div', 'start-cast', 'Ellen · Scout · Scott · Ranger · and the fox'));
+    // Two halves, so a narrow screen breaks the line between them and never mid-list.
+    const cast = el('div', 'start-cast');
+    cast.append(el('span', 'start-cast-part', 'Ellen · Scout · Scott'), el('span', 'start-cast-sep', ' · '), el('span', 'start-cast-part', 'Ranger · and the fox'));
+    foot.appendChild(cast);
     const maker = el('a', 'start-maker', 'by HaveAnApp');
     maker.setAttribute('href', 'https://haveanapp.com');
     maker.setAttribute('target', '_blank');
@@ -229,5 +239,20 @@ export class StartOverlay {
     maker.setAttribute('data-haveanapp', '');
     foot.appendChild(maker);
     this.root.appendChild(foot);
+    this.startBtn = btn;
   }
+
+  /**
+   * The one thing to do here is already under the keys: with nothing else
+   * chosen, Enter or Space steps outside. (A button that has been tabbed to
+   * answers for itself.)
+   */
+  private onKey = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (!this.root.isConnected || this.root.classList.contains('leaving')) return;
+    const at = document.activeElement;
+    if (at && at !== document.body && at !== document.documentElement) return;
+    e.preventDefault();
+    this.startBtn?.click();
+  };
 }

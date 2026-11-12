@@ -7,6 +7,7 @@ import { wakeGiants } from '../systems/giants';
 import { Camera } from './Camera';
 import { Input } from './Input';
 import { AudioManager } from './AudioManager';
+import { tick } from './Haptics';
 import { Renderer } from '../world/Renderer';
 import { generateObstacles, buildBlockingSet, type Obstacle } from '../world/Obstacles';
 import { isBlockedOutdoor, isBlockedIndoor, indoorSolids, type IndoorSolids } from '../world/Collision';
@@ -275,6 +276,8 @@ export interface WorldFlourish {
   start: number;
 }
 const INTERACT_RANGE = 1.3;
+/** At most one "nothing in reach" answer in this long, however often the action is pressed. */
+const NOTHING_ANSWER_GAP_MS = 500;
 const NOTICE_RANGE = 2.2;
 /** Real seconds between one of the last mysteries' observations and the next. */
 const MYSTERY_QUIET_SECONDS = 90;
@@ -318,6 +321,9 @@ export class Game {
   nearest: Interactable | null = null;
   lush: LushField;
   onToast: ((t: ToastEvent) => void) | null = null;
+  /** The action was pressed with nothing in reach (and not behind the wheel). */
+  onNothingInReach: (() => void) | null = null;
+  private lastNothingAt = -Infinity;
   onStateTouched: (() => void) | null = null;
   onOpenGreenhouse: ((target: { kind: 'bed' | 'display'; id: string }) => void) | null = null;
   onOpenMarket: (() => void) | null = null;
@@ -1401,14 +1407,31 @@ export class Game {
     this.nearest = pickInteractable(candidates)?.item ?? null;
   }
 
+  /**
+   * A press in the open still gets an answer: leaves shifting, and a word
+   * from the HUD. Nothing in the game changes. Held to one answer at a time
+   * so a mashed key doesn't pile them up.
+   */
+  private answerNothing() {
+    // The title screen is still up: that key was for it, not for her.
+    if (!this.started) return;
+    const t = performance.now();
+    if (t - this.lastNothingAt < NOTHING_ANSWER_GAP_MS) return;
+    this.lastNothingAt = t;
+    this.audio.playRustle();
+    this.onNothingInReach?.();
+  }
+
   interactWithNearest() {
     this.audio.init();
     const n = this.nearest;
     if (!n) {
       // Nothing in reach: behind the wheel, that means stop here.
       if (this.riding()) this.parkTruck();
+      else this.answerNothing();
       return;
     }
+    tick();
     const now = this.state.clock.totalMinutes;
     if (n.kind === 'truck') {
       this.boardTruck();
