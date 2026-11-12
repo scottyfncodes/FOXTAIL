@@ -82,7 +82,7 @@ export class MarketPanel {
   }
 
   private render() {
-    for (const c of Array.from(this.panel.tabsEl.children) as HTMLElement[]) c.classList.toggle('active', c.dataset.tab === this.tab);
+    this.panel.markTab(this.tab);
     this.panel.clearBody();
     this.panel.setTitle(`Plant Stand & Supply · ${this.game.state.coins} coins`);
     if (this.tab === 'sell') this.renderSell();

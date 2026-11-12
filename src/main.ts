@@ -2,6 +2,7 @@ import './styles/main.css';
 import { Game } from './game/engine/Game';
 import { isOctober, onThemeChange } from './game/season';
 import { HUD } from './ui/HUD';
+import { Panel } from './ui/Panel';
 import { JournalPanel } from './ui/JournalPanel';
 import { BasketPanel } from './ui/BasketPanel';
 import { GreenhousePanel } from './ui/GreenhousePanel';
@@ -28,6 +29,10 @@ applyThemeClass();
 onThemeChange(applyThemeClass);
 
 const hud = new HUD(game);
+// Until Ellen steps outside, the title screen is the only thing there.
+hud.setLive(false);
+// And with a panel open, the HUD behind it is out of reach.
+Panel.onModalChange = (anyOpen) => hud.setBehindPanel(anyOpen);
 document.getElementById('app')!.appendChild(hud.root);
 
 const journal = new JournalPanel(game);
@@ -78,8 +83,42 @@ for (const type of ['pointerup', 'touchend', 'click', 'keydown'] as const) {
   window.addEventListener(type, () => game.audio.init(), { capture: true, passive: true });
 }
 
+let playing = false;
+// A read-only window onto the run, for play-testing tools: where things stand, never a way to change them.
+(window as unknown as { __game: unknown }).__game = {
+  get state() {
+    return playing ? 'playing' : 'title';
+  },
+  get time() {
+    return game.state.clock.totalMinutes;
+  },
+  get day() {
+    return Math.floor(game.state.clock.totalMinutes / 1440) + 1;
+  },
+  get coins() {
+    return game.state.coins;
+  },
+  get plants() {
+    return Object.keys(game.state.plants).length;
+  },
+  get species() {
+    return Object.keys(game.state.collection).length;
+  },
+  get basket() {
+    return game.state.basket.length;
+  },
+  get x() {
+    return game.state.player.x;
+  },
+  get y() {
+    return game.state.player.y;
+  },
+};
+
 new StartOverlay(
   () => {
+    playing = true;
+    hud.setLive(true);
     game.audio.init();
     game.start();
   },
