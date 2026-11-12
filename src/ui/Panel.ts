@@ -5,6 +5,11 @@ import { el, clear } from './dom';
 // see it: with a panel up, Escape means "close this", nothing more.
 const openPanels: Panel[] = [];
 
+/** Tells whoever is listening (the HUD) when the first panel opens and the last one closes. */
+function announceModal() {
+  Panel.onModalChange?.(openPanels.length > 0);
+}
+
 window.addEventListener(
   'keydown',
   (e) => {
@@ -26,9 +31,15 @@ export class Panel {
   body = el('div', 'panel-body');
   /** Called whenever the panel closes, however it was closed. */
   onClose?: () => void;
+  /** With a panel up, what's behind it is out of reach: the HUD listens for this. */
+  static onModalChange: ((anyOpen: boolean) => void) | null = null;
 
   constructor(title: string, opts: { tabs?: boolean } = {}) {
     this.titleEl.textContent = title;
+    // A sheet over the game: its own landmark, named by its title.
+    this.panel.setAttribute('role', 'dialog');
+    this.panel.setAttribute('aria-modal', 'true');
+    this.panel.setAttribute('aria-label', title);
     // The mark is a multiplication sign: say what it does.
     this.closeBtn.setAttribute('aria-label', 'Close');
     this.closeBtn.addEventListener('click', () => this.close());
@@ -45,6 +56,7 @@ export class Panel {
 
   setTitle(t: string) {
     this.titleEl.textContent = t;
+    this.panel.setAttribute('aria-label', t);
   }
 
   clearBody() {
@@ -56,6 +68,7 @@ export class Panel {
     const i = openPanels.indexOf(this);
     if (i !== -1) openPanels.splice(i, 1);
     openPanels.push(this);
+    announceModal();
   }
 
   close() {
@@ -63,6 +76,7 @@ export class Panel {
     this.backdrop.classList.remove('open');
     const i = openPanels.indexOf(this);
     if (i !== -1) openPanels.splice(i, 1);
+    announceModal();
     if (wasOpen) this.onClose?.();
   }
 

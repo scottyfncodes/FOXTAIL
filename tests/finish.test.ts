@@ -192,9 +192,43 @@ describe('the tick under the thumb', () => {
 });
 
 describe('panels', () => {
-  it('say what the close mark does', () => {
+  afterEach(() => {
+    Panel.onModalChange = null;
+  });
+
+  it('say what the close mark does, and what they are', () => {
     const p = new Panel('Basket');
     expect(p.closeBtn.getAttribute('aria-label')).toBe('Close');
+    expect(p.panel.getAttribute('role')).toBe('dialog');
+    expect(p.panel.getAttribute('aria-modal')).toBe('true');
+    expect(p.panel.getAttribute('aria-label')).toBe('Basket');
+    p.setTitle('Basket (2/6)');
+    expect(p.panel.getAttribute('aria-label')).toBe('Basket (2/6)');
+  });
+
+  it('put the HUD out of reach while any is open, and keep it in view', async () => {
+    document.body.innerHTML = '<main id="app"></main>';
+    const game = await makeGame();
+    const { HUD } = await import('../src/ui/HUD');
+    const hud = new HUD(game);
+    Panel.onModalChange = (open) => hud.setBehindPanel(open);
+    const a = new Panel('Field Journal');
+    const b = new Panel('Plant');
+    expect(hud.root.hasAttribute('inert')).toBe(false);
+    a.open();
+    b.open();
+    expect(hud.root.hasAttribute('inert')).toBe(true);
+    expect(hud.root.classList.contains('offstage')).toBe(false);
+    b.close();
+    expect(hud.root.hasAttribute('inert')).toBe(true);
+    a.close();
+    expect(hud.root.hasAttribute('inert')).toBe(false);
+    // The title screen still wins: closing a panel can't bring the HUD back early.
+    hud.setLive(false);
+    a.open();
+    a.close();
+    expect(hud.root.hasAttribute('inert')).toBe(true);
+    expect(hud.root.classList.contains('offstage')).toBe(true);
   });
 });
 

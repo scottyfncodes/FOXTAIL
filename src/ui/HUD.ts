@@ -131,6 +131,8 @@ export class HUD {
   private joystickThumb = el('div', 'joystick-thumb');
   private actionBtn = el('button', 'action-btn', 'SNIP');
   private lastVerb = '';
+  private live = true;
+  private behindPanel = false;
   /** Until when (performance.now) the prompt says there's nothing in reach. */
   private nothingUntil = 0;
 
@@ -232,7 +234,19 @@ export class HUD {
    * focused, not announced. It comes alive when Ellen steps outside.
    */
   setLive(live: boolean) {
-    this.root.toggleAttribute('inert', !live);
+    this.live = live;
+    this.root.classList.toggle('offstage', !live);
+    this.syncInert();
+  }
+
+  /** With a panel open the HUD stays in view behind it, but out of reach of the keyboard and screen readers. */
+  setBehindPanel(behind: boolean) {
+    this.behindPanel = behind;
+    this.syncInert();
+  }
+
+  private syncInert() {
+    this.root.toggleAttribute('inert', !this.live || this.behindPanel);
   }
 
   /** The action was pressed with nothing in reach: say so, briefly, rather than say nothing. */

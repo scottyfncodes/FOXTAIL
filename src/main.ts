@@ -2,6 +2,7 @@ import './styles/main.css';
 import { Game } from './game/engine/Game';
 import { isOctober, onThemeChange } from './game/season';
 import { HUD } from './ui/HUD';
+import { Panel } from './ui/Panel';
 import { JournalPanel } from './ui/JournalPanel';
 import { BasketPanel } from './ui/BasketPanel';
 import { GreenhousePanel } from './ui/GreenhousePanel';
@@ -30,6 +31,8 @@ onThemeChange(applyThemeClass);
 const hud = new HUD(game);
 // Until Ellen steps outside, the title screen is the only thing there.
 hud.setLive(false);
+// And with a panel open, the HUD behind it is out of reach.
+Panel.onModalChange = (anyOpen) => hud.setBehindPanel(anyOpen);
 document.getElementById('app')!.appendChild(hud.root);
 
 const journal = new JournalPanel(game);

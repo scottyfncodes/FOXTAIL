@@ -2679,8 +2679,66 @@ body.theme-october .collection-meter-fill {
 /* ---------- Finish ---------- */
 
 /* Behind the title screen the HUD isn't there: not drawn, not focusable, not announced. */
-.hud[inert] {
+.hud.offstage {
   visibility: hidden;
+}
+
+/* The way out of a panel is a full thumb's width, though the mark stays the size it was. */
+.panel-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: -8px -10px -8px 0;
+  border-radius: 12px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.panel-close:active {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+/* A journal's tabs and filters under a thumb (a phone held upright; on its side they stay compact). */
+.panel-tabs,
+.collection-filters {
+  gap: 8px;
+}
+@media (pointer: coarse) and (min-height: 501px) {
+  .panel-tab {
+    min-height: 44px;
+    padding: 0 14px;
+  }
+  .filter-chip {
+    min-height: 40px;
+  }
+}
+
+/* The hint under a plant not yet found: small, but not smaller than the eye likes. */
+.card-hint {
+  font-size: 12px;
+}
+
+/* Every row of the garden menu answers the press. */
+.land-item {
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+.land-item:active {
+  border-color: var(--accent);
+  transform: scale(0.98);
+}
+.icon-btn {
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+@media (hover: hover) {
+  .icon-btn:hover,
+  .land-item:hover {
+    border-color: rgba(126, 200, 189, 0.6);
+  }
+  .panel-close:hover {
+    color: var(--ink);
+  }
 }
 
 /* A menu the player has just opened is read first: news steps back underneath it. */
