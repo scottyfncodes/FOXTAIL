@@ -2711,8 +2711,11 @@ body.theme-october .collection-meter-fill {
     padding: 0 14px;
   }
   .filter-chip {
-    min-height: 40px;
+    min-height: 44px;
   }
+}
+.filter-count {
+  font-size: 12px;
 }
 
 /* The hint under a plant not yet found: small, but not smaller than the eye likes. */
@@ -2738,6 +2741,11 @@ body.theme-october .collection-meter-fill {
   }
   .panel-close:hover {
     color: var(--ink);
+  }
+  /* The journal's own controls answer the pointer the same quiet way. */
+  .panel-tab:hover,
+  .filter-chip:hover {
+    border-color: var(--accent);
   }
 }
 

@@ -54,6 +54,16 @@ export class Panel {
     document.body.appendChild(this.backdrop);
   }
 
+  /** Marks which tab is showing, for the eye and for a screen reader alike. */
+  markTab(current: string) {
+    for (const c of Array.from(this.tabsEl.children) as HTMLElement[]) {
+      const on = c.dataset.tab === current;
+      c.classList.toggle('active', on);
+      if (on) c.setAttribute('aria-current', 'true');
+      else c.removeAttribute('aria-current');
+    }
+  }
+
   setTitle(t: string) {
     this.titleEl.textContent = t;
     this.panel.setAttribute('aria-label', t);

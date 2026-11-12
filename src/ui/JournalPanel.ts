@@ -83,8 +83,8 @@ export class JournalPanel {
     // The Giants get theirs once they've woken (or one has turned up some other way).
     const anyGiants = giantsAwake(this.game.state) || GIANTS.some((d) => this.game.state.collection[d.id]);
     if (!anyGiants && this.tab === 'giants') this.tab = 'plants';
+    this.panel.markTab(this.tab);
     for (const c of Array.from(this.panel.tabsEl.children) as HTMLElement[]) {
-      c.classList.toggle('active', c.dataset.tab === this.tab);
       if (c.dataset.tab === 'curiosities') c.style.display = anyCurio ? '' : 'none';
       if (c.dataset.tab === 'golf') c.style.display = anyGolf ? '' : 'none';
       if (c.dataset.tab === 'october') c.style.display = anyOctober ? '' : 'none';
@@ -125,6 +125,7 @@ export class JournalPanel {
     ] as [typeof this.filter, string][]) {
       const n = id === 'all' ? sorted.length : sorted.filter((d) => stateOf(d.id) === id).length;
       const chip = el('button', `filter-chip${this.filter === id ? ' active' : ''}`);
+      chip.setAttribute('aria-pressed', String(this.filter === id));
       chip.append(el('span', undefined, label), el('span', 'filter-count', String(n)));
       chip.addEventListener('click', () => {
         this.filter = id;
